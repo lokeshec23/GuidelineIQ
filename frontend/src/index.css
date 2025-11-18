@@ -23,7 +23,7 @@ body,
 /* Global styles */
 body {
   /* ✅ SET DEFAULT FONT */
-  font-family: "Inter", sans-serif;
+  font-family: "Jura", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f0f2f5; /* A slightly softer background color */
@@ -36,12 +36,11 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "Poppins", sans-serif;
+  font-family: "Jura", sans-serif;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
+  font-family: "Jura", sans-serif;
 }
 
 :where(.css-dev-only-do-not-override-11mmrso).ant-layout-header {
