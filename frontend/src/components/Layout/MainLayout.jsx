@@ -4,35 +4,20 @@ import {
   FileTextOutlined,
   SwapOutlined,
   SettingOutlined,
-  UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   BellOutlined,
+  LockOutlined,
+  AppstoreOutlined,
+  MessageOutlined,
+  LikeOutlined,
+  ArrowRightOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const { Header, Sider, Content } = Layout;
-
-// Base menu items
-const menuItems = [
-  {
-    key: "/ingest",
-    icon: <FileTextOutlined />,
-    label: "Ingest Guideline",
-  },
-  {
-    key: "/compare",
-    icon: <SwapOutlined />,
-    label: "Compare Guidelines",
-  },
-  {
-    key: "/settings",
-    icon: <SettingOutlined />,
-    label: "Settings",
-  },
-];
 
 const MainLayout = ({ children }) => {
   const { user, logout, isAdmin } = useAuth();
@@ -40,79 +25,166 @@ const MainLayout = ({ children }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  // User dropdown menu
-  const userMenuItems = [
-    {
-      key: "profile",
-      icon: <UserOutlined />,
-      label: (
-        <div>
-          <div className="font-semibold">{user?.username}</div>
-          <div className="text-xs text-gray-500">{user?.email}</div>
-        </div>
-      ),
-      disabled: true,
-    },
-    { type: "divider" },
-    {
-      key: "logout",
-      icon: <LogoutOutlined />,
-      label: "Logout",
-      danger: true,
-      onClick: () => {
-        logout();
-        navigate("/login");
-      },
-    },
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
-  // Show settings menu ONLY if user is admin
-  const filteredMenuItems = menuItems.filter(
-    (item) => item.key !== "/settings" || isAdmin
+  // --- 1. User Profile Dropdown (Card Style) ---
+  const userProfileCard = (
+    <div className="bg-white rounded-xl shadow-lg w-72 overflow-hidden border border-gray-100 font-sans mt-2">
+      <div className="h-20 bg-sky-50 relative overflow-hidden">
+        <div className="absolute -top-2 -right-2 w-16 h-16 bg-sky-100 rounded-full opacity-50"></div>
+        <div className="absolute top-2 right-8 w-4 h-4 bg-sky-200 rounded-full opacity-50"></div>
+      </div>
+      <div className="px-6 pb-4">
+        <div className="relative -mt-10 mb-3 flex justify-center">
+          <div className="p-1 bg-white rounded-full">
+            <Avatar
+              size={72}
+              className="bg-gray-100 text-gray-700 text-3xl font-normal flex items-center justify-center shadow-sm"
+              src={user?.avatarUrl}
+            >
+              {user?.username?.[0]?.toUpperCase() || "M"}
+            </Avatar>
+          </div>
+        </div>
+        <div className="text-center mb-6">
+          <h3 className="font-semibold text-lg text-gray-900 m-0">
+            {user?.username || "Michael Brown"}
+          </h3>
+          <div className="flex items-center justify-center gap-1 text-gray-500 text-sm mt-1">
+            <LockOutlined className="text-xs" />
+            <span>{isAdmin ? "Master Admin" : "User"}</span>
+          </div>
+        </div>
+        <div className="pt-2 border-t border-gray-100">
+          <Button
+            type="text"
+            danger
+            icon={<LogoutOutlined />}
+            onClick={handleLogout}
+            className="w-full text-left flex items-center justify-start px-2 hover:bg-red-50 font-medium"
+          >
+            Logout
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 
-  const handleMenuClick = ({ key }) => {
-    navigate(key);
+  // --- 2. Menu Items Construction ---
+  const getMenuItems = () => {
+    const baseItems = [
+      {
+        key: "/dashboard",
+        icon: <AppstoreOutlined />,
+        label: "Dashboard",
+      },
+      {
+        key: "/ingest",
+        icon: <FileTextOutlined />,
+        label: "Ingest Guidelines",
+      },
+      {
+        key: "/compare",
+        icon: <SwapOutlined />,
+        label: "Compare Guidelines",
+      },
+      {
+        key: "/settings",
+        icon: <SettingOutlined />,
+        label: "Settings",
+      },
+    ];
+
+    const accessibleItems = baseItems.filter(
+      (item) => item.key !== "/settings" || isAdmin
+    );
+
+    return accessibleItems.map((item) => {
+      const isActive = location.pathname === item.key;
+
+      return {
+        key: item.key,
+        label: (
+          <div className="flex items-center justify-between w-full">
+            <span className={isActive ? "font-medium text-gray-900" : ""}>
+              {item.label}
+            </span>
+            {isActive && !collapsed && (
+              <ArrowRightOutlined
+                className="text-[#1890ff]"
+                style={{ fontSize: "12px" }}
+              />
+            )}
+          </div>
+        ),
+        icon: (
+          <div
+            className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
+              isActive
+                ? "bg-[#1890ff] text-white shadow-md" // Active: Blue Circle
+                : "bg-gray-200 text-gray-500 group-hover:bg-gray-300" // Inactive: Gray Circle
+            }`}
+          >
+            {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
+          </div>
+        ),
+        // STYLING LOGIC:
+        // Active = White Background + Shadow
+        // Inactive = Transparent (showing gray sidebar)
+        className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${
+          isActive
+            ? "bg-white shadow-sm border border-gray-100"
+            : "bg-transparent hover:bg-gray-200/50 text-gray-600"
+        }`,
+      };
+    });
   };
 
   return (
-    <Layout className="h-screen overflow-hidden font-sans">
+    <Layout className="h-screen overflow-hidden font-sans bg-white">
       {/* HEADER */}
-      <Header className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-10 h-16">
-        {/* Left Side: Logo */}
-        <div className="flex items-center gap-6">
-          <img
-            src="/gc_logo.svg"
-            alt="Logo"
-            className="h-10 cursor-pointer"
+      <Header
+        className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 h-16 border-b border-gray-200"
+        style={{ paddingInline: "24px" }}
+      >
+        <div className="flex items-center">
+          <div
+            className="cursor-pointer flex items-center justify-center"
             onClick={() => navigate("/")}
-          />
+          >
+            <img
+              src="/gc_logo.svg"
+              alt="Logo"
+              className="h-15 object-contain"
+            />
+          </div>
         </div>
 
-        {/* Right Side: Actions & User Menu */}
-        <div className="flex items-center gap-4">
-          {/* Notification Icon */}
-          <Badge count={3} size="small">
-            <Avatar
+        <div className="flex items-center gap-5">
+          <Badge count={3} size="small" offset={[-2, 2]} color="#1890ff">
+            <Button
+              type="text"
               shape="circle"
-              icon={<BellOutlined />}
-              className="cursor-pointer bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              icon={<BellOutlined style={{ fontSize: "18px" }} />}
+              className="text-gray-500 hover:text-gray-700 flex items-center justify-center"
             />
           </Badge>
 
-          {/* User Avatar & Dropdown */}
           <Dropdown
-            menu={{ items: userMenuItems }}
+            dropdownRender={() => userProfileCard}
             placement="bottomRight"
             trigger={["click"]}
           >
-            <div className="cursor-pointer">
+            <div className="cursor-pointer hover:opacity-80 transition-opacity">
               <Avatar
-                icon={<UserOutlined />}
+                size={40}
                 src={user?.avatarUrl}
-                className="bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                className="bg-gray-200 text-gray-600 border-2 border-white shadow-sm"
               >
-                {user?.username?.[0]?.toUpperCase()}
+                {user?.username?.[0]?.toUpperCase() || "M"}
               </Avatar>
             </div>
           </Dropdown>
@@ -120,37 +192,91 @@ const MainLayout = ({ children }) => {
       </Header>
 
       <Layout className="mt-16 h-[calc(100vh-64px)]">
-        {/* SIDEBAR */}
+        {/* SIDEBAR - Light Gray Background */}
         <Sider
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
           trigger={null}
-          className="bg-white border-r border-gray-200"
-          width={240}
-          theme="light"
+          width={260}
+          // Custom style to override Antd default white background
+          style={{
+            position: "fixed",
+            left: 0,
+            height: "calc(100vh - 64px)",
+            zIndex: 10,
+            background: "#f9fafb", // Tailwind gray-50 equivalent
+          }}
+          className="border-r border-gray-200 h-full flex flex-col justify-between"
         >
-          <div className="flex justify-end p-4 border-b border-gray-200">
-            <Button
-              type="text"
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-              className="flex items-center justify-center hover:bg-gray-100 transition-colors"
-            />
+          <div className="flex flex-col h-full bg-[#f9fafb]">
+            {/* Collapse Toggle */}
+            <div className="flex items-center justify-end p-4 h-14 mb-2">
+              {!collapsed && (
+                <span className="text-gray-400 text-xs mr-2 uppercase tracking-wider font-medium">
+                  Collapse
+                </span>
+              )}
+              <Button
+                type="text"
+                size="small"
+                className="text-gray-400 hover:text-gray-600 border border-gray-300 bg-white shadow-sm"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+              />
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-grow overflow-y-auto custom-scrollbar px-1">
+              <Menu
+                mode="inline"
+                selectedKeys={[location.pathname]}
+                items={getMenuItems()}
+                onClick={({ key }) => navigate(key)}
+                // Important: Make menu background transparent so Sider gray shows through
+                style={{ background: "transparent", borderRight: 0 }}
+              />
+            </div>
+
+            {/* Footer Buttons */}
+            <div
+              className={`p-4 border-t border-gray-200 bg-[#f9fafb] ${
+                collapsed ? "px-2" : "px-4"
+              }`}
+            >
+              <div
+                className={`flex ${
+                  collapsed ? "flex-col gap-4 items-center" : "flex-row gap-3"
+                }`}
+              >
+                <Button
+                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${
+                    collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
+                  }`}
+                  icon={<MessageOutlined />}
+                >
+                  {!collapsed && "Support"}
+                </Button>
+                <Button
+                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${
+                    collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
+                  }`}
+                  icon={<LikeOutlined />}
+                >
+                  {!collapsed && "Feedback"}
+                </Button>
+              </div>
+            </div>
           </div>
-          <Menu
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            items={filteredMenuItems}
-            onClick={handleMenuClick}
-            className="h-full border-r-0"
-          />
         </Sider>
 
-        {/* MAIN CONTENT */}
-        <Layout className="bg-gray-50">
-          <Content className="overflow-y-auto h-full">
-            <div className="p-6">{children}</div>
+        {/* MAIN CONTENT - White Background */}
+        <Layout
+          className="bg-white transition-all duration-200 ease-in-out"
+          style={{ marginLeft: collapsed ? 80 : 260 }}
+        >
+          <Content className="h-full overflow-y-auto p-8 bg-white">
+            {children}
           </Content>
         </Layout>
       </Layout>
