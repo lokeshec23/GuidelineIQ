@@ -1,33 +1,28 @@
-// src/pages/Ingest/IngestPage.jsx
-
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Card,
   Form,
   Select,
   Button,
   Input,
   message,
   Progress,
-  Space,
-  Tag,
-  Table,
   Modal,
   Spin,
   Tooltip,
-  Divider,
+  Table,
+  Tag,
+  Space,
 } from "antd";
 import {
   PaperClipOutlined,
   SendOutlined,
   FileTextOutlined,
   DownloadOutlined,
-  ThunderboltOutlined,
   CloseCircleOutlined,
-  EyeOutlined,
   FileExcelOutlined,
   LoadingOutlined,
   ReloadOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 import { ingestAPI, settingsAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -35,6 +30,7 @@ import { useAuth } from "../../context/AuthContext";
 const { TextArea } = Input;
 const { Option } = Select;
 
+// --- Constants ---
 const DEFAULT_PROMPT = `You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
 
 ### PRIMARY GOAL
@@ -47,38 +43,15 @@ You MUST return a valid JSON array. Each object in the array represents a single
 3.  "guideline_summary": A DETAILED and COMPLETE summary of the rule.
 
 ### CRITICAL EXTRACTION INSTRUCTIONS
-1.  **NO REFERENCES:** Your output for "guideline_summary" must NEVER reference another section (e.g., do NOT say "Refer to section 201"). You must find the referenced section in the provided text and summarize its content directly.
-2.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information. A user should understand the rule just by reading that single object.
-3.  **SUMMARIZE, DON'T COPY:** Do not copy and paste large blocks of text. Summarize the rule, requirement, or value concisely but completely.
-4.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object. Do not combine unrelated rules.
+1.  **NO REFERENCES:** Your output for "guideline_summary" must NEVER reference another section.
+2.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information.
+3.  **SUMMARIZE, DON'T COPY:** Do not copy and paste large blocks of text.
+4.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object.
 5.  **MAINTAIN HIERARCHY:** Use the "category" key to group related attributes.
-
-### EXAMPLE OF PERFECT, SELF-CONTAINED OUTPUT
-This is the exact format and quality you must follow. Notice how no rule refers to another section.
-
-[
-  {
-    "category": "Borrower Eligibility",
-    "attribute": "Minimum Credit Score",
-    "guideline_summary": "A minimum FICO score of 660 is required. For Foreign Nationals without a US FICO score, alternative credit validation is necessary."
-  },
-  {
-    "category": "Loan Parameters",
-    "attribute": "Maximum Loan-to-Value (LTV)",
-    "guideline_summary": "The maximum LTV for a purchase with a DSCR greater than 1.0 is 80%. For cash-out refinances, the maximum LTV is 75%."
-  },
-  {
-    "category": "Property Eligibility",
-    "attribute": "Short-Term Rentals (STR)",
-    "guideline_summary": "Short-term rentals are permitted but are explicitly ineligible if located within the five boroughs of New York City."
-  }
-]
 
 ### FINAL COMMANDS - YOU MUST OBEY
 - Your entire response MUST be a single, valid JSON array.
-- Start your response immediately with '[' and end it immediately with ']'.
-- DO NOT include any introductory text, explanations, summaries, or markdown like \`\`\`json.
-- Every object MUST have the keys: "category", "attribute", and "guideline_summary".`;
+- Start your response immediately with '[' and end it immediately with ']'.`;
 
 const IngestPage = () => {
   const { isAdmin } = useAuth();
@@ -105,7 +78,7 @@ const IngestPage = () => {
     fetchSupportedModels();
     form.setFieldsValue({
       model_provider: "openai",
-      model_name: "gpt-4o", // Keep OpenAI default
+      model_name: "gpt-4o",
       custom_prompt: DEFAULT_PROMPT,
     });
     setPromptValue(DEFAULT_PROMPT);
@@ -117,7 +90,11 @@ const IngestPage = () => {
       const response = await settingsAPI.getSupportedModels();
       setSupportedModels(response.data);
     } catch (error) {
-      message.error("Failed to load supported models");
+      // Fallback for demo purposes if API fails
+      setSupportedModels({
+        openai: ["gpt-4o", "gpt-4-turbo"],
+        gemini: ["gemini-1.5-pro", "gemini-ultra"],
+      });
     }
   };
 
@@ -136,10 +113,10 @@ const IngestPage = () => {
   const handleRemoveFile = () => {
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
-    message.info("File removed");
   };
 
   const handleAttachClick = () => fileInputRef.current?.click();
+
   const handleResetPrompt = () => {
     setPromptValue(DEFAULT_PROMPT);
     form.setFieldsValue({ custom_prompt: DEFAULT_PROMPT });
@@ -150,8 +127,9 @@ const IngestPage = () => {
 
   const handleSubmit = async (values) => {
     if (!file) return message.error("Please attach a PDF file.");
-    const currentPrompt = promptValue.trim();
-    if (!currentPrompt) return message.error("Please enter a prompt.");
+
+    // If user (not admin), we might submit empty prompt or a hidden default
+    const currentPrompt = isAdmin ? promptValue.trim() : DEFAULT_PROMPT;
 
     try {
       setProcessing(true);
@@ -162,14 +140,16 @@ const IngestPage = () => {
 
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("model_provider", values.model_provider);
-      formData.append("model_name", values.model_name);
+      formData.append("model_provider", values.model_provider || "openai");
+      formData.append("model_name", values.model_name || "gpt-4o");
       formData.append("custom_prompt", currentPrompt);
+      // Append user metadata if necessary
+      if (values.investor) formData.append("investor", values.investor);
+      if (values.version) formData.append("version", values.version);
 
       const response = await ingestAPI.ingestGuideline(formData);
       const { session_id } = response.data;
       setSessionId(session_id);
-      message.success("Processing started!");
 
       const eventSource = ingestAPI.createProgressStream(session_id);
       eventSource.onmessage = (event) => {
@@ -188,14 +168,12 @@ const IngestPage = () => {
         eventSource.close();
         setProcessing(false);
         setProcessingModalVisible(false);
-        message.error("Connection error. Please try again.");
+        message.error("Connection error or timeout.");
       };
     } catch (error) {
       setProcessing(false);
       setProcessingModalVisible(false);
-      message.error(
-        error.response?.data?.detail || "Failed to start processing."
-      );
+      message.error("Failed to start processing.");
     }
   };
 
@@ -206,9 +184,7 @@ const IngestPage = () => {
       if (data && data.length > 0) {
         const firstItemKeys = Object.keys(data[0]);
         const columns = firstItemKeys.map((key) => ({
-          title: key
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, (l) => l.toUpperCase()),
+          title: key.replace(/_/g, " ").toUpperCase(),
           dataIndex: key,
           key: key,
           width: 250,
@@ -220,31 +196,12 @@ const IngestPage = () => {
         setPreviewData(data);
       } else {
         setTableColumns([{ title: "Result", dataIndex: "content" }]);
-        setPreviewData([
-          {
-            key: "1",
-            content: "No structured data was extracted from the document.",
-          },
-        ]);
+        setPreviewData([{ key: "1", content: "No structured data found." }]);
       }
       setPreviewModalVisible(true);
     } catch (error) {
       message.error("Failed to load preview data.");
     }
-  };
-
-  const handleDownload = () => {
-    if (sessionId) {
-      message.loading("Preparing download...", 1);
-      ingestAPI.downloadExcel(sessionId);
-    }
-  };
-
-  const handleClosePreview = () => {
-    setPreviewModalVisible(false);
-    setPreviewData(null);
-    setTableColumns([]);
-    setSessionId(null);
   };
 
   const convertToTableData = (data) => {
@@ -253,252 +210,307 @@ const IngestPage = () => {
   };
 
   return (
-    <div className="max-w-screen-2xl w-full mx-auto px-4 md:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold font-poppins text-gray-800 flex items-center gap-3">
-          <FileTextOutlined /> Ingest Guideline
-        </h1>
-        <p className="text-gray-500 mt-2 text-base">
-          Upload a PDF, define your desired JSON structure in the prompt, and
-          extract the data.
-        </p>
-      </div>
+    <div className="h-full flex flex-col relative">
+      <Form
+        form={form}
+        onFinish={handleSubmit}
+        className="h-full flex flex-col"
+        initialValues={{ model_provider: "openai", model_name: "gpt-4o" }}
+      >
+        {/* SCROLLABLE CONTENT AREA */}
+        <div className="flex-1 overflow-y-auto px-2 pb-24">
+          <div className="max-w-[1400px] mx-auto w-full pt-2">
+            {/* Title Section */}
+            <div className="mb-8">
+              <h1 className="text-[28px] font-light text-gray-800 mb-1">
+                Ingest Guidelines
+              </h1>
+              <p className="text-gray-500 text-sm">
+                {isAdmin
+                  ? "Upload a PDF, define your desired JSON structure in the prompt, and extract the data."
+                  : "Upload a PDF and fill in the details to extract data."}
+              </p>
+            </div>
 
-      <Form form={form} layout="vertical" onFinish={handleSubmit}>
-        <Card
-          title={
-            isAdmin && (
-              <div className="flex items-center justify-between">
-                <span className="text-base font-semibold">
-                  Extraction Command Center
-                </span>
-                <Tooltip title="Reset to default prompt">
+            {/* Hidden File Input */}
+            {/* <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={processing}
+            /> */}
+
+            {/* --- CONDITIONAL UI BASED ON ROLE --- */}
+            {isAdmin ? (
+              /* ================= ADMIN VIEW ================= */
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
+                {/* Header of Card */}
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-normal text-gray-700 m-0">
+                    Extraction Command Center
+                  </h2>
                   <Button
-                    type="link"
+                    type="text"
                     icon={<ReloadOutlined />}
                     onClick={handleResetPrompt}
-                    disabled={processing}
-                    size="small"
+                    className="text-[#1890ff] hover:text-[#40a9ff] font-medium"
                   >
                     Reset Prompt
                   </Button>
-                </Tooltip>
-              </div>
-            )
-          }
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            onChange={handleFileSelect}
-            hidden
-            disabled={processing}
-          />
-          <Form.Item
-            name="custom_prompt"
-            rules={[{ required: true, message: "Please enter a prompt" }]}
-            className="mb-0"
-          >
-            <TextArea
-              value={promptValue}
-              onChange={handlePromptChange}
-              placeholder="Describe the JSON structure you want..."
-              className="font-mono text-sm resize-none"
-              style={{
-                minHeight: "420px",
-                width: "100%",
-                display: `${isAdmin ? "block" : "none"}`,
-              }}
-              disabled={processing}
-            />
-          </Form.Item>
-
-          <Divider />
-
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Space wrap>
-              <Form.Item name="model_provider" noStyle>
-                <Select
-                  size="large"
-                  style={{ width: 170 }}
-                  onChange={(v) => {
-                    setSelectedProvider(v);
-                    // ✅ When user selects Gemini, default to the best model from the new list
-                    const defaultModel =
-                      v === "gemini"
-                        ? "gemini-2.5-pro"
-                        : supportedModels[v]?.[0];
-                    form.setFieldsValue({
-                      model_name: defaultModel,
-                    });
-                  }}
-                  disabled={processing}
-                >
-                  <Option value="openai">OpenAI</Option>
-                  <Option value="gemini">Google Gemini</Option>
-                </Select>
-              </Form.Item>
-              <Form.Item name="model_name" noStyle>
-                <Select size="large" style={{ width: 200 }}>
-                  {supportedModels[selectedProvider]?.map((m) => (
-                    <Option key={m} value={m}>
-                      {m}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Space>
-            <Space>
-              {file ? (
-                <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 max-w-[240px]">
-                  <FileTextOutlined className="text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800 truncate">
-                    {file.name}
-                  </span>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CloseCircleOutlined />}
-                    onClick={handleRemoveFile}
-                    disabled={processing}
-                    className="text-blue-600 hover:text-blue-800"
-                  />
                 </div>
-              ) : (
-                <Button
-                  icon={<PaperClipOutlined />}
-                  size="large"
-                  className="flex items-center"
-                  disabled={processing}
-                  onClick={handleAttachClick}
+
+                {/* Prompt Input Area */}
+                <Form.Item
+                  name="custom_prompt"
+                  rules={[{ required: true }]}
+                  className="mb-0"
                 >
-                  Attach PDF
-                </Button>
-              )}
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SendOutlined />}
-                size="large"
-                loading={processing}
-                disabled={processing || !file}
-              >
-                {processing ? "Processing..." : "Extract Data"}
-              </Button>
-            </Space>
+                  <TextArea
+                    value={promptValue}
+                    onChange={handlePromptChange}
+                    placeholder="Describe the JSON structure you want..."
+                    className="font-mono text-sm text-gray-600 bg-white border border-gray-300 rounded-md focus:shadow-none focus:border-blue-400"
+                    style={{
+                      minHeight: "500px",
+                      padding: "16px",
+                      resize: "none",
+                    }}
+                    disabled={processing}
+                  />
+                </Form.Item>
+              </div>
+            ) : (
+              /* ================= USER VIEW ================= */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+                <Form.Item
+                  name="investor"
+                  label={
+                    <span className="text-gray-700 font-medium">Investors</span>
+                  }
+                  className="mb-0"
+                >
+                  <Input
+                    placeholder="Enter"
+                    size="large"
+                    className="rounded-md border-gray-300"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="version"
+                  label={
+                    <span className="text-gray-700 font-medium">Version</span>
+                  }
+                  className="mb-0"
+                >
+                  <Input
+                    placeholder="Enter"
+                    size="large"
+                    className="rounded-md border-gray-300"
+                  />
+                </Form.Item>
+              </div>
+            )}
           </div>
-        </Card>
+        </div>
+
+        {/* FIXED BOTTOM FOOTER BAR */}
+        <div
+          className="fixed bottom-0 right-0 bg-white border-t border-gray-200 py-4 px-8 z-30 flex items-center justify-between transition-all duration-200"
+          style={{
+            left: 0, // Adjust if sidebar width changes
+            marginLeft: "inherit", // Inherits from parent layout if needed, or handle manually
+            width: "100%",
+            paddingLeft: "calc(260px + 2rem)", // Offset for sidebar width (260px) + padding
+          }}
+        >
+          {/* Left Side: Model Selection (Admin Only) */}
+          <div className="flex items-center gap-4">
+            {isAdmin && (
+              <>
+                <Form.Item name="model_provider" noStyle>
+                  <Select
+                    size="large"
+                    className="w-40"
+                    onChange={(v) => {
+                      setSelectedProvider(v);
+                      const defaultModel =
+                        v === "gemini"
+                          ? "gemini-2.5-pro"
+                          : supportedModels[v]?.[0];
+                      form.setFieldsValue({ model_name: defaultModel });
+                    }}
+                    disabled={processing}
+                    suffixIcon={
+                      <DownOutlined className="text-gray-400 text-xs" />
+                    }
+                  >
+                    <Option value="openai">OpenAI</Option>
+                    <Option value="gemini">Google Gemini</Option>
+                  </Select>
+                </Form.Item>
+
+                <Form.Item name="model_name" noStyle>
+                  <Select
+                    size="large"
+                    className="w-48"
+                    disabled={processing}
+                    suffixIcon={
+                      <DownOutlined className="text-gray-400 text-xs" />
+                    }
+                  >
+                    {supportedModels[selectedProvider]?.map((m) => (
+                      <Option key={m} value={m}>
+                        {m}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </>
+            )}
+          </div>
+
+          {/* Right Side: Buttons (Both Roles) */}
+          <div className="flex items-center gap-4">
+            {/* File Attachment Button or Chip */}
+            {file ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <FileTextOutlined className="text-blue-600" />
+                <span className="text-blue-900 text-sm font-medium truncate max-w-[200px]">
+                  {file.name}
+                </span>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseCircleOutlined />}
+                  onClick={handleRemoveFile}
+                  className="text-blue-400 hover:text-red-500 flex items-center justify-center"
+                />
+              </div>
+            ) : (
+              <Button
+                size="large"
+                onClick={handleAttachClick}
+                icon={<PaperClipOutlined className="text-[#1890ff]" />}
+                className="border border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-500 rounded-md px-6"
+                disabled={processing}
+              >
+                Attach PDF
+              </Button>
+            )}
+
+            {/* Extract Data Button */}
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              loading={processing}
+              icon={!processing && <SendOutlined />}
+              className="bg-[#1890ff] hover:bg-blue-600 border-none rounded-md px-6 font-medium shadow-sm"
+              disabled={!file}
+            >
+              {processing ? "Processing..." : "Extract Data"}
+            </Button>
+          </div>
+        </div>
       </Form>
 
+      {/* --- MODALS (Unchanged Logic) --- */}
+
+      {/* Processing Modal */}
       <Modal
         title={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 py-2">
             <Spin
-              indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />}
+              indicator={
+                <LoadingOutlined
+                  style={{ fontSize: 28, color: "#1890ff" }}
+                  spin
+                />
+              }
             />
-            <span className="text-lg font-semibold">Processing Guideline</span>
+            <span className="text-xl font-semibold text-gray-800">
+              Processing Guideline
+            </span>
           </div>
         }
         open={processingModalVisible}
         footer={null}
         closable={false}
         centered
-        width={600}
+        width={550}
       >
-        <div className="py-6">
+        <div className="py-8 px-4">
           <Progress
             percent={progress}
-            status={
-              progress < 0
-                ? "exception"
-                : progress === 100
-                ? "success"
-                : "active"
-            }
-            strokeWidth={12}
+            status="active"
+            strokeColor="#1890ff"
+            strokeWidth={10}
+            className="mb-6"
           />
-          <div className="mt-6 text-center">
-            <p className="text-gray-600 text-base">{progressMessage}</p>
-          </div>
-          {file && (
-            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <FileTextOutlined />
-                <span>
-                  Processing: <strong>{file.name}</strong>
-                </span>
-              </div>
-            </div>
-          )}
+          <p className="text-center text-gray-600 text-lg">{progressMessage}</p>
         </div>
       </Modal>
 
+      {/* Preview Modal */}
       <Modal
         open={previewModalVisible}
         footer={null}
         closable={false}
         centered
         width="95vw"
-        style={{ top: "2.5vh", padding: 0 }}
-        maskClosable={false}
+        style={{ top: "20px" }}
+        bodyStyle={{
+          padding: 0,
+          height: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-white rounded-t-lg">
           <div className="flex items-center gap-3">
-            <FileExcelOutlined className="text-green-600 text-xl" />
-            <span className="font-semibold text-lg">Extraction Results</span>
-            <Tag color="blue">
-              {convertToTableData(previewData).length} rows extracted
+            <div className="bg-green-100 p-2 rounded-full">
+              <FileExcelOutlined className="text-green-600 text-xl" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg m-0">Extraction Results</h3>
+              <span className="text-gray-500 text-xs">
+                Review the extracted data before downloading
+              </span>
+            </div>
+            <Tag color="blue" className="ml-2">
+              {convertToTableData(previewData).length} rows
             </Tag>
           </div>
           <Space>
             <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleDownload}
-              size="large"
-            >
-              Download Excel
-            </Button>
-            <Button
               icon={<CloseCircleOutlined />}
-              onClick={handleClosePreview}
-              size="large"
+              onClick={() => setPreviewModalVisible(false)}
             >
               Close
             </Button>
+            <Button
+              type="primary"
+              icon={<DownloadOutlined />}
+              onClick={() => ingestAPI.downloadExcel(sessionId)}
+              className="bg-[#1890ff]"
+            >
+              Download Excel
+            </Button>
           </Space>
         </div>
-        <div
-          style={{
-            height: "calc(95vh - 76px)",
-            overflow: "hidden",
-            padding: "16px 24px",
-          }}
-        >
-          {previewData ? (
-            <div className="h-full overflow-auto">
-              <Table
-                columns={tableColumns}
-                dataSource={convertToTableData(previewData)}
-                pagination={{
-                  pageSize: 100,
-                  showSizeChanger: true,
-                  pageSizeOptions: ["50", "100", "200"],
-                  showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} of ${total} rows`,
-                }}
-                scroll={{ x: "max-content", y: "calc(95vh - 200px)" }}
-                size="small"
-                bordered
-                sticky
-              />
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <Spin size="large" tip="Loading preview..." />
-            </div>
-          )}
+        <div className="flex-1 overflow-hidden bg-gray-50 p-4">
+          <Table
+            columns={tableColumns}
+            dataSource={convertToTableData(previewData)}
+            pagination={{ pageSize: 50 }}
+            scroll={{ y: "calc(90vh - 140px)", x: "max-content" }}
+            size="middle"
+            bordered
+            className="bg-white shadow-sm rounded-lg"
+          />
         </div>
       </Modal>
     </div>

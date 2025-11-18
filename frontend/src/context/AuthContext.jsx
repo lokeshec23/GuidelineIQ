@@ -19,8 +19,8 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is logged in
-    const storedUser = localStorage.getItem("user");
-    const token = localStorage.getItem("access_token");
+    const storedUser = sessionStorage.getItem("user");
+    const token = sessionStorage.getItem("access_token");
 
     if (storedUser && token) {
       const parsedUser = JSON.parse(storedUser);
@@ -35,9 +35,9 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login({ email, password });
       const { access_token, refresh_token, user } = response.data;
 
-      localStorage.setItem("access_token", access_token);
-      localStorage.setItem("refresh_token", refresh_token);
-      localStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("access_token", access_token);
+      sessionStorage.setItem("refresh_token", refresh_token);
+      sessionStorage.setItem("user", JSON.stringify(user));
 
       setUser(user);
       setIsAdmin(user?.role === "admin");
@@ -61,9 +61,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("user");
     setUser(null);
     setIsAdmin(false);
     message.info("Logged out successfully");
