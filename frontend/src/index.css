@@ -3,6 +3,28 @@
 @tailwind utilities;
 /* import 'antd/dist/reset.css'; */
 
+
+/* to load font */
+@font-face {
+  font-family: "Creato Display";
+  src: url("/src/assets/fonts/creato/CreatoDisplay-Regular.ttf")
+    format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Creato Display";
+  src: url("/src/assets/fonts/creato/CreatoDisplay-SemiBold.ttf")
+    format("truetype");
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: "Creato Display";
+  src: url("/src/assets/fonts/creato/CreatoDisplay-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
 /* Disable body scroll */
 html,
 body,
