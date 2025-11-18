@@ -1,3 +1,5 @@
+// src/pages/Ingest/IngestPage.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   Form,
@@ -8,7 +10,6 @@ import {
   Progress,
   Modal,
   Spin,
-  Tooltip,
   Table,
   Tag,
   Space,
@@ -30,7 +31,6 @@ import { useAuth } from "../../context/AuthContext";
 const { TextArea } = Input;
 const { Option } = Select;
 
-// --- Constants ---
 const DEFAULT_PROMPT = `You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
 
 ### PRIMARY GOAL
@@ -90,7 +90,6 @@ const IngestPage = () => {
       const response = await settingsAPI.getSupportedModels();
       setSupportedModels(response.data);
     } catch (error) {
-      // Fallback for demo purposes if API fails
       setSupportedModels({
         openai: ["gpt-4o", "gpt-4-turbo"],
         gemini: ["gemini-1.5-pro", "gemini-ultra"],
@@ -127,8 +126,6 @@ const IngestPage = () => {
 
   const handleSubmit = async (values) => {
     if (!file) return message.error("Please attach a PDF file.");
-
-    // If user (not admin), we might submit empty prompt or a hidden default
     const currentPrompt = isAdmin ? promptValue.trim() : DEFAULT_PROMPT;
 
     try {
@@ -143,7 +140,6 @@ const IngestPage = () => {
       formData.append("model_provider", values.model_provider || "openai");
       formData.append("model_name", values.model_name || "gpt-4o");
       formData.append("custom_prompt", currentPrompt);
-      // Append user metadata if necessary
       if (values.investor) formData.append("investor", values.investor);
       if (values.version) formData.append("version", values.version);
 
@@ -210,15 +206,15 @@ const IngestPage = () => {
   };
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="flex flex-col min-h-full">
       <Form
         form={form}
         onFinish={handleSubmit}
-        className="h-full flex flex-col"
+        className="flex flex-col flex-1 justify-between"
         initialValues={{ model_provider: "openai", model_name: "gpt-4o" }}
       >
-        {/* SCROLLABLE CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto px-2 pb-24">
+        {/* === MAIN SCROLLABLE CONTENT === */}
+        <div className="flex-1">
           <div className="max-w-[1400px] mx-auto w-full pt-2">
             {/* Title Section */}
             <div className="mb-8">
@@ -242,11 +238,10 @@ const IngestPage = () => {
               disabled={processing}
             /> */}
 
-            {/* --- CONDITIONAL UI BASED ON ROLE --- */}
+            {/* --- ROLE BASED VIEW --- */}
             {isAdmin ? (
-              /* ================= ADMIN VIEW ================= */
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-5">
-                {/* Header of Card */}
+              /* ADMIN VIEW */
+              <div className="bg-gray-50 rounded-lg border border-gray-200 p-5 mb-8">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-normal text-gray-700 m-0">
                     Extraction Command Center
@@ -260,8 +255,6 @@ const IngestPage = () => {
                     Reset Prompt
                   </Button>
                 </div>
-
-                {/* Prompt Input Area */}
                 <Form.Item
                   name="custom_prompt"
                   rules={[{ required: true }]}
@@ -271,9 +264,9 @@ const IngestPage = () => {
                     value={promptValue}
                     onChange={handlePromptChange}
                     placeholder="Describe the JSON structure you want..."
-                    className="font-mono text-sm text-gray-600 bg-white border border-gray-300 rounded-md focus:shadow-none focus:border-blue-400"
+                    className="font-mono text-sm text-gray-600 bg-white border border-gray-300 rounded-md"
                     style={{
-                      minHeight: "500px",
+                      minHeight: "450px",
                       padding: "16px",
                       resize: "none",
                     }}
@@ -282,7 +275,7 @@ const IngestPage = () => {
                 </Form.Item>
               </div>
             ) : (
-              /* ================= USER VIEW ================= */
+              /* USER VIEW */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
                 <Form.Item
                   name="investor"
@@ -316,17 +309,14 @@ const IngestPage = () => {
           </div>
         </div>
 
-        {/* FIXED BOTTOM FOOTER BAR */}
-        <div
-          className="fixed bottom-0 right-0 bg-white border-t border-gray-200 py-4 px-8 z-30 flex items-center justify-between transition-all duration-200"
-          style={{
-            left: 0, // Adjust if sidebar width changes
-            marginLeft: "inherit", // Inherits from parent layout if needed, or handle manually
-            width: "100%",
-            paddingLeft: "calc(260px + 2rem)", // Offset for sidebar width (260px) + padding
-          }}
-        >
-          {/* Left Side: Model Selection (Admin Only) */}
+        {/* === STICKY FOOTER === */}
+        {/* 
+            Uses sticky positioning to stick to the bottom of the MainLayout's scrollable Content area.
+            Negative margins (-mx-8, -mb-8) compensate for the parent MainLayout padding (p-8).
+            This ensures full width without overlapping the sidebar.
+        */}
+        <div className="sticky bottom-[-32px] -mx-8 -mb-8 px-8 py-4 bg-white border-t border-gray-200 z-20 flex items-center justify-between mt-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          {/* Left Side: Models (Admin) */}
           <div className="flex items-center gap-4">
             {isAdmin && (
               <>
@@ -372,9 +362,8 @@ const IngestPage = () => {
             )}
           </div>
 
-          {/* Right Side: Buttons (Both Roles) */}
+          {/* Right Side: Actions */}
           <div className="flex items-center gap-4">
-            {/* File Attachment Button or Chip */}
             {file ? (
               <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                 <FileTextOutlined className="text-blue-600" />
@@ -401,7 +390,6 @@ const IngestPage = () => {
               </Button>
             )}
 
-            {/* Extract Data Button */}
             <Button
               type="primary"
               htmlType="submit"
@@ -417,9 +405,7 @@ const IngestPage = () => {
         </div>
       </Form>
 
-      {/* --- MODALS (Unchanged Logic) --- */}
-
-      {/* Processing Modal */}
+      {/* --- MODALS --- */}
       <Modal
         title={
           <div className="flex items-center gap-3 py-2">
@@ -454,7 +440,6 @@ const IngestPage = () => {
         </div>
       </Modal>
 
-      {/* Preview Modal */}
       <Modal
         open={previewModalVisible}
         footer={null}
@@ -477,7 +462,7 @@ const IngestPage = () => {
             <div>
               <h3 className="font-semibold text-lg m-0">Extraction Results</h3>
               <span className="text-gray-500 text-xs">
-                Review the extracted data before downloading
+                Review before downloading
               </span>
             </div>
             <Tag color="blue" className="ml-2">
