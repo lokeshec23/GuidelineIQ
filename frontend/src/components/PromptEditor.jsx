@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Card, Tabs, Button, message, Input, Space } from "antd";
+import {
+  DEFAULT_INGEST_PROMPT_USER,
+  DEFAULT_COMPARISON_PROMPT_USER,
+} from "../constants/prompts";
 
 const { TextArea } = Input;
 
@@ -15,8 +19,23 @@ const PromptEditor = ({ pageType, loadAPI, saveAPI }) => {
   const loadPrompts = async () => {
     try {
       const res = await loadAPI(pageType);
-      setUserPrompt(res.data.user_prompt || "");
-      setSystemPrompt(res.data.system_prompt || "");
+
+      const savedUser = res.data?.user_prompt || "";
+      const savedSystem = res.data?.system_prompt || "";
+
+      // USER PROMPT = DEFAULT (if empty in DB)
+      if (!savedUser) {
+        if (pageType === "ingestion") {
+          setUserPrompt(DEFAULT_INGEST_PROMPT_USER);
+        } else if (pageType === "comparison") {
+          setUserPrompt(DEFAULT_COMPARISON_PROMPT_USER);
+        }
+      } else {
+        setUserPrompt(savedUser);
+      }
+
+      // SYSTEM PROMPT = saved only (never load default)
+      setSystemPrompt(savedSystem || "");
     } catch {
       message.error("Failed to load prompts");
     }
