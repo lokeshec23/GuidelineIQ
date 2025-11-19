@@ -7,6 +7,8 @@ import RegisterPage from "./pages/Auth/RegisterPage";
 import IngestPage from "./pages/Ingest/IngestPage";
 import ComparePage from "./pages/Compare/ComparePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
+import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
+import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
 import { Spin } from "antd";
 
 // Protected Route Component
@@ -94,11 +96,29 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/ingestion-prompt"
+        element={
+          <ProtectedRoute>
+            <IngestionPromptPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/comparison-prompt"
+        element={
+          <ProtectedRoute>
+            <ComparisonPromptPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Redirect root to ingest */}
       <Route path="/" element={<Navigate to="/ingest" replace />} />
 
       {/* 404 */}
-      <Route path="*" element={<Navigate to="/ingest" replace />} />
+      {/* <Route path="*" element={<Navigate to="/ingest" replace />} /> */}
     </Routes>
   );
 }

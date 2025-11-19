@@ -92,6 +92,16 @@ const MainLayout = ({ children }) => {
         label: "Compare Guidelines",
       },
       {
+        key: "/ingestion-prompt",
+        icon: <FileTextOutlined />,
+        label: "Ingestion Prompt",
+      },
+      {
+        key: "/comparison-prompt",
+        icon: <FileTextOutlined />,
+        label: "Comparison Prompt",
+      },
+      {
         key: "/settings",
         icon: <SettingOutlined />,
         label: "Settings",
