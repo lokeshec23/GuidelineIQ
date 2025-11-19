@@ -190,10 +190,10 @@ const ComparePage = () => {
           </p>
         </div>
 
-        {/* STICKY FOOTER (MATCHES INGEST PAGE STYLE) */}
-        <div className="sticky bottom-[-32px] -mx-8 -mb-8 px-8 py-4 bg-white border-t border-gray-200 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        {/* STICKY FOOTER (Responsive Wrap) */}
+        <div className="sticky bottom-[-32px] -mx-8 -mb-8 px-8 py-4 bg-white border-t border-gray-200 flex flex-wrap justify-between items-center gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
           {/* LEFT SIDE — MODEL SELECTORS */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             {/* Provider */}
             <Form.Item name="model_provider" noStyle>
               <Select
@@ -229,7 +229,7 @@ const ComparePage = () => {
           </div>
 
           {/* RIGHT SIDE — FILE 1, FILE 2, COMPARE BUTTON */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 justify-end">
             {/* File 1 */}
             <input
               type="file"
