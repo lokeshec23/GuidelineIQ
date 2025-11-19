@@ -56,9 +56,10 @@ const IngestPage = () => {
   useEffect(() => {
     fetchModels();
     form.setFieldsValue({
-      model_provider: "openai",
-      model_name: "gpt-4o",
+      model_provider: "gemini",
+      model_name: "gemini-2.5-pro",
     });
+    setSelectedProvider("gemini");
   }, []);
 
   const fetchModels = async () => {

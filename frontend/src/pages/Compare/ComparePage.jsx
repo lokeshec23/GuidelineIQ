@@ -54,7 +54,6 @@ const ComparePage = () => {
 
   const file1InputRef = useRef(null);
   const file2InputRef = useRef(null);
-
   useEffect(() => {
     fetchModels();
     form.setFieldsValue({
