@@ -1,63 +1,50 @@
 import React, { useState, useEffect } from "react";
 import { Card, Tabs, Button, message, Input, Space } from "antd";
+import { usePrompts } from "../context/PromptContext";
 import {
   DEFAULT_INGEST_PROMPT_USER,
   DEFAULT_COMPARISON_PROMPT_USER,
+  DEFAULT_INGEST_PROMPT_SYSTEM,
 } from "../constants/prompts";
 
 const { TextArea } = Input;
 
-const PromptEditor = ({ pageType, loadAPI, saveAPI }) => {
+const PromptEditor = ({ pageType }) => {
+  const { ingestPrompts, setIngestPrompts, comparePrompts, setComparePrompts } =
+    usePrompts();
+
   const [userPrompt, setUserPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadPrompts();
-  }, []);
+    if (pageType === "ingestion") {
+      setUserPrompt(ingestPrompts.user_prompt || DEFAULT_INGEST_PROMPT_USER);
 
-  const loadPrompts = async () => {
-    try {
-      const res = await loadAPI(pageType);
-
-      const savedUser = res.data?.user_prompt || "";
-      const savedSystem = res.data?.system_prompt || "";
-
-      // USER PROMPT = DEFAULT (if empty in DB)
-      if (!savedUser) {
-        if (pageType === "ingestion") {
-          setUserPrompt(DEFAULT_INGEST_PROMPT_USER);
-        } else if (pageType === "comparison") {
-          setUserPrompt(DEFAULT_COMPARISON_PROMPT_USER);
-        }
-      } else {
-        setUserPrompt(savedUser);
-      }
-
-      // SYSTEM PROMPT = saved only (never load default)
-      setSystemPrompt(savedSystem || "");
-    } catch {
-      message.error("Failed to load prompts");
+      setSystemPrompt(
+        ingestPrompts.system_prompt || DEFAULT_INGEST_PROMPT_SYSTEM
+      );
+    } else {
+      setUserPrompt(
+        comparePrompts.user_prompt || DEFAULT_COMPARISON_PROMPT_USER
+      );
+      setSystemPrompt(comparePrompts.system_prompt || "");
     }
-  };
+  }, [pageType]);
 
-  const savePrompts = async () => {
-    setLoading(true);
-    try {
-      await saveAPI(pageType, {
+  const savePrompts = () => {
+    if (pageType === "ingestion") {
+      setIngestPrompts({
         user_prompt: userPrompt,
         system_prompt: systemPrompt,
       });
-      message.success("Prompt saved");
-    } catch {
-      message.error("Failed to save");
+    } else {
+      setComparePrompts({
+        user_prompt: userPrompt,
+        system_prompt: systemPrompt,
+      });
     }
-    setLoading(false);
-  };
 
-  const clearPrompt = (type) => {
-    if (type === "user") setUserPrompt("");
-    else setSystemPrompt("");
+    message.success("Prompt updated locally");
   };
 
   return (
@@ -77,14 +64,10 @@ const PromptEditor = ({ pageType, loadAPI, saveAPI }) => {
                   className="font-mono text-sm"
                 />
                 <Space className="mt-4">
-                  <Button danger onClick={() => clearPrompt("user")}>
+                  <Button danger onClick={() => setUserPrompt("")}>
                     Clear
                   </Button>
-                  <Button
-                    type="primary"
-                    loading={loading}
-                    onClick={savePrompts}
-                  >
+                  <Button type="primary" onClick={savePrompts}>
                     Save
                   </Button>
                 </Space>
@@ -103,14 +86,10 @@ const PromptEditor = ({ pageType, loadAPI, saveAPI }) => {
                   className="font-mono text-sm"
                 />
                 <Space className="mt-4">
-                  <Button danger onClick={() => clearPrompt("system")}>
+                  <Button danger onClick={() => setSystemPrompt("")}>
                     Clear
                   </Button>
-                  <Button
-                    type="primary"
-                    loading={loading}
-                    onClick={savePrompts}
-                  >
+                  <Button type="primary" onClick={savePrompts}>
                     Save
                   </Button>
                 </Space>

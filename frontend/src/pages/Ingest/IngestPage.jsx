@@ -24,7 +24,7 @@ import {
   LoadingOutlined,
   DownOutlined,
 } from "@ant-design/icons";
-
+import { usePrompts } from "../../context/PromptContext";
 import { ingestAPI, settingsAPI } from "../../services/api";
 
 const { TextArea } = Input;
@@ -34,7 +34,7 @@ const DEFAULT_PROMPT = "SYSTEM-CONTROLLED-PROMPT"; // Backend will handle
 
 const IngestPage = () => {
   const [form] = Form.useForm();
-
+  const { ingestPrompts } = usePrompts();
   // --- STATE ---
   const [file, setFile] = useState(null);
   const [processing, setProcessing] = useState(false);
@@ -106,8 +106,9 @@ const IngestPage = () => {
       formData.append("model_provider", values.model_provider);
       formData.append("model_name", values.model_name);
 
-      // Backend will inject the system default prompt
-      formData.append("custom_prompt", DEFAULT_PROMPT);
+      // NEW: attach prompts from PromptContext
+      formData.append("system_prompt", ingestPrompts.system_prompt || "");
+      formData.append("user_prompt", ingestPrompts.user_prompt || "");
 
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id } = res.data;

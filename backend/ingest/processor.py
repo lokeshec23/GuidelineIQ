@@ -20,7 +20,8 @@ async def process_guideline_background(
     user_settings: dict,
     model_provider: str,
     model_name: str,
-    custom_prompt: str,
+    system_prompt: str,
+    user_prompt: str,
 ):
     excel_path = None
     try:
@@ -50,7 +51,7 @@ async def process_guideline_background(
 
         # === STEP 3: Parallel LLM Calls ===
         results, failed = await run_parallel_llm_processing(
-            llm, text_chunks, custom_prompt, session_id, num_chunks
+            llm, text_chunks, system_prompt, user_prompt, session_id, num_chunks
         )
 
         # === STEP 4: Convert to Excel ===
@@ -89,22 +90,29 @@ async def process_guideline_background(
 
 
 async def run_parallel_llm_processing(
-    llm: LLMProvider,
-    text_chunks: List[str],
-    custom_prompt: str,
-    session_id: str,
-    total_chunks: int,
-) -> Tuple[List[Dict], int]:
+    llm,
+    text_chunks,
+    system_prompt,
+    user_prompt,
+    session_id,
+    total_chunks
+):
     results = []
     failed_count = 0
     completed = 0
     lock = asyncio.Lock()
 
-    async def handle_chunk(idx: int, chunk_text: str):
+    async def handle_chunk(idx, chunk_text):
         nonlocal results, failed_count, completed
-        prompt = f"{custom_prompt}\n\n### TEXT TO PROCESS\n{chunk_text}"
+
+        full_prompt = (
+            f"### SYSTEM PROMPT\n{system_prompt or ''}\n\n"
+            f"### USER PROMPT\n{user_prompt or ''}\n\n"
+            f"### TEXT TO PROCESS\n{chunk_text}"
+        )
+
         try:
-            response = await asyncio.to_thread(llm.generate, prompt)
+            response = await asyncio.to_thread(llm.generate, full_prompt)
             parsed = parse_and_clean_llm_response(response, idx + 1)
             if parsed:
                 async with lock:
@@ -117,9 +125,9 @@ async def run_parallel_llm_processing(
             progress = 45 + int((completed / total_chunks) * 45)
             update_progress(session_id, progress, f"Processed {completed}/{total_chunks} chunk(s)")
 
-    # launch all tasks at once (no concurrency cap)
     await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
     return results, failed_count
+
 
 
 def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> LLMProvider:

@@ -9,6 +9,7 @@ import ComparePage from "./pages/Compare/ComparePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
 import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
+import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
 
 // Protected Route Component
@@ -127,7 +128,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <PromptProvider>
+          <AppRoutes />
+        </PromptProvider>
       </AuthProvider>
     </BrowserRouter>
   );
