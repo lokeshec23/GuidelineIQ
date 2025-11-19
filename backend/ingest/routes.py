@@ -44,6 +44,8 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 async def ingest_guideline(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    investor: str = Form(...),  # ✅ ADD THIS
+    version: str = Form(...),   # ✅ ADD THIS
     model_provider: str = Form(...),
     model_name: str = Form(...),
     system_prompt: str = Form(""),
@@ -83,6 +85,8 @@ async def ingest_guideline(
         session_id=session_id,
         pdf_path=pdf_path,
         filename=file.filename,
+        investor=investor,          # ✅ ADD THIS
+        version=version,  
         user_settings=user_settings,
         model_provider=model_provider,
         model_name=model_name,

@@ -17,6 +17,8 @@ async def process_guideline_background(
     session_id: str,
     pdf_path: str,
     filename: str,
+    investor: str,          # ✅ ADDED
+    version: str,           # ✅ ADDED
     user_settings: dict,
     model_provider: str,
     model_name: str,
@@ -29,10 +31,22 @@ async def process_guideline_background(
 
         print(f"\n{'='*60}")
         print(f"Parallel ingestion started for session {session_id[:8]}")
+        print(f"Investor: {investor} | Version: {version}")
         print(f"File: {filename}")
         print(f"Model: {model_provider}/{model_name}")
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"{'='*60}\n")
+
+        # ✅ VALIDATE PROMPTS - Use defaults if empty
+        if not user_prompt.strip():
+            from config import DEFAULT_INGEST_PROMPT_USER
+            user_prompt = DEFAULT_INGEST_PROMPT_USER
+            print("⚠️ Using DEFAULT_INGEST_PROMPT_USER (user prompt was empty)")
+        
+        if not system_prompt.strip():
+            from config import DEFAULT_INGEST_PROMPT_SYSTEM
+            system_prompt = DEFAULT_INGEST_PROMPT_SYSTEM
+            print("⚠️ Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
 
         # === STEP 1: OCR ===
         update_progress(session_id, 5, f"Extracting text ({pages_per_chunk} page(s) per chunk)...")
@@ -51,8 +65,12 @@ async def process_guideline_background(
 
         # === STEP 3: Parallel LLM Calls ===
         results, failed = await run_parallel_llm_processing(
-            llm, text_chunks, system_prompt, user_prompt, session_id, num_chunks
+            llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks
         )
+
+        # ✅ VALIDATE OUTPUT
+        if not results:
+            raise ValueError("LLM returned no valid data. Check prompts and model response.")
 
         # === STEP 4: Convert results to Excel ===
         update_progress(session_id, 90, "Converting results to Excel...")
@@ -74,7 +92,7 @@ async def process_guideline_background(
             progress_store[session_id].update({
                 "excel_path": excel_path,
                 "preview_data": results,
-                "filename": f"extraction_{os.path.basename(filename).split('.')[0]}.xlsx",
+                "filename": f"extraction_{investor}_{version}.xlsx",
                 "status": "completed",
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
@@ -98,13 +116,15 @@ async def process_guideline_background(
 
 
 # ---------------------------------------------------------
-# PARALLEL LLM PROCESSING — Option B (System + User Roles)
+# PARALLEL LLM PROCESSING
 # ---------------------------------------------------------
 async def run_parallel_llm_processing(
     llm: LLMProvider,
     text_chunks: List[str],
     system_prompt: str,
     user_prompt: str,
+    investor: str,
+    version: str,
     session_id: str,
     total_chunks: int
 ):
@@ -116,11 +136,23 @@ async def run_parallel_llm_processing(
     async def handle_chunk(idx: int, chunk_text: str):
         nonlocal results, failed_count, completed
 
-        # Build user message:
-        user_msg = (
-            f"{user_prompt}\n\n"
-            f"### TEXT TO PROCESS ###\n{chunk_text}"
-        )
+        # ✅ Enhanced user message with strict output enforcement
+        user_msg = f"""{user_prompt}
+
+### METADATA
+- Investor: {investor}
+- Version: {version}
+
+### TEXT TO PROCESS
+{chunk_text}
+
+### REMINDER: OUTPUT FORMAT
+You MUST respond with a valid JSON array only. Each object must have exactly these keys:
+- "category" (string)
+- "attribute" (string)  
+- "guideline_summary" (string)
+
+Start with '[' and end with ']'. No markdown, no explanations."""
 
         try:
             response = await asyncio.to_thread(
@@ -134,6 +166,11 @@ async def run_parallel_llm_processing(
             if parsed:
                 async with lock:
                     results.extend(parsed)
+            else:
+                # ✅ Log the actual response for debugging
+                print(f"❌ Chunk {idx+1} returned invalid JSON. Response preview:")
+                print(response[:500])
+                failed_count += 1
 
         except Exception as e:
             failed_count += 1
@@ -149,6 +186,10 @@ async def run_parallel_llm_processing(
             )
 
     await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
+    
+    print(f"\n✅ Successfully parsed: {len(results)} rules")
+    print(f"❌ Failed chunks: {failed_count}")
+    
     return results, failed_count
 
 
@@ -185,23 +226,51 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
 
 
 # ---------------------------------------------------------
-# Parse LLM JSON Output
+# Parse LLM JSON Output with Schema Validation
 # ---------------------------------------------------------
 def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
     import re
-    cleaned = response.strip()
-
-    match = re.search(r"(\[.*\]|\{.*\})", cleaned, re.DOTALL)
+    
+    # Remove markdown code blocks if present
+    cleaned = re.sub(r'```json\s*|\s*```', '', response.strip())
+    
+    # Find JSON array or object
+    match = re.search(r'(\[.*\]|\{.*\})', cleaned, re.DOTALL)
     if not match:
+        print(f"⚠️ Chunk {chunk_num}: No JSON found in response")
         return []
 
     try:
         data = json.loads(match.group(0))
+        
+        # Normalize to list
         if isinstance(data, dict):
-            return [data]
-        if isinstance(data, list):
-            return [item for item in data if isinstance(item, dict)]
-        return []
-    except json.JSONDecodeError:
-        print(f"JSON parse error in chunk {chunk_num}")
+            data = [data]
+        elif not isinstance(data, list):
+            print(f"⚠️ Chunk {chunk_num}: JSON is neither list nor dict")
+            return []
+        
+        # ✅ VALIDATE SCHEMA
+        valid_items = []
+        required_keys = {"category", "attribute", "guideline_summary"}
+        
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+                
+            # Check if all required keys are present
+            if required_keys.issubset(item.keys()):
+                valid_items.append(item)
+            else:
+                missing = required_keys - set(item.keys())
+                print(f"⚠️ Chunk {chunk_num}: Missing keys {missing} in item: {list(item.keys())}")
+        
+        if not valid_items:
+            print(f"⚠️ Chunk {chunk_num}: No valid items after schema validation")
+        
+        return valid_items
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ Chunk {chunk_num}: JSON parse error: {e}")
+        print(f"Attempted to parse: {match.group(0)[:200]}...")
         return []

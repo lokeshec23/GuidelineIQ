@@ -71,3 +71,78 @@ def get_model_config(model_name: str) -> dict:
         "max_output": 2048,
         "recommended_chunk": 1500,
     })
+
+# backend/config.py
+
+# ... existing code ...
+
+# ✅ ADD THESE PROMPTS
+DEFAULT_INGEST_PROMPT_USER = """You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
+ 
+### PRIMARY GOAL
+Convert unstructured mortgage guideline text into a structured list of self-contained rules. Each rule must be a complete JSON object.
+ 
+### OUTPUT SCHEMA (JSON ONLY)
+You MUST return a valid JSON array. Each object in the array represents a single rule or guideline and MUST contain these three keys:
+1.  "category": The high-level topic (e.g., "Borrower Eligibility", "Credit", "Property Eligibility").
+2.  "attribute": The specific rule or policy being defined (e.g., "Minimum Credit Score", "Gift Funds Policy").
+3.  "guideline_summary": A DETAILED and COMPLETE summary of the rule.
+ 
+### CRITICAL EXTRACTION INSTRUCTIONS
+1.  **NO REFERENCES:** Your output for "guideline_summary" must NEVER reference another section (e.g., do NOT say "Refer to section 201"). You must find the referenced section in the provided text and summarize its content directly.
+2.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information. A user should understand the rule just by reading that single object.
+3.  **SUMMARIZE, DON'T COPY:** Do not copy and paste large blocks of text. Summarize the rule, requirement, or value concisely but completely.
+4.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object. Do not combine unrelated rules.
+5.  **MAINTAIN HIERARCHY:** Use the "category" key to group related attributes.
+ 
+### EXAMPLE OF PERFECT, SELF-CONTAINED OUTPUT
+This is the exact format and quality you must follow. Notice how no rule refers to another section.
+ 
+[
+  {
+    "category": "Borrower Eligibility",
+    "attribute": "Minimum Credit Score",
+    "guideline_summary": "A minimum FICO score of 660 is required. For Foreign Nationals without a US FICO score, alternative credit validation is necessary."
+  },
+  {
+    "category": "Loan Parameters",
+    "attribute": "Maximum Loan-to-Value (LTV)",
+    "guideline_summary": "The maximum LTV for a purchase with a DSCR greater than 1.0 is 80%. For cash-out refinances, the maximum LTV is 75%."
+  },
+  {
+    "category": "Property Eligibility",
+    "attribute": "Short-Term Rentals (STR)",
+    "guideline_summary": "Short-term rentals are permitted but are explicitly ineligible if located within the five boroughs of New York City."
+  }
+]
+ 
+### FINAL COMMANDS - YOU MUST OBEY
+- Your entire response MUST be a single, valid JSON array.
+- Start your response immediately with '[' and end it immediately with ']'.
+- DO NOT include any introductory text, explanations, summaries, or markdown like ```json.
+- Every object MUST have the keys: "category", "attribute", and "guideline_summary"."""
+
+DEFAULT_INGEST_PROMPT_SYSTEM ="""You are an expert Mortgage Underwriting Analyst trained to convert unstructured mortgage guideline text into structured rule objects.
+
+### YOUR REQUIRED OUTPUT FORMAT
+You MUST output a **JSON array**, where each item is a single underwriting rule.
+
+Each JSON object MUST contain exactly these keys:
+
+1. "Category" – High-level section name such as “Credit”, “Income”, “Loan Terms”, “Property Eligibility”.
+2. "Attribute" – The specific rule name or topic (e.g., “Minimum Credit Score”, “DTI Max”, “Cash-Out Restrictions”).
+3. "Guideline Summary" – A clear, complete, self-contained summary.
+
+### HARD RULES
+- You must NEVER return “undefined”, “none”, “not provided”, or empty strings.
+- EVERY rule MUST have meaningful values for Category, Attribute, and Guideline Summary.
+- If the text contains header sections, treat headers as Categories.
+- If the text contains bullet points inside a category, treat each bullet as a unique Attribute + Summary.
+- You must split rules into multiple JSON objects if they represent separate policies.
+- You must rewrite missing references such as “See matrix below” into full meaningful statements using local context.
+- You cannot copy giant paragraphs; summarize accurately and concisely.
+- You cannot leave any field blank.
+
+### OUTPUT
+Return only the JSON array. No comments. No markdown.
+."""
