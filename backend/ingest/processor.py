@@ -54,14 +54,21 @@ async def process_guideline_background(
             llm, text_chunks, system_prompt, user_prompt, session_id, num_chunks
         )
 
-        # === STEP 4: Convert to Excel ===
+        # === STEP 4: Convert results to Excel ===
         update_progress(session_id, 90, "Converting results to Excel...")
-        excel_path = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx", prefix=f"extraction_{session_id[:8]}_").name
+
+        excel_path = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".xlsx",
+            prefix=f"extraction_{session_id[:8]}_"
+        ).name
+
         dynamic_json_to_excel(results, excel_path)
 
         update_progress(session_id, 100, "Processing complete.")
         print(f"{'='*60}\nPARALLEL PROCESSING COMPLETE\n{'='*60}")
 
+        # Save preview + meta
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             progress_store[session_id].update({
@@ -78,6 +85,7 @@ async def process_guideline_background(
         print(f"\nCritical error: {error_msg}\n")
         traceback.print_exc()
         update_progress(session_id, -1, f"Error: {error_msg}")
+
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             if session_id in progress_store:
@@ -89,47 +97,64 @@ async def process_guideline_background(
             print("Temporary PDF file cleaned up.")
 
 
+# ---------------------------------------------------------
+# PARALLEL LLM PROCESSING — Option B (System + User Roles)
+# ---------------------------------------------------------
 async def run_parallel_llm_processing(
-    llm,
-    text_chunks,
-    system_prompt,
-    user_prompt,
-    session_id,
-    total_chunks
+    llm: LLMProvider,
+    text_chunks: List[str],
+    system_prompt: str,
+    user_prompt: str,
+    session_id: str,
+    total_chunks: int
 ):
     results = []
     failed_count = 0
     completed = 0
     lock = asyncio.Lock()
 
-    async def handle_chunk(idx, chunk_text):
+    async def handle_chunk(idx: int, chunk_text: str):
         nonlocal results, failed_count, completed
 
-        full_prompt = (
-            f"### SYSTEM PROMPT\n{system_prompt or ''}\n\n"
-            f"### USER PROMPT\n{user_prompt or ''}\n\n"
-            f"### TEXT TO PROCESS\n{chunk_text}"
+        # Build user message:
+        user_msg = (
+            f"{user_prompt}\n\n"
+            f"### TEXT TO PROCESS ###\n{chunk_text}"
         )
 
         try:
-            response = await asyncio.to_thread(llm.generate, full_prompt)
+            response = await asyncio.to_thread(
+                llm.generate,
+                system_prompt,
+                user_msg
+            )
+
             parsed = parse_and_clean_llm_response(response, idx + 1)
+
             if parsed:
                 async with lock:
                     results.extend(parsed)
+
         except Exception as e:
             failed_count += 1
-            print(f"Chunk {idx+1} failed: {e}")
+            print(f"Chunk {idx+1} FAILED: {e}")
+
         finally:
             completed += 1
             progress = 45 + int((completed / total_chunks) * 45)
-            update_progress(session_id, progress, f"Processed {completed}/{total_chunks} chunk(s)")
+            update_progress(
+                session_id,
+                progress,
+                f"Processed {completed}/{total_chunks} chunk(s)"
+            )
 
     await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
     return results, failed_count
 
 
-
+# ---------------------------------------------------------
+# LLM Initialization
+# ---------------------------------------------------------
 def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> LLMProvider:
     params = {
         "temperature": user_settings.get("temperature", 0.5),
@@ -137,37 +162,45 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
         "top_p": user_settings.get("top_p", 1.0),
         "stop_sequences": user_settings.get("stop_sequences", []),
     }
+
     if provider == "openai":
         return LLMProvider(
-            provider=provider,
+            provider="openai",
             api_key=user_settings.get("openai_api_key"),
             model=model,
             azure_endpoint=user_settings.get("openai_endpoint"),
             azure_deployment=user_settings.get("openai_deployment"),
             **params,
         )
+
     if provider == "gemini":
         return LLMProvider(
-            provider=provider,
+            provider="gemini",
             api_key=user_settings.get("gemini_api_key"),
             model=model,
             **params,
         )
+
     raise ValueError(f"Unsupported provider: {provider}")
 
 
+# ---------------------------------------------------------
+# Parse LLM JSON Output
+# ---------------------------------------------------------
 def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
-    import re, json
+    import re
     cleaned = response.strip()
+
     match = re.search(r"(\[.*\]|\{.*\})", cleaned, re.DOTALL)
     if not match:
         return []
+
     try:
         data = json.loads(match.group(0))
         if isinstance(data, dict):
             return [data]
-        if isinstance(data, list) and all(isinstance(i, dict) for i in data):
-            return data
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
         return []
     except json.JSONDecodeError:
         print(f"JSON parse error in chunk {chunk_num}")

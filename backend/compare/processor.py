@@ -25,10 +25,12 @@ async def process_comparison_background(
     user_prompt: str
 ):
     """
-    Async background task for comparing two Excel files using parallel LLM processing.
+    Background async task to compare two guideline Excel files.
+    Uses REAL system + user roles (Option B).
     """
 
     excel_path = None
+
     try:
         print(f"\n{'='*60}")
         print(f"Parallel comparison started for session {session_id[:8]}")
@@ -37,50 +39,49 @@ async def process_comparison_background(
         print(f"Model: {model_provider}/{model_name}")
         print(f"{'='*60}\n")
 
-        # Step 1: Read and Align Excel Data
+        # STEP 1 — Load/Align Excel Data
         update_progress(session_id, 10, "Reading and aligning guideline data...")
+
         data1 = await asyncio.to_thread(read_excel_to_json, file1_path, "Guideline 1")
         data2 = await asyncio.to_thread(read_excel_to_json, file2_path, "Guideline 2")
-        
+
         aligned_data = align_guideline_data(data1, data2)
+
         print(f"Aligned {len(aligned_data)} rule pairs for comparison.")
-        
-        # Step 2: Create Comparison Chunks
+
+        # STEP 2 — Chunk the comparison workload
         chunk_size = user_settings.get("comparison_chunk_size", 10)
-        comparison_chunks = create_comparison_chunks(aligned_data, chunk_size=chunk_size)
-        
-        max_chunks_to_process = user_settings.get("max_comparison_chunks", 15)
-        if max_chunks_to_process and max_chunks_to_process > 0:
-            comparison_chunks = comparison_chunks[:max_chunks_to_process]
-        
+        comparison_chunks = create_comparison_chunks(aligned_data, chunk_size)
+
+        max_chunks = user_settings.get("max_comparison_chunks", 0)
+        if max_chunks > 0:
+            comparison_chunks = comparison_chunks[:max_chunks]
+
         num_chunks = len(comparison_chunks)
         if num_chunks == 0:
-            raise ValueError("No data available for comparison after alignment.")
-        
+            raise ValueError("No aligned comparison chunks found.")
+
         update_progress(session_id, 30, f"Prepared {num_chunks} comparison chunks.")
 
-        # Step 3: Initialize LLM
+        # STEP 3 — Initialize LLM
         update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
         llm = initialize_llm_provider_for_compare(user_settings, model_provider, model_name)
 
-        # Build new combined prompt (system + user)
-        combined_prompt_header = (
-            f"### SYSTEM PROMPT\n{system_prompt or ''}\n\n"
-            f"### USER PROMPT\n{user_prompt or ''}\n\n"
-        )
+        # STEP 4 — Parallel LLM Processing
+        update_progress(session_id, 45, f"Running {num_chunks} chunks with {model_name}...")
 
-        # Step 4: Parallel processing
-        update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel with {model_name}...")
         results, failed = await run_parallel_comparison_with_rule_ids(
             llm,
             comparison_chunks,
-            combined_prompt_header,
+            system_prompt,
+            user_prompt,
             session_id,
             num_chunks
         )
 
-        # Step 5: Generate Excel
-        update_progress(session_id, 90, "Converting comparison results to Excel...")
+        # STEP 5 — Save Excel
+        update_progress(session_id, 90, "Generating comparison Excel...")
+
         excel_path = tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".xlsx",
@@ -90,8 +91,10 @@ async def process_comparison_background(
         dynamic_json_to_excel(results, excel_path)
 
         update_progress(session_id, 100, "Processing complete.")
+
         print(f"{'='*60}\nPARALLEL COMPARISON COMPLETE\n{'='*60}")
 
+        # Save meta & preview
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             progress_store[session_id].update({
@@ -99,8 +102,8 @@ async def process_comparison_background(
                 "preview_data": results,
                 "filename": (
                     f"comparison_"
-                    f"{os.path.basename(file1_name).split('.')[0]}_vs_"
-                    f"{os.path.basename(file2_name).split('.')[0]}.xlsx"
+                    f"{os.path.splitext(file1_name)[0]}_vs_"
+                    f"{os.path.splitext(file2_name)[0]}.xlsx"
                 ),
                 "status": "completed",
                 "total_chunks": num_chunks,
@@ -109,26 +112,34 @@ async def process_comparison_background(
 
     except Exception as e:
         error_msg = str(e)
-        print(f"\nCritical error: {error_msg}\n")
+        print(f"\n❌ Critical comparison error: {error_msg}\n")
         traceback.print_exc()
+
         update_progress(session_id, -1, f"Error: {error_msg}")
 
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             if session_id in progress_store:
-                progress_store[session_id].update({"status": "failed", "error": error_msg})
+                progress_store[session_id].update({
+                    "status": "failed",
+                    "error": error_msg
+                })
 
     finally:
         for path in [file1_path, file2_path]:
             if path and os.path.exists(path):
                 os.remove(path)
-                print("Temporary comparison files cleaned up.")
+                print("Temporary comparison file cleaned up.")
 
 
+# ======================================================================
+# PARALLEL CHUNK PROCESSING (Option B: System + User Roles)
+# ======================================================================
 async def run_parallel_comparison_with_rule_ids(
     llm: LLMProvider,
     comparison_chunks: List[List[Dict]],
-    combined_prompt_header: str,
+    system_prompt: str,
+    user_prompt: str,
     session_id: str,
     total_chunks: int
 ) -> Tuple[List[Dict], int]:
@@ -136,30 +147,45 @@ async def run_parallel_comparison_with_rule_ids(
     chunk_results = [None] * len(comparison_chunks)
     failed_count = 0
     completed = 0
+
     lock = asyncio.Lock()
 
     async def handle_chunk(idx: int, chunk: List[Dict]):
         nonlocal chunk_results, failed_count, completed
 
-        chunk_text = format_chunk_for_prompt(chunk)
+        # Convert chunk into JSON text for LLM
+        chunk_json = json.dumps(
+            [
+                {
+                    "guideline_1": block["guideline1"] or {"status": "Not present in Guideline 1"},
+                    "guideline_2": block["guideline2"] or {"status": "Not present in Guideline 2"},
+                }
+                for block in chunk
+            ],
+            indent=2
+        )
 
-        # Build full prompt
-        full_prompt = (
-            f"{combined_prompt_header}"
-            f"### COMPARISON DATA CHUNK ###\n{chunk_text}"
+        # User-level content
+        user_content = (
+            f"{user_prompt}\n\n"
+            f"### DATA CHUNK TO COMPARE ###\n{chunk_json}"
         )
 
         try:
-            response = await asyncio.to_thread(llm.generate, full_prompt)
+            response = await asyncio.to_thread(
+                llm.generate,
+                system_prompt,
+                user_content
+            )
+
             parsed = parse_comparison_response(response, idx + 1)
 
-            if parsed:
-                async with lock:
-                    chunk_results[idx] = parsed
+            async with lock:
+                chunk_results[idx] = parsed
 
         except Exception as e:
             failed_count += 1
-            print(f"Chunk {idx+1} failed: {e}")
+            print(f"❌ Chunk {idx+1} failed: {e}")
             async with lock:
                 chunk_results[idx] = []
 
@@ -170,20 +196,24 @@ async def run_parallel_comparison_with_rule_ids(
 
     await asyncio.gather(*(handle_chunk(i, c) for i, c in enumerate(comparison_chunks)))
 
-    # Aggregate results + assign rule IDs
-    final_results = []
-    rule_counter = 1
+    # Merge results + assign rule IDs
+    final = []
+    rule_id = 1
 
-    for block in chunk_results:
-        if block:
-            for item in block:
-                item["rule_id"] = rule_counter
-                rule_counter += 1
-                final_results.append(item)
+    for item_list in chunk_results:
+        if not item_list:
+            continue
+        for obj in item_list:
+            obj["rule_id"] = rule_id
+            rule_id += 1
+            final.append(obj)
 
-    return final_results, failed_count
+    return final, failed_count
 
 
+# ======================================================================
+# HELPERS
+# ======================================================================
 def initialize_llm_provider_for_compare(user_settings: dict, provider: str, model: str) -> LLMProvider:
     params = {
         "temperature": user_settings.get("temperature", 0.3),
@@ -214,19 +244,23 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
 
 
 def parse_comparison_response(response: str, chunk_num: int) -> List[Dict]:
-    import re
     cleaned = response.strip()
-    match = re.search(r"(\[.*\])", cleaned, re.DOTALL)
-    if not match:
-        print(f"No JSON array found in chunk {chunk_num}")
-        return []
 
     try:
-        data = json.loads(match.group(0))
+        # Extract JSON array
+        start = cleaned.find("[")
+        end = cleaned.rfind("]")
+
+        if start == -1 or end == -1:
+            print(f"❌ No JSON array found in chunk {chunk_num}")
+            return []
+
+        data = json.loads(cleaned[start:end + 1])
+
         return data if isinstance(data, list) else []
 
-    except json.JSONDecodeError as e:
-        print(f"JSON parse error in chunk {chunk_num}: {e}")
+    except Exception as e:
+        print(f"❌ JSON parse error in chunk {chunk_num}: {e}")
         return []
 
 
@@ -235,7 +269,7 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict]) -> List[Dict]:
     map2 = {
         (
             item.get("Category", "").strip().lower(),
-            item.get("Attribute", "").strip().lower()
+            item.get("Attribute", "").strip().lower(),
         ): item
         for item in data2
     }
@@ -243,38 +277,21 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict]) -> List[Dict]:
     for item1 in data1:
         key = (
             item1.get("Category", "").strip().lower(),
-            item1.get("Attribute", "").strip().lower()
+            item1.get("Attribute", "").strip().lower(),
         )
         item2 = map2.pop(key, None)
-        aligned.append({
-            "guideline1": item1,
-            "guideline2": item2
-        })
 
+        aligned.append({"guideline1": item1, "guideline2": item2})
+
+    # Add remaining unmatched guideline2 rules
     for item2 in map2.values():
-        aligned.append({
-            "guideline1": None,
-            "guideline2": item2
-        })
+        aligned.append({"guideline1": None, "guideline2": item2})
 
     return aligned
 
 
 def create_comparison_chunks(aligned_data: List[Dict], chunk_size: int = 10) -> List[List[Dict]]:
-    chunks = []
-    for i in range(0, len(aligned_data), chunk_size):
-        chunk = aligned_data[i:i+chunk_size]
-        if chunk:
-            chunks.append(chunk)
-    return chunks
-
-
-def format_chunk_for_prompt(chunk: List[Dict]) -> str:
-    cleaned = []
-    for idx, pair in enumerate(chunk, 1):
-        cleaned.append({
-            "comparison_id": idx,
-            "guideline_1": pair["guideline1"] or {"status": "Not present in Guideline 1"},
-            "guideline_2": pair["guideline2"] or {"status": "Not present in Guideline 2"},
-        })
-    return json.dumps(cleaned, indent=2)
+    return [
+        aligned_data[i:i + chunk_size]
+        for i in range(0, len(aligned_data), chunk_size)
+    ]
