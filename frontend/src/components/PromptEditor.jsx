@@ -18,8 +18,20 @@ const PromptEditor = ({ pageType }) => {
   const [userPrompt, setUserPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
 
-  // Load correct prompts depending on pageType
+  const storageKey = `prompt_${pageType}`;
+
+  // Load prompts from sessionStorage OR context OR defaults
   useEffect(() => {
+    const saved = sessionStorage.getItem(storageKey);
+
+    if (saved) {
+      const parsed = JSON.parse(saved);
+
+      setUserPrompt(parsed.user_prompt || "");
+      setSystemPrompt(parsed.system_prompt || "");
+      return;
+    }
+
     if (pageType === "ingestion") {
       setUserPrompt(ingestPrompts.user_prompt || DEFAULT_INGEST_PROMPT_USER);
       setSystemPrompt(
@@ -33,23 +45,50 @@ const PromptEditor = ({ pageType }) => {
         comparePrompts.system_prompt || DEFAULT_COMPARISON_PROMPT_SYSTEM
       );
     }
-  }, [pageType, ingestPrompts, comparePrompts]);
+  }, [pageType]);
 
-  // Save prompts to PromptContext
+  // Save to context + sessionStorage
   const savePrompts = () => {
+    const data = { user_prompt: userPrompt, system_prompt: systemPrompt };
+
+    sessionStorage.setItem(storageKey, JSON.stringify(data));
+
     if (pageType === "ingestion") {
-      setIngestPrompts({
-        user_prompt: userPrompt,
-        system_prompt: systemPrompt,
-      });
+      setIngestPrompts(data);
     } else {
-      setComparePrompts({
-        user_prompt: userPrompt,
-        system_prompt: systemPrompt,
-      });
+      setComparePrompts(data);
     }
 
-    message.success("Prompt saved successfully");
+    message.success("Prompt saved");
+  };
+
+  // Reset to defaults
+  const resetPrompts = () => {
+    let defaultUser = "";
+    let defaultSystem = "";
+
+    if (pageType === "ingestion") {
+      defaultUser = DEFAULT_INGEST_PROMPT_USER;
+      defaultSystem = DEFAULT_INGEST_PROMPT_SYSTEM;
+    } else {
+      defaultUser = DEFAULT_COMPARISON_PROMPT_USER;
+      defaultSystem = DEFAULT_COMPARISON_PROMPT_SYSTEM;
+    }
+
+    setUserPrompt(defaultUser);
+    setSystemPrompt(defaultSystem);
+
+    const data = { user_prompt: defaultUser, system_prompt: defaultSystem };
+
+    sessionStorage.setItem(storageKey, JSON.stringify(data));
+
+    if (pageType === "ingestion") {
+      setIngestPrompts(data);
+    } else {
+      setComparePrompts(data);
+    }
+
+    message.success("Reset to default prompts");
   };
 
   return (
@@ -69,6 +108,7 @@ const PromptEditor = ({ pageType }) => {
                   className="font-mono text-sm"
                 />
                 <Space className="mt-4">
+                  <Button onClick={resetPrompts}>Reset</Button>
                   <Button danger onClick={() => setUserPrompt("")}>
                     Clear
                   </Button>
@@ -91,6 +131,7 @@ const PromptEditor = ({ pageType }) => {
                   className="font-mono text-sm"
                 />
                 <Space className="mt-4">
+                  <Button onClick={resetPrompts}>Reset</Button>
                   <Button danger onClick={() => setSystemPrompt("")}>
                     Clear
                   </Button>
