@@ -23,7 +23,8 @@ async def compare_guidelines(
     file2: UploadFile = File(...),
     model_provider: str = Form(...),
     model_name: str = Form(...),
-    custom_prompt: str = Form(...),
+    system_prompt: str = Form(""),
+    user_prompt: str = Form(""),
     user_id: str = Depends(get_current_user_id)
 ):
     """Upload two Excel files and compare them using LLM"""
@@ -104,7 +105,8 @@ async def compare_guidelines(
         user_settings=settings,
         model_provider=model_provider,
         model_name=model_name,
-        custom_prompt=custom_prompt
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
     )
     
     return CompareResponse(

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { Card, Tabs, Button, message, Input, Space } from "antd";
-import { usePrompts } from "../context/PromptContext";
 import {
   DEFAULT_INGEST_PROMPT_USER,
   DEFAULT_COMPARISON_PROMPT_USER,
   DEFAULT_INGEST_PROMPT_SYSTEM,
+  DEFAULT_COMPARISON_PROMPT_SYSTEM,
 } from "../constants/prompts";
+
+import { usePrompts } from "../context/PromptContext";
 
 const { TextArea } = Input;
 
@@ -16,21 +18,24 @@ const PromptEditor = ({ pageType }) => {
   const [userPrompt, setUserPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
 
+  // Load correct prompts depending on pageType
   useEffect(() => {
     if (pageType === "ingestion") {
       setUserPrompt(ingestPrompts.user_prompt || DEFAULT_INGEST_PROMPT_USER);
-
       setSystemPrompt(
         ingestPrompts.system_prompt || DEFAULT_INGEST_PROMPT_SYSTEM
       );
-    } else {
+    } else if (pageType === "comparison") {
       setUserPrompt(
         comparePrompts.user_prompt || DEFAULT_COMPARISON_PROMPT_USER
       );
-      setSystemPrompt(comparePrompts.system_prompt || "");
+      setSystemPrompt(
+        comparePrompts.system_prompt || DEFAULT_COMPARISON_PROMPT_SYSTEM
+      );
     }
-  }, [pageType]);
+  }, [pageType, ingestPrompts, comparePrompts]);
 
+  // Save prompts to PromptContext
   const savePrompts = () => {
     if (pageType === "ingestion") {
       setIngestPrompts({
@@ -44,7 +49,7 @@ const PromptEditor = ({ pageType }) => {
       });
     }
 
-    message.success("Prompt updated locally");
+    message.success("Prompt saved successfully");
   };
 
   return (

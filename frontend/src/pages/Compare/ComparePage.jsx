@@ -22,13 +22,14 @@ import {
   LoadingOutlined,
   DownOutlined,
 } from "@ant-design/icons";
-
+import { usePrompts } from "../../context/PromptContext";
 import { compareAPI, settingsAPI } from "../../services/api";
 
 const { Option } = Select;
 
 const ComparePage = () => {
   const [form] = Form.useForm();
+  const { comparePrompts } = usePrompts();
 
   const [file1, setFile1] = useState(null);
   const [file2, setFile2] = useState(null);
@@ -97,6 +98,8 @@ const ComparePage = () => {
       fd.append("file2", file2);
       fd.append("model_provider", values.model_provider);
       fd.append("model_name", values.model_name);
+      fd.append("system_prompt", comparePrompts.system_prompt || "");
+      fd.append("user_prompt", comparePrompts.user_prompt || "");
 
       const res = await compareAPI.compareGuidelines(fd);
       const { session_id } = res.data;
