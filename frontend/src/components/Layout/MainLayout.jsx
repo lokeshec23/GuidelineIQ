@@ -55,7 +55,7 @@ const MainLayout = ({ children }) => {
           </h3>
           <div className="flex items-center justify-center gap-1 text-gray-500 text-sm mt-1">
             <LockOutlined className="text-xs" />
-            <span>{isAdmin ? "Master Admin" : "User"}</span>
+            <span>{isAdmin ? "Admin" : "User"}</span>
           </div>
         </div>
         <div className="pt-2 border-t border-gray-100">
@@ -108,7 +108,7 @@ const MainLayout = ({ children }) => {
       return {
         key: item.key,
         label: (
-          <div className="flex items-center justify-between w-full">
+          <div className="flex items-center justify-between w-full ">
             <span className={isActive ? "font-medium text-gray-900" : ""}>
               {item.label}
             </span>
@@ -123,9 +123,10 @@ const MainLayout = ({ children }) => {
         icon: (
           <div
             className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
-              isActive
-                ? "bg-[#1890ff] text-white shadow-md" // Active: Blue Circle
-                : "bg-gray-200 text-gray-500 group-hover:bg-gray-300" // Inactive: Gray Circle
+              // isActive
+              //   ? "bg-[#1890ff] text-white shadow-md" // Active: Blue Circle
+              //   :
+              "bg-gray-200 text-gray-500 group-hover:bg-gray-300" // Inactive: Gray Circle
             }`}
           >
             {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
@@ -233,7 +234,6 @@ const MainLayout = ({ children }) => {
                 selectedKeys={[location.pathname]}
                 items={getMenuItems()}
                 onClick={({ key }) => navigate(key)}
-                // Important: Make menu background transparent so Sider gray shows through
                 style={{ background: "transparent", borderRight: 0 }}
               />
             </div>

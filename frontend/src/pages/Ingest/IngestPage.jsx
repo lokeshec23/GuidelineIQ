@@ -228,16 +228,6 @@ const IngestPage = () => {
               </p>
             </div>
 
-            {/* Hidden File Input */}
-            {/* <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={processing}
-            /> */}
-
             {/* --- ROLE BASED VIEW --- */}
             {isAdmin ? (
               /* ADMIN VIEW */
