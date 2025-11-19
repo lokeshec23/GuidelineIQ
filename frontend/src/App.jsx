@@ -118,7 +118,7 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/ingest" replace />} />
 
       {/* 404 */}
-      {/* <Route path="*" element={<Navigate to="/ingest" replace />} /> */}
+      <Route path="*" element={<Navigate to="/ingest" replace />} />
     </Routes>
   );
 }

@@ -76,11 +76,11 @@ const MainLayout = ({ children }) => {
   // --- 2. Menu Items Construction ---
   const getMenuItems = () => {
     const baseItems = [
-      {
-        key: "/dashboard",
-        icon: <AppstoreOutlined />,
-        label: "Dashboard",
-      },
+      // {
+      //   key: "/dashboard",
+      //   icon: <AppstoreOutlined />,
+      //   label: "Dashboard",
+      // },
       {
         key: "/ingest",
         icon: <FileTextOutlined />,
