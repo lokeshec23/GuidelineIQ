@@ -14,6 +14,7 @@ from ingest.schemas import IngestResponse, ProcessingStatus
 from ingest.processor import process_guideline_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
+from auth.middleware import get_admin_user
 from utils.progress import update_progress, get_progress, delete_progress, progress_store, progress_lock
 from config import SUPPORTED_MODELS
 
@@ -44,8 +45,8 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 async def ingest_guideline(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    investor: str = Form(...),  # ✅ ADD THIS
-    version: str = Form(...),   # ✅ ADD THIS
+    investor: str = Form(...),
+    version: str = Form(...),
     model_provider: str = Form(...),
     model_name: str = Form(...),
     system_prompt: str = Form(""),
@@ -64,9 +65,20 @@ async def ingest_guideline(
     if model_name not in SUPPORTED_MODELS.get(model_provider, []):
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
-    user_settings = await get_user_settings(user_id)
-    if not user_settings:
-        raise HTTPException(status_code=403, detail="User settings not found. Please configure your settings first.")
+    # ✅ UPDATED: Fetch admin's settings instead of current user's
+    admin_user = await get_admin_user()
+    if not admin_user:
+        raise HTTPException(
+            status_code=500, 
+            detail="System configuration error. No admin user found."
+        )
+    
+    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    if not admin_settings:
+        raise HTTPException(
+            status_code=403, 
+            detail="API keys not configured. Please contact the administrator to configure API keys."
+        )
 
     session_id = str(uuid.uuid4())
     
@@ -85,14 +97,13 @@ async def ingest_guideline(
         session_id=session_id,
         pdf_path=pdf_path,
         filename=file.filename,
-        investor=investor,          # ✅ ADD THIS
+        investor=investor,
         version=version,  
-        user_settings=user_settings,
+        user_settings=admin_settings,  # ✅ UPDATED: Use admin's settings
         model_provider=model_provider,
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-
     )
     
     return IngestResponse(status="processing", message="Processing started", session_id=session_id)
@@ -112,7 +123,7 @@ async def progress_stream(session_id: str):
 
             current_progress = progress_data["progress"]
             if current_progress != last_progress:
-                yield f"data: {json.dumps(progress_data)}\n\n"
+                yield f"data: {json.dumps(progress_data)}\\n\\n"
                 last_progress = current_progress
 
             if progress_data.get("status") in ["completed", "failed", "cancelled"]:

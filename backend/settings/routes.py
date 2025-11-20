@@ -1,34 +1,18 @@
 # backend/settings/routes.py
 
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from settings.models import get_user_settings, create_or_update_settings, delete_user_settings
 from settings.schemas import SettingsUpdate, SettingsResponse
-from auth.utils import verify_token
+from auth.middleware import require_admin
 from config import SUPPORTED_MODELS, DEFAULT_PAGES_PER_CHUNK
 from datetime import datetime
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
-async def get_current_user_id(authorization: str = Header(...)) -> str:
-    """Dependency to extract user ID from a JWT token in the header."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    
-    if not payload or payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Invalid or expired access token")
-    
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Token does not contain a user ID")
-        
-    return user_id
-
 @router.get("", response_model=SettingsResponse)
-async def get_settings_route(user_id: str = Depends(get_current_user_id)):
-    """API endpoint to get the current user's settings."""
+async def get_settings_route(admin_user: dict = Depends(require_admin)):
+    """API endpoint to get the admin's settings."""
+    user_id = str(admin_user["_id"])
     settings = await get_user_settings(user_id)
     
     if not settings:
@@ -51,9 +35,10 @@ async def get_settings_route(user_id: str = Depends(get_current_user_id)):
 @router.post("", response_model=SettingsResponse)
 async def update_settings_route(
     settings_data: SettingsUpdate,
-    user_id: str = Depends(get_current_user_id)
+    admin_user: dict = Depends(require_admin)
 ):
-    """API endpoint to create or update user settings."""
+    """API endpoint to create or update admin settings."""
+    user_id = str(admin_user["_id"])
     # `exclude_unset=True` ensures we only update fields the user actually sent
     settings_dict = settings_data.model_dump(exclude_unset=True)
     
@@ -74,8 +59,9 @@ async def get_supported_models_route():
     return SUPPORTED_MODELS
 
 @router.delete("")
-async def remove_settings_route(user_id: str = Depends(get_current_user_id)):
-    """API endpoint to delete a user's settings."""
+async def remove_settings_route(admin_user: dict = Depends(require_admin)):
+    """API endpoint to delete admin's settings."""
+    user_id = str(admin_user["_id"])
     deleted = await delete_user_settings(user_id)
     
     if not deleted:

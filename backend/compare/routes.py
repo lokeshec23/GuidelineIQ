@@ -3,18 +3,40 @@ import os
 import uuid
 import tempfile
 import json
-from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from compare.schemas import CompareResponse, ComparisonStatus
 from compare.processor import process_comparison_background
 from settings.models import get_user_settings
-from settings.routes import get_current_user_id
+from auth.utils import verify_token
+from auth.middleware import get_admin_user
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
 from config import SUPPORTED_MODELS
 import asyncio
 from typing import AsyncGenerator
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
+
+# ✅ Define the dependency function properly
+async def get_current_user_id_from_token(authorization: str = Header(...)) -> str:
+    """
+    A FastAPI dependency that extracts and validates the user ID from a JWT
+    token in the 'Authorization' header.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    
+    token = authorization.split(" ")[1]
+    payload = verify_token(token)
+    
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid or expired access token")
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Token does not contain a user ID")
+        
+    return user_id
 
 @router.post("/guidelines", response_model=CompareResponse)
 async def compare_guidelines(
@@ -25,7 +47,7 @@ async def compare_guidelines(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id_from_token)
 ):
     """Upload two Excel files and compare them using LLM"""
     
@@ -46,20 +68,19 @@ async def compare_guidelines(
             detail=f"Unsupported model '{model_name}' for provider '{model_provider}'"
         )
     
-    # Get user settings
-    settings = await get_user_settings(user_id)
-    if not settings:
+    # ✅ UPDATED: Fetch admin's settings instead of current user's
+    admin_user = await get_admin_user()
+    if not admin_user:
         raise HTTPException(
-            status_code=404,
-            detail="Please configure your settings first (API keys required)"
+            status_code=500, 
+            detail="System configuration error. No admin user found."
         )
     
-    # Check API key
-    api_key = settings.get(f"{model_provider}_api_key")
-    if not api_key:
+    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    if not admin_settings:
         raise HTTPException(
-            status_code=400,
-            detail=f"No API key configured for {model_provider}. Please add it in Settings."
+            status_code=403, 
+            detail="API keys not configured. Please contact the administrator to configure API keys."
         )
     
     # Validate file types
@@ -102,7 +123,7 @@ async def compare_guidelines(
         file2_path=file2_path,
         file1_name=file1.filename,
         file2_name=file2.filename,
-        user_settings=settings,
+        user_settings=admin_settings,  # ✅ UPDATED: Use admin's settings
         model_provider=model_provider,
         model_name=model_name,
         system_prompt=system_prompt,
