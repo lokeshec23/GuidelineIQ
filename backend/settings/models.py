@@ -1,20 +1,8 @@
 # backend/settings/models.py
 
-from motor.motor_asyncio import AsyncIOMotorClient
-from config import MONGO_URI, DB_NAME
+from database import settings_collection
 from datetime import datetime
 from typing import Optional, Dict
-
-# Initialize MongoDB client and select database
-settings_collection = None # Initialize as None
-try:
-    client = AsyncIOMotorClient(MONGO_URI)
-    db = client[DB_NAME]
-    settings_collection = db["settings"]
-    print("✅ MongoDB connection for settings successful.")
-except Exception as e:
-    print(f"❌ MongoDB connection for settings failed: {e}")
-    # In a real production app, you might want to exit or handle this more gracefully
 
 async def get_user_settings(user_id: str) -> Optional[Dict]:
     """

@@ -1,17 +1,6 @@
 # backend/auth/models.py
 
-from motor.motor_asyncio import AsyncIOMotorClient
-from config import MONGO_URI, DB_NAME
-
-# Initialize as None
-users_collection = None
-try:
-    client = AsyncIOMotorClient(MONGO_URI)
-    db = client[DB_NAME]
-    users_collection = db["users"]
-    print("✅ MongoDB connection for auth successful.")
-except Exception as e:
-    print(f"❌ MongoDB connection for auth failed: {e}")
+from database import users_collection
 
 async def find_user_by_email(email: str):
     # ✅ CORRECTED
