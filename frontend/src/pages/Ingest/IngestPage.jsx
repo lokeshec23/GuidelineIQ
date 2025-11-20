@@ -1,6 +1,6 @@
 // src/pages/Ingest/IngestPage.jsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Form,
   Select,
@@ -13,28 +13,26 @@ import {
   Tag,
   Space,
   Spin,
+  Upload,
 } from "antd";
 import {
-  PaperClipOutlined,
-  SendOutlined,
+  InboxOutlined,
   FileTextOutlined,
   DownloadOutlined,
-  CloseCircleOutlined,
   FileExcelOutlined,
   LoadingOutlined,
-  DownOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { ingestAPI, settingsAPI } from "../../services/api";
 
-const { TextArea } = Input;
+const { Dragger } = Upload;
 const { Option } = Select;
-
-const DEFAULT_PROMPT = "SYSTEM-CONTROLLED-PROMPT"; // Backend will handle
 
 const IngestPage = () => {
   const [form] = Form.useForm();
   const { ingestPrompts } = usePrompts();
+
   // --- STATE ---
   const [file, setFile] = useState(null);
   const [processing, setProcessing] = useState(false);
@@ -51,15 +49,13 @@ const IngestPage = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
-  const fileInputRef = useRef(null);
-
   useEffect(() => {
     fetchModels();
     form.setFieldsValue({
-      model_provider: "gemini",
-      model_name: "gemini-2.5-pro",
+      model_provider: "openai",
+      model_name: "gpt-4o",
     });
-    setSelectedProvider("gemini");
+    setSelectedProvider("openai");
   }, []);
 
   const fetchModels = async () => {
@@ -75,19 +71,23 @@ const IngestPage = () => {
   };
 
   // --- FILE HANDLERS ---
-  const handleFileSelect = (e) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile && selectedFile.type !== "application/pdf") {
-      message.error("Please upload a valid PDF file");
-      return;
+  const handleFileChange = (info) => {
+    const { status } = info.file;
+    if (status !== 'uploading') {
+      // We only want one file
+      const selectedFile = info.file.originFileObj || info.file;
+
+      if (selectedFile.type !== "application/pdf") {
+        message.error("Please upload a valid PDF file");
+        return;
+      }
+      setFile(selectedFile);
     }
-    setFile(selectedFile);
   };
 
-  const handleAttachClick = () => fileInputRef.current?.click();
-  const handleRemoveFile = () => {
+  const handleRemoveFile = (e) => {
+    e.stopPropagation();
     setFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // --- MAIN SUBMIT ---
@@ -107,10 +107,10 @@ const IngestPage = () => {
       formData.append("model_provider", values.model_provider);
       formData.append("model_name", values.model_name);
 
-      // NEW: attach prompts from PromptContext
+      // Attach prompts
       formData.append("system_prompt", ingestPrompts.system_prompt || "");
       formData.append("user_prompt", ingestPrompts.user_prompt || "");
-      debugger;
+
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id } = res.data;
       setSessionId(session_id);
@@ -174,122 +174,135 @@ const IngestPage = () => {
   const convertToTableData = (data) =>
     data?.map((item, idx) => ({ key: idx, ...item })) || [];
 
+  const uploadProps = {
+    name: 'file',
+    multiple: false,
+    showUploadList: false,
+    beforeUpload: () => false, // Prevent auto upload
+    onChange: handleFileChange,
+    accept: ".pdf"
+  };
+
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="p-8 max-w-[1200px] mx-auto">
+      <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1>
+
       <Form
         form={form}
         onFinish={handleSubmit}
-        initialValues={{ model_provider: "openai", model_name: "gpt-4o" }}
-        className="flex flex-col flex-1"
+        layout="vertical"
+        className="w-full"
       >
-        <div className="flex-1 max-w-[1400px] mx-auto w-full pt-2">
-          <h1 className="text-[28px] font-light text-gray-800 mb-1">
-            Ingest Guidelines
-          </h1>
-          <p className="text-gray-500 text-sm mb-6">
-            Upload a guideline PDF with investor & version details.
-          </p>
-
-          {/* User View Only */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-            <Form.Item
-              name="investor"
-              label={
-                <span className="text-gray-700 font-medium">Investor</span>
-              }
-              rules={[{ required: true, message: "Investor is required" }]}
+        {/* Model Selection Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <Form.Item
+            name="model_provider"
+            className="mb-0"
+          >
+            <Select
+              size="large"
+              className="w-full"
+              onChange={(v) => {
+                setSelectedProvider(v);
+                const defaultModel =
+                  v === "gemini" ? "gemini-2.5-pro" : supportedModels[v]?.[0];
+                form.setFieldsValue({ model_name: defaultModel });
+              }}
             >
-              <Input size="large" placeholder="Investor name" />
-            </Form.Item>
+              <Option value="openai">OpenAI</Option>
+              <Option value="gemini">Google Gemini</Option>
+            </Select>
+          </Form.Item>
 
-            <Form.Item
-              name="version"
-              label={<span className="text-gray-700 font-medium">Version</span>}
-              rules={[{ required: true, message: "Version is required" }]}
-            >
-              <Input size="large" placeholder="Version identifier" />
-            </Form.Item>
-          </div>
+          <Form.Item
+            name="model_name"
+            className="mb-0"
+          >
+            <Select size="large" className="w-full">
+              {supportedModels[selectedProvider]?.map((model) => (
+                <Option key={model} value={model}>
+                  {model}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
         </div>
 
-        {/* Sticky Footer */}
-        <div className="sticky bottom-[-32px] -mx-8 -mb-8 px-8 py-4 bg-white border-t border-gray-200 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center gap-4">
-            <Form.Item name="model_provider" noStyle>
-              <Select
-                size="large"
-                className="w-40"
-                onChange={(v) => {
-                  setSelectedProvider(v);
-                  const defaultModel =
-                    v === "gemini" ? "gemini-2.5-pro" : supportedModels[v]?.[0];
-                  form.setFieldsValue({ model_name: defaultModel });
-                }}
-                suffixIcon={<DownOutlined className="text-gray-400 text-xs" />}
-              >
-                <Option value="openai">OpenAI</Option>
-                <Option value="gemini">Google Gemini</Option>
-              </Select>
-            </Form.Item>
+        {/* Investor & Version Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Form.Item
+            name="investor"
+            label={<span className="text-gray-600">Investors</span>}
+            rules={[{ required: true, message: "Investor is required" }]}
+            className="mb-0"
+          >
+            <Input size="large" placeholder="Enter" className="rounded-md" />
+          </Form.Item>
 
-            <Form.Item name="model_name" noStyle>
-              <Select
-                size="large"
-                className="w-48"
-                suffixIcon={<DownOutlined className="text-gray-400 text-xs" />}
-              >
-                {supportedModels[selectedProvider]?.map((model) => (
-                  <Option key={model} value={model}>
-                    {model}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </div>
+          <Form.Item
+            name="version"
+            label={<span className="text-gray-600">Version</span>}
+            rules={[{ required: true, message: "Version is required" }]}
+            className="mb-0"
+          >
+            <Input size="large" placeholder="Enter" className="rounded-md" />
+          </Form.Item>
+        </div>
 
-          {/* File Upload + Submit */}
-          <div className="flex items-center gap-4">
-            {file ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                <FileTextOutlined className="text-blue-600" />
-                <span className="text-blue-900 text-sm font-medium truncate max-w-[200px]">
-                  {file.name}
-                </span>
-                <Button
-                  type="text"
-                  icon={<CloseCircleOutlined />}
-                  onClick={handleRemoveFile}
-                />
+        {/* Attach Documents Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-normal text-gray-700 mb-4">Attach Documents</h2>
+
+          {!file ? (
+            <Dragger {...uploadProps} className="bg-gray-50 border-dashed border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors">
+              <div className="py-12">
+                <p className="ant-upload-drag-icon mb-4">
+                  <InboxOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
+                </p>
+                <p className="text-lg text-blue-500 mb-2">
+                  Upload a file <span className="text-gray-500">or drag and drop</span>
+                </p>
+                <p className="text-gray-400 text-sm">
+                  pdf, csv, xlsc. up to 5MB
+                </p>
               </div>
-            ) : (
+            </Dragger>
+          ) : (
+            <div className="border border-gray-200 rounded-lg p-6 flex items-center justify-between bg-white shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="bg-red-50 p-3 rounded-lg">
+                  <FileTextOutlined className="text-red-500 text-xl" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800 text-lg">{file.name}</p>
+                  <p className="text-gray-500 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              </div>
               <Button
-                size="large"
-                onClick={handleAttachClick}
-                icon={<PaperClipOutlined />}
+                danger
+                type="text"
+                icon={<DeleteOutlined />}
+                onClick={handleRemoveFile}
+                className="hover:bg-red-50"
               >
-                Attach PDF
+                Remove
               </Button>
-            )}
+            </div>
+          )}
+        </div>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              hidden
-              accept="application/pdf"
-              onChange={handleFileSelect}
-            />
-
-            <Button
-              type="primary"
-              size="large"
-              htmlType="submit"
-              loading={processing}
-              disabled={!file}
-              icon={!processing && <SendOutlined />}
-            >
-              {processing ? "Processing..." : "Extract"}
-            </Button>
-          </div>
+        {/* Submit Button Area */}
+        <div className="flex justify-end">
+          <Button
+            type="primary"
+            htmlType="submit"
+            size="large"
+            className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
+            loading={processing}
+            disabled={!file}
+          >
+            {processing ? "Processing..." : "Extract Guidelines"}
+          </Button>
         </div>
       </Form>
 
@@ -301,9 +314,7 @@ const IngestPage = () => {
         centered
         title={
           <div className="flex items-center gap-3">
-            <Spin
-              indicator={<LoadingOutlined spin style={{ fontSize: 26 }} />}
-            />
+            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 26 }} />} />
             <span className="text-lg font-semibold">Processing Guideline</span>
           </div>
         }
@@ -327,9 +338,7 @@ const IngestPage = () => {
               <FileExcelOutlined className="text-green-600 text-xl" />
             </div>
             <h3 className="font-semibold text-lg">Extraction Results</h3>
-            <Tag color="blue">
-              {convertToTableData(previewData).length} rows
-            </Tag>
+            <Tag color="blue">{convertToTableData(previewData).length} rows</Tag>
           </div>
 
           <Space>
