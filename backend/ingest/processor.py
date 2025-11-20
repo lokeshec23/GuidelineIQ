@@ -17,13 +17,15 @@ async def process_guideline_background(
     session_id: str,
     pdf_path: str,
     filename: str,
-    investor: str,          # ✅ ADDED
-    version: str,           # ✅ ADDED
+    investor: str,
+    version: str,
     user_settings: dict,
     model_provider: str,
     model_name: str,
     system_prompt: str,
     user_prompt: str,
+    user_id: str = None,           # ✅ NEW: For history tracking
+    username: str = "Unknown",     # ✅ NEW: For history tracking
 ):
     excel_path = None
     try:
@@ -97,6 +99,23 @@ async def process_guideline_background(
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
             })
+
+        # ✅ NEW: Save to history after successful completion
+        if user_id:
+            try:
+                from history.models import save_ingest_history
+                await save_ingest_history({
+                    "user_id": user_id,
+                    "username": username,
+                    "investor": investor,
+                    "version": version,
+                    "uploaded_file": filename,
+                    "extracted_file": f"extraction_{investor}_{version}.xlsx",
+                    "preview_data": results  # ✅ NEW: Save Excel output for preview
+                })
+                print(f"✅ Saved to ingest history for user: {username}")
+            except Exception as hist_err:
+                print(f"⚠️ Failed to save history: {hist_err}")
 
     except Exception as e:
         error_msg = str(e)

@@ -6,6 +6,7 @@ import tempfile
 import json
 import asyncio
 from typing import AsyncGenerator
+from bson import ObjectId
 from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
 
@@ -80,6 +81,12 @@ async def ingest_guideline(
             detail="API keys not configured. Please contact the administrator to configure API keys."
         )
 
+    # ✅ NEW: Get current user's info for history tracking
+    from database import users_collection
+    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
     session_id = str(uuid.uuid4())
     
     try:
@@ -104,6 +111,8 @@ async def ingest_guideline(
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
+        user_id=user_id,  # ✅ NEW: Pass user_id for history
+        username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
     )
     
     return IngestResponse(status="processing", message="Processing started", session_id=session_id)

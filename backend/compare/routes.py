@@ -3,6 +3,7 @@ import os
 import uuid
 import tempfile
 import json
+from bson import ObjectId
 from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from compare.schemas import CompareResponse, ComparisonStatus
@@ -17,12 +18,8 @@ from typing import AsyncGenerator
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
 
-# ✅ Define the dependency function properly
 async def get_current_user_id_from_token(authorization: str = Header(...)) -> str:
-    """
-    A FastAPI dependency that extracts and validates the user ID from a JWT
-    token in the 'Authorization' header.
-    """
+    """Extract and validate user ID from JWT token"""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     
@@ -68,7 +65,7 @@ async def compare_guidelines(
             detail=f"Unsupported model '{model_name}' for provider '{model_provider}'"
         )
     
-    # ✅ UPDATED: Fetch admin's settings instead of current user's
+    # Fetch admin's settings
     admin_user = await get_admin_user()
     if not admin_user:
         raise HTTPException(
@@ -111,6 +108,12 @@ async def compare_guidelines(
         file2_path = tmp2.name
         print(f"File 2 saved: {len(content2) / 1024:.2f} KB")
     
+    # ✅ NEW: Get current user's info for history tracking
+    from database import users_collection
+    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     # Initialize progress
     from utils.progress import update_progress
     update_progress(session_id, 0, "Starting comparison...")
@@ -123,11 +126,13 @@ async def compare_guidelines(
         file2_path=file2_path,
         file1_name=file1.filename,
         file2_name=file2.filename,
-        user_settings=admin_settings,  # ✅ UPDATED: Use admin's settings
+        user_settings=admin_settings,
         model_provider=model_provider,
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
+        user_id=user_id,  # ✅ NEW: Pass user_id for history
+        username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
     )
     
     return CompareResponse(
@@ -152,7 +157,6 @@ async def progress_stream(session_id: str):
                 progress_data = progress_store.get(session_id)
             
             if not progress_data:
-                # Session not found, might be deleted after download
                 break
                 
             current_progress = progress_data["progress"]
@@ -162,7 +166,6 @@ async def progress_stream(session_id: str):
                 yield f"data: {json.dumps(progress_data)}\n\n"
                 retry_count = 0
             
-            # Check if processing is complete
             if progress_data.get("status") in ["completed", "failed", "cancelled"]:
                 await asyncio.sleep(0.5)
                 break
@@ -224,7 +227,6 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
         session_data = progress_store.get(session_id)
         
         if not session_data:
-            # More helpful error message
             raise HTTPException(
                 status_code=404, 
                 detail="Session not found. The file might have already been downloaded or the session expired."
@@ -245,11 +247,9 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                 detail="Result file has been deleted or moved"
             )
         
-        # Delete session from store to prevent re-downloads (matching ingest pattern)
         del progress_store[session_id]
         print(f"Session {session_id[:8]} removed from store after download")
     
-    # Schedule cleanup of the Excel file after response
     background_tasks.add_task(cleanup_file, path=excel_path)
     
     return FileResponse(

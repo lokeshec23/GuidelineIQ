@@ -17,7 +17,8 @@ os.environ["AZURE_CLI_DISABLE_CONNECTION_VERIFICATION"] = "1"
 from auth.routes import router as auth_router
 from settings.routes import router as settings_router
 from ingest.routes import router as ingest_router
-from compare.routes import router as compare_router  # ✅ NEW
+from compare.routes import router as compare_router
+from history.routes import router as history_router
 
 # Initialize FastAPI
 app = FastAPI(
@@ -39,7 +40,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(settings_router)
 app.include_router(ingest_router)
-app.include_router(compare_router)  # ✅ NEW
+app.include_router(compare_router)
+app.include_router(history_router)
 
 # Health check
 @app.get("/")
@@ -51,7 +53,8 @@ def root():
             "auth": "/auth",
             "settings": "/settings",
             "ingest": "/ingest",
-            "compare": "/compare",  # ✅ NEW
+            "compare": "/compare",
+            "history": "/history",
             "docs": "/docs"
         }
     }

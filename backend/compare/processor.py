@@ -22,7 +22,9 @@ async def process_comparison_background(
     model_provider: str,
     model_name: str,
     system_prompt: str,
-    user_prompt: str
+    user_prompt: str,
+    user_id: str = None,           # ✅ NEW: For history tracking
+    username: str = "Unknown",     # ✅ NEW: For history tracking
 ):
     """
     Background async task to compare two guideline Excel files.
@@ -63,7 +65,7 @@ async def process_comparison_background(
         chunk_size = user_settings.get("comparison_chunk_size", 10)
         comparison_chunks = create_comparison_chunks(aligned_data, chunk_size)
 
-        max_chunks = user_settings.get("max_comparison_chunks", 0)
+        max_chunks = user_settings.get("max_comparison_chunks", 15)
         if max_chunks > 0:
             comparison_chunks = comparison_chunks[:max_chunks]
             print(f"⚠️ Limited to {max_chunks} chunks for testing")
@@ -124,6 +126,25 @@ async def process_comparison_background(
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
             })
+
+        # ✅ NEW: Save to history after successful completion
+        if user_id:
+            try:
+                from history.models import save_compare_history
+                await save_compare_history({
+                    "user_id": user_id,
+                    "username": username,
+                    "uploaded_file1": file1_name,
+                    "uploaded_file2": file2_name,
+                    "extracted_file": (
+                        f"comparison_{os.path.splitext(file1_name)[0]}_vs_"
+                        f"{os.path.splitext(file2_name)[0]}.xlsx"
+                    ),
+                    "preview_data": results  # ✅ NEW: Save comparison output for preview
+                })
+                print(f"✅ Saved to compare history for user: {username}")
+            except Exception as hist_err:
+                print(f"⚠️ Failed to save history: {hist_err}")
 
     except Exception as e:
         error_msg = str(e)
