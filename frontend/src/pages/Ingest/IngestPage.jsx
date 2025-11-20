@@ -110,7 +110,7 @@ const IngestPage = () => {
       // NEW: attach prompts from PromptContext
       formData.append("system_prompt", ingestPrompts.system_prompt || "");
       formData.append("user_prompt", ingestPrompts.user_prompt || "");
-
+      debugger;
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id } = res.data;
       setSessionId(session_id);

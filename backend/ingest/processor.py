@@ -28,7 +28,7 @@ async def process_guideline_background(
     excel_path = None
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
-
+        print(f"user prompt: {user_prompt}")
         print(f"\n{'='*60}")
         print(f"Parallel ingestion started for session {session_id[:8]}")
         print(f"Investor: {investor} | Version: {version}")
