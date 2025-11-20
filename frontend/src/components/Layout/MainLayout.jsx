@@ -76,11 +76,11 @@ const MainLayout = ({ children }) => {
   // --- 2. Menu Items Construction ---
   const getMenuItems = () => {
     const baseItems = [
-      // {
-      //   key: "/dashboard",
-      //   icon: <AppstoreOutlined />,
-      //   label: "Dashboard",
-      // },
+      {
+        key: "/dashboard",
+        icon: <AppstoreOutlined />,
+        label: "Dashboard",
+      },
       {
         key: "/ingest",
         icon: <FileTextOutlined />,
@@ -137,7 +137,7 @@ const MainLayout = ({ children }) => {
               //   ? "bg-[#1890ff] text-white shadow-md" // Active: Blue Circle
               //   :
               "bg-gray-200 text-gray-500 group-hover:bg-gray-300" // Inactive: Gray Circle
-            }`}
+              }`}
           >
             {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
           </div>
@@ -145,11 +145,10 @@ const MainLayout = ({ children }) => {
         // STYLING LOGIC:
         // Active = White Background + Shadow
         // Inactive = Transparent (showing gray sidebar)
-        className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${
-          isActive
+        className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${isActive
             ? "bg-white shadow-sm border border-gray-100"
             : "bg-transparent hover:bg-gray-200/50 text-gray-600"
-        }`,
+          }`,
       };
     });
   };
@@ -250,27 +249,23 @@ const MainLayout = ({ children }) => {
 
             {/* Footer Buttons */}
             <div
-              className={`p-4 border-t border-gray-200 bg-[#f9fafb] ${
-                collapsed ? "px-2" : "px-4"
-              }`}
+              className={`p-4 border-t border-gray-200 bg-[#f9fafb] ${collapsed ? "px-2" : "px-4"
+                }`}
             >
               <div
-                className={`flex ${
-                  collapsed ? "flex-col gap-4 items-center" : "flex-row gap-3"
-                }`}
+                className={`flex ${collapsed ? "flex-col gap-4 items-center" : "flex-row gap-3"
+                  }`}
               >
                 <Button
-                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${
-                    collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
-                  }`}
+                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
+                    }`}
                   icon={<MessageOutlined />}
                 >
                   {!collapsed && "Support"}
                 </Button>
                 <Button
-                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${
-                    collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
-                  }`}
+                  className={`flex items-center justify-center text-gray-500 border-gray-300 bg-white shadow-sm hover:border-blue-400 hover:text-blue-500 ${collapsed ? "w-10 h-10 rounded-full p-0" : "flex-1"
+                    }`}
                   icon={<LikeOutlined />}
                 >
                   {!collapsed && "Feedback"}

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import MainLayout from "./components/Layout/MainLayout";
 import LoginPage from "./pages/Auth/LoginPage";
 import RegisterPage from "./pages/Auth/RegisterPage";
+import DashboardPage from "./pages/Dashboard/DashboardPage";
 import IngestPage from "./pages/Ingest/IngestPage";
 import ComparePage from "./pages/Compare/ComparePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
@@ -44,7 +45,7 @@ const PublicRoute = ({ children }) => {
   }
 
   if (user) {
-    return <Navigate to="/ingest" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -72,6 +73,14 @@ function AppRoutes() {
       />
 
       {/* Protected Routes */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/ingest"
         element={
@@ -115,11 +124,11 @@ function AppRoutes() {
         }
       />
 
-      {/* Redirect root to ingest */}
-      <Route path="/" element={<Navigate to="/ingest" replace />} />
+      {/* Redirect root to dashboard */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* 404 */}
-      <Route path="*" element={<Navigate to="/ingest" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }
