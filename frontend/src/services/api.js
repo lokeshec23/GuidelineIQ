@@ -93,9 +93,13 @@ export const ingestAPI = {
   // ✅ NEW: Get Excel as base64
   getExcelBase64: (sessionId) => api.get(`/ingest/excel/${sessionId}`),
 
+
   // Progress stream (EventSource)
   createProgressStream: (sessionId) => {
-    return new EventSource(`${API_BASE_URL}/ingest/progress/${sessionId}`);
+    const token = sessionStorage.getItem("access_token");
+    const url = `${API_BASE_URL}/ingest/progress/${sessionId}${token ? `?token=${token}` : ''}`;
+    console.log("Creating EventSource with URL:", url);
+    return new EventSource(url);
   },
 
   // ✅ Download Excel file
@@ -124,7 +128,10 @@ export const compareAPI = {
   getPreview: (sessionId) => api.get(`/compare/preview/${sessionId}`),
 
   createProgressStream: (sessionId) => {
-    return new EventSource(`${API_BASE_URL}/compare/progress/${sessionId}`);
+    const token = sessionStorage.getItem("access_token");
+    const url = `${API_BASE_URL}/compare/progress/${sessionId}${token ? `?token=${token}` : ''}`;
+    console.log("Creating Compare EventSource with URL:", url);
+    return new EventSource(url);
   },
 
   downloadExcel: (sessionId) => {

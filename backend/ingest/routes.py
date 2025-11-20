@@ -123,7 +123,8 @@ async def progress_stream(session_id: str):
 
             current_progress = progress_data["progress"]
             if current_progress != last_progress:
-                yield f"data: {json.dumps(progress_data)}\\n\\n"
+                # ✅ FIXED: Use proper newlines instead of escaped backslashes
+                yield f"data: {json.dumps(progress_data)}\n\n"
                 last_progress = current_progress
 
             if progress_data.get("status") in ["completed", "failed", "cancelled"]:

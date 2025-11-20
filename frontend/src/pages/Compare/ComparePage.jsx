@@ -112,42 +112,76 @@ const ComparePage = () => {
       fd.append("system_prompt", comparePrompts.system_prompt || "");
       fd.append("user_prompt", comparePrompts.user_prompt || "");
 
+      console.log("Starting comparison...");
       const res = await compareAPI.compareGuidelines(fd);
       const { session_id } = res.data;
       setSessionId(session_id);
+      console.log("Session ID:", session_id);
 
+      // Create progress stream
       const es = compareAPI.createProgressStream(session_id);
-      es.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        setProgress(data.progress);
-        setProgressMessage(data.message);
 
-        if (data.progress >= 100) {
-          es.close();
-          setProcessing(false);
-          setProcessingModalVisible(false);
-          loadPreview(session_id);
-          message.success("Comparison complete!");
+      es.onmessage = (event) => {
+        console.log("Progress event received:", event.data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log("Parsed progress data:", data);
+
+          setProgress(data.progress || 0);
+          setProgressMessage(data.message || "Processing...");
+
+          // Check for completion
+          if (data.status === "completed" || data.progress >= 100) {
+            console.log("Comparison completed, closing stream");
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
+
+            // Load preview after a short delay
+            setTimeout(() => {
+              console.log("Loading preview for session:", session_id);
+              loadPreview(session_id);
+            }, 500);
+
+            message.success("Comparison complete!");
+          } else if (data.status === "failed") {
+            console.error("Comparison failed:", data.error);
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
+            message.error(data.error || "Comparison failed");
+          }
+        } catch (parseError) {
+          console.error("Error parsing progress data:", parseError);
         }
       };
 
-      es.onerror = () => {
+      es.onerror = (error) => {
+        console.error("SSE error:", error);
         es.close();
         setProcessing(false);
         setProcessingModalVisible(false);
-        message.error("Comparison failed");
+        message.error("Connection error. Please try again.");
       };
+
+      es.onopen = () => {
+        console.log("SSE connection opened");
+      };
+
     } catch (err) {
+      console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
-      message.error("Failed to start comparison");
+      message.error(err.response?.data?.detail || "Failed to start comparison");
     }
   };
 
   // --- LOAD PREVIEW ---
   const loadPreview = async (sid) => {
+    console.log("loadPreview called with session ID:", sid);
     try {
       const res = await compareAPI.getPreview(sid);
+      console.log("Preview data received:", res.data);
       const data = res.data;
 
       if (data?.length > 0) {
@@ -162,13 +196,17 @@ const ComparePage = () => {
         }));
         setTableColumns(cols);
         setPreviewData(data);
+        console.log("Opening preview modal...");
+        setPreviewModalVisible(true);
       } else {
+        console.log("No data found, showing empty state");
         setTableColumns([{ title: "Result", dataIndex: "content" }]);
         setPreviewData([{ key: 1, content: "No structured comparison found" }]);
+        setPreviewModalVisible(true);
       }
-      setPreviewModalVisible(true);
-    } catch {
-      message.error("Failed to load preview");
+    } catch (error) {
+      console.error("Failed to load preview:", error);
+      message.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
     }
   };
 

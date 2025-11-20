@@ -74,7 +74,6 @@ const IngestPage = () => {
   const handleFileChange = (info) => {
     const { status } = info.file;
     if (status !== 'uploading') {
-      // We only want one file
       const selectedFile = info.file.originFileObj || info.file;
 
       if (selectedFile.type !== "application/pdf") {
@@ -111,42 +110,76 @@ const IngestPage = () => {
       formData.append("system_prompt", ingestPrompts.system_prompt || "");
       formData.append("user_prompt", ingestPrompts.user_prompt || "");
 
+      console.log("Starting ingestion...");
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id } = res.data;
       setSessionId(session_id);
+      console.log("Session ID:", session_id);
 
+      // Create progress stream
       const es = ingestAPI.createProgressStream(session_id);
-      es.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        setProgress(data.progress);
-        setProgressMessage(data.message);
 
-        if (data.progress >= 100) {
-          es.close();
-          setProcessing(false);
-          setProcessingModalVisible(false);
-          loadPreview(session_id);
-          message.success("Processing complete!");
+      es.onmessage = (event) => {
+        console.log("Progress event received:", event.data);
+        try {
+          const data = JSON.parse(event.data);
+          console.log("Parsed progress data:", data);
+
+          setProgress(data.progress || 0);
+          setProgressMessage(data.message || "Processing...");
+
+          // Check for completion
+          if (data.status === "completed" || data.progress >= 100) {
+            console.log("Processing completed, closing stream");
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
+
+            // Load preview
+            setTimeout(() => {
+              console.log("Loading preview for session:", session_id);
+              loadPreview(session_id);
+            }, 500);
+
+            message.success("Processing complete!");
+          } else if (data.status === "failed") {
+            console.error("Processing failed:", data.error);
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
+            message.error(data.error || "Processing failed");
+          }
+        } catch (parseError) {
+          console.error("Error parsing progress data:", parseError);
         }
       };
 
-      es.onerror = () => {
+      es.onerror = (error) => {
+        console.error("SSE error:", error);
         es.close();
         setProcessing(false);
         setProcessingModalVisible(false);
-        message.error("Connection error");
+        message.error("Connection error. Please try again.");
       };
+
+      es.onopen = () => {
+        console.log("SSE connection opened");
+      };
+
     } catch (err) {
+      console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
-      message.error("Failed to start processing");
+      message.error(err.response?.data?.detail || "Failed to start processing");
     }
   };
 
   // --- LOAD PREVIEW ---
   const loadPreview = async (sid) => {
+    console.log("loadPreview called with session ID:", sid);
     try {
       const res = await ingestAPI.getPreview(sid);
+      console.log("Preview data received:", res.data);
       const data = res.data;
 
       if (data?.length > 0) {
@@ -161,13 +194,17 @@ const IngestPage = () => {
         }));
         setTableColumns(cols);
         setPreviewData(data);
+        console.log("Opening preview modal...");
+        setPreviewModalVisible(true);
       } else {
+        console.log("No data found, showing empty state");
         setTableColumns([{ title: "Result", dataIndex: "content" }]);
         setPreviewData([{ key: 1, content: "No structured data found." }]);
+        setPreviewModalVisible(true);
       }
-      setPreviewModalVisible(true);
-    } catch {
-      message.error("Failed to load preview");
+    } catch (error) {
+      console.error("Failed to load preview:", error);
+      message.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -178,7 +215,7 @@ const IngestPage = () => {
     name: 'file',
     multiple: false,
     showUploadList: false,
-    beforeUpload: () => false, // Prevent auto upload
+    beforeUpload: () => false,
     onChange: handleFileChange,
     accept: ".pdf"
   };
@@ -299,7 +336,7 @@ const IngestPage = () => {
             size="large"
             className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
             loading={processing}
-            disabled={!file}
+            disabled={!file || processing}
           >
             {processing ? "Processing..." : "Extract Guidelines"}
           </Button>
@@ -319,8 +356,9 @@ const IngestPage = () => {
           </div>
         }
       >
-        <Progress percent={progress} status="active" />
+        <Progress percent={Math.round(progress)} status="active" strokeColor="#1890ff" />
         <p className="text-center mt-3 text-gray-600">{progressMessage}</p>
+        <p className="text-center mt-2 text-gray-400 text-xs">Session: {sessionId?.substring(0, 8)}</p>
       </Modal>
 
       {/* Preview Modal */}
@@ -346,7 +384,11 @@ const IngestPage = () => {
             <Button
               type="primary"
               icon={<DownloadOutlined />}
-              onClick={() => ingestAPI.downloadExcel(sessionId)}
+              onClick={() => {
+                if (sessionId) {
+                  ingestAPI.downloadExcel(sessionId);
+                }
+              }}
             >
               Download Excel
             </Button>
