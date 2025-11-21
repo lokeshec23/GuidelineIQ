@@ -93,9 +93,14 @@ const MainLayout = ({ children }) => {
         label: "Compare Guidelines",
       },
       {
-        key: "/prompts",
+        key: "/ingestion-prompt",
         icon: <EditOutlined />,
-        label: "Prompts",
+        label: "Ingestion Prompt",
+      },
+      {
+        key: "/comparison-prompt",
+        icon: <EditOutlined />,
+        label: "Comparison Prompt",
       },
       {
         key: "/settings",
@@ -134,8 +139,8 @@ const MainLayout = ({ children }) => {
           </div>
         ),
         className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${isActive
-            ? "bg-white shadow-sm border border-gray-100"
-            : "bg-transparent hover:bg-gray-200/50 text-gray-600"
+          ? "bg-white shadow-sm border border-gray-100"
+          : "bg-transparent hover:bg-gray-200/50 text-gray-600"
           }`,
       };
     });
