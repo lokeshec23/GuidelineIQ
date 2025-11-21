@@ -167,14 +167,14 @@ const MainLayout = ({ children }) => {
         </div>
 
         <div className="flex items-center gap-5">
-          <Badge count={3} size="small" offset={[-2, 2]} color="#1890ff">
+          {/* <Badge count={3} size="small" offset={[-2, 2]} color="#1890ff">
             <Button
               type="text"
               shape="circle"
               icon={<BellOutlined style={{ fontSize: "18px" }} />}
               className="text-gray-500 hover:text-gray-700 flex items-center justify-center"
             />
-          </Badge>
+          </Badge> */}
 
           <Dropdown
             dropdownRender={() => userProfileCard}
@@ -211,7 +211,7 @@ const MainLayout = ({ children }) => {
           }}
           className="border-r border-gray-200 h-full flex flex-col justify-between"
         >
-          <div className="flex flex-col h-full bg-[#f9fafb]">
+          <div className="flex flex-col h-full bg-[#f9fafb] pb-6">
             {/* Collapse Toggle */}
             <div className="flex items-center justify-end p-4 h-14 mb-2">
               {!collapsed && (
@@ -240,7 +240,7 @@ const MainLayout = ({ children }) => {
             </div>
 
             {/* Footer Buttons */}
-            <div
+            {/* <div
               className={`p-4 border-t border-gray-200 bg-[#f9fafb] ${collapsed ? "px-2" : "px-4"
                 }`}
             >
@@ -263,7 +263,7 @@ const MainLayout = ({ children }) => {
                   {!collapsed && "Feedback"}
                 </Button>
               </div>
-            </div>
+            </div> */}
           </div>
         </Sider>
 
