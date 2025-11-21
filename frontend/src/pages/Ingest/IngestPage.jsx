@@ -183,7 +183,19 @@ const IngestPage = () => {
       console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
-      message.error(err.response?.data?.detail || "Failed to start processing");
+
+      const errorMessage = err.response?.data?.detail || "Failed to start processing";
+
+      if (errorMessage && errorMessage.includes("Duplicate ingestion")) {
+        // Modal.warning({
+        //   title: "Duplicate Ingestion",
+        //   content: errorMessage,
+        //   okText: "Got it",
+        // });
+        alert(errorMessage)
+      } else {
+        message.error(errorMessage);
+      }
     }
   };
 

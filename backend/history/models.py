@@ -101,3 +101,13 @@ async def delete_compare_history(record_id: str, user_id: str) -> bool:
     except Exception as e:
         print(f"❌ Error deleting compare history: {e}")
         return False
+
+
+async def check_duplicate_ingestion(investor: str, version: str, user_id: str) -> bool:
+    """Check if an ingestion with the same investor and version already exists for the user"""
+    count = await ingest_history_collection.count_documents({
+        "user_id": user_id,
+        "investor": investor,
+        "version": version
+    })
+    return count > 0

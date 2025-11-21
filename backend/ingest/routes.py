@@ -17,6 +17,7 @@ from settings.models import get_user_settings
 from auth.utils import verify_token
 from auth.middleware import get_admin_user
 from utils.progress import update_progress, get_progress, delete_progress, progress_store, progress_lock
+from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 
 router = APIRouter(prefix="/ingest", tags=["Ingest Guideline"])
@@ -86,6 +87,13 @@ async def ingest_guideline(
     current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # ✅ NEW: Check for duplicate ingestion
+    if await check_duplicate_ingestion(investor, version, user_id):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Duplicate ingestion: Guidelines for Investor '{investor}' and Version '{version}' already exist."
+        )
 
     session_id = str(uuid.uuid4())
     
