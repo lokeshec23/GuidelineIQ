@@ -8,6 +8,7 @@ import DashboardPage from "./pages/Dashboard/DashboardPage";
 import IngestPage from "./pages/Ingest/IngestPage";
 import ComparePage from "./pages/Compare/ComparePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
+import PromptsPage from "./pages/Prompts/PromptsPage";
 import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
 import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
 import { PromptProvider } from "./context/PromptContext";
@@ -102,6 +103,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/prompts"
+        element={
+          <ProtectedRoute>
+            <PromptsPage />
           </ProtectedRoute>
         }
       />

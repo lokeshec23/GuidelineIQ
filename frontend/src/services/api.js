@@ -144,4 +144,11 @@ export const compareAPI = {
   },
 };
 
+// Prompts API
+export const promptsAPI = {
+  getUserPrompts: () => api.get("/prompts"),
+  saveUserPrompts: (prompts) => api.put("/prompts", prompts),
+  resetUserPrompts: () => api.post("/prompts/reset"),
+};
+
 export default api;

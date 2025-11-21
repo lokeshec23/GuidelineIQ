@@ -10,6 +10,7 @@ users_collection = None
 settings_collection = None
 ingest_history_collection = None
 compare_history_collection = None
+user_prompts_collection = None
 
 try:
     client = AsyncIOMotorClient(MONGO_URI)
@@ -18,6 +19,7 @@ try:
     settings_collection = db["settings"]
     ingest_history_collection = db["ingest_history"]
     compare_history_collection = db["compare_history"]
+    user_prompts_collection = db["user_prompts"]
     print("✅ MongoDB connection successful.")
 except Exception as e:
     print(f"❌ MongoDB connection failed: {e}")

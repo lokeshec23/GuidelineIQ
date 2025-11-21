@@ -51,3 +51,12 @@ async def get_admin_user() -> dict:
     """
     admin = await users_collection.find_one({"role": "admin"})
     return admin
+
+
+async def get_current_user_id(authorization: str = Header(...)) -> str:
+    """
+    FastAPI dependency that extracts and returns just the user ID from the JWT token.
+    Used by routes that only need the user ID.
+    """
+    user = await get_current_user_from_token(authorization)
+    return str(user["_id"])

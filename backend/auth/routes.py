@@ -18,6 +18,15 @@ async def register_user(user: UserCreate):
     hashed_pw = hash_password(user.password)
     user_data = {"username": user.username, "email": user.email, "password": hashed_pw, "role": "user"}
     new_user = await create_user(user_data)
+    user_id = str(new_user["_id"])
+    
+    # Initialize default prompts for the new user
+    try:
+        from prompts.models import initialize_user_prompts
+        await initialize_user_prompts(user_id)
+        print(f"✅ Initialized default prompts for user: {user.email}")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize prompts for user {user.email}: {e}")
 
     return UserOut(id=str(new_user["_id"]), username=new_user["username"], email=new_user["email"], role=new_user["role"])
 

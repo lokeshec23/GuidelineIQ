@@ -24,13 +24,12 @@ async def process_guideline_background(
     model_name: str,
     system_prompt: str,
     user_prompt: str,
-    user_id: str = None,           # ✅ NEW: For history tracking
-    username: str = "Unknown",     # ✅ NEW: For history tracking
+    user_id: str = None,
+    username: str = "Unknown",
 ):
     excel_path = None
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
-        print(f"user prompt: {user_prompt}")
         print(f"\n{'='*60}")
         print(f"Parallel ingestion started for session {session_id[:8]}")
         print(f"Investor: {investor} | Version: {version}")
@@ -39,7 +38,7 @@ async def process_guideline_background(
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"{'='*60}\n")
 
-        # ✅ VALIDATE PROMPTS - Use defaults if empty
+        # Validate prompts - Use defaults if empty
         if not user_prompt.strip():
             from config import DEFAULT_INGEST_PROMPT_USER
             user_prompt = DEFAULT_INGEST_PROMPT_USER
@@ -70,7 +69,7 @@ async def process_guideline_background(
             llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks
         )
 
-        # ✅ VALIDATE OUTPUT
+        # Validate output
         if not results:
             raise ValueError("LLM returned no valid data. Check prompts and model response.")
 
@@ -100,7 +99,7 @@ async def process_guideline_background(
                 "failed_chunks": failed,
             })
 
-        # ✅ NEW: Save to history after successful completion
+        # Save to history after successful completion
         if user_id:
             try:
                 from history.models import save_ingest_history
@@ -111,7 +110,7 @@ async def process_guideline_background(
                     "version": version,
                     "uploaded_file": filename,
                     "extracted_file": f"extraction_{investor}_{version}.xlsx",
-                    "preview_data": results  # ✅ NEW: Save Excel output for preview
+                    "preview_data": results
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
             except Exception as hist_err:
@@ -134,9 +133,6 @@ async def process_guideline_background(
             print("Temporary PDF file cleaned up.")
 
 
-# ---------------------------------------------------------
-# PARALLEL LLM PROCESSING
-# ---------------------------------------------------------
 async def run_parallel_llm_processing(
     llm: LLMProvider,
     text_chunks: List[str],
@@ -155,7 +151,6 @@ async def run_parallel_llm_processing(
     async def handle_chunk(idx: int, chunk_text: str):
         nonlocal results, failed_count, completed
 
-        # ✅ Enhanced user message with strict output enforcement
         user_msg = f"""{user_prompt}
 
 ### METADATA
@@ -186,9 +181,6 @@ Start with '[' and end with ']'. No markdown, no explanations."""
                 async with lock:
                     results.extend(parsed)
             else:
-                # ✅ Log the actual response for debugging
-                print(f"❌ Chunk {idx+1} returned invalid JSON. Response preview:")
-                print(response[:500])
                 failed_count += 1
 
         except Exception as e:
@@ -212,9 +204,6 @@ Start with '[' and end with ']'. No markdown, no explanations."""
     return results, failed_count
 
 
-# ---------------------------------------------------------
-# LLM Initialization
-# ---------------------------------------------------------
 def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> LLMProvider:
     params = {
         "temperature": user_settings.get("temperature", 0.5),
@@ -244,52 +233,34 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
     raise ValueError(f"Unsupported provider: {provider}")
 
 
-# ---------------------------------------------------------
-# Parse LLM JSON Output with Schema Validation
-# ---------------------------------------------------------
 def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
     import re
     
-    # Remove markdown code blocks if present
     cleaned = re.sub(r'```json\s*|\s*```', '', response.strip())
     
-    # Find JSON array or object
-    match = re.search(r'(\[.*\]|\{.*\})', cleaned, re.DOTALL)
-    if not match:
-        print(f"⚠️ Chunk {chunk_num}: No JSON found in response")
+    start = cleaned.find("[")
+    end = cleaned.rfind("]")
+
+    if start == -1 or end == -1:
         return []
 
     try:
-        data = json.loads(match.group(0))
-        
-        # Normalize to list
-        if isinstance(data, dict):
-            data = [data]
-        elif not isinstance(data, list):
-            print(f"⚠️ Chunk {chunk_num}: JSON is neither list nor dict")
+        data = json.loads(cleaned[start:end + 1])
+
+        if not isinstance(data, list):
             return []
         
-        # ✅ VALIDATE SCHEMA
         valid_items = []
         required_keys = {"category", "attribute", "guideline_summary"}
         
         for item in data:
             if not isinstance(item, dict):
                 continue
-                
-            # Check if all required keys are present
+            
             if required_keys.issubset(item.keys()):
                 valid_items.append(item)
-            else:
-                missing = required_keys - set(item.keys())
-                print(f"⚠️ Chunk {chunk_num}: Missing keys {missing} in item: {list(item.keys())}")
-        
-        if not valid_items:
-            print(f"⚠️ Chunk {chunk_num}: No valid items after schema validation")
         
         return valid_items
-        
-    except json.JSONDecodeError as e:
-        print(f"❌ Chunk {chunk_num}: JSON parse error: {e}")
-        print(f"Attempted to parse: {match.group(0)[:200]}...")
+
+    except json.JSONDecodeError:
         return []

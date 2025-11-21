@@ -25,7 +25,7 @@ import {
   CloudUploadOutlined,
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
-import { compareAPI, settingsAPI } from "../../services/api";
+import { compareAPI, settingsAPI, promptsAPI } from "../../services/api";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -34,8 +34,8 @@ const ComparePage = () => {
   const [form] = Form.useForm();
   const { comparePrompts } = usePrompts();
 
-  // --- STATE ---
-  const [files, setFiles] = useState([]); // Array to hold up to 2 files
+  // State
+  const [files, setFiles] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
@@ -71,15 +71,10 @@ const ComparePage = () => {
     }
   };
 
-  // --- FILE HANDLERS ---
   const handleFileChange = (info) => {
     const { status } = info.file;
     if (status !== 'uploading') {
       const newFile = info.file.originFileObj || info.file;
-
-      // Validate file type (Excel or PDF based on backend support, assuming Excel for compare based on previous code, but screenshot shows PDF icons. Sticking to previous code's Excel requirement or allowing both if backend supports. Previous code had .xlsx. Screenshot says "pdf, csv, xlsx". Let's allow .xlsx and .pdf)
-      // Actually previous code used .xlsx. The screenshot shows PDF. I will allow both but backend might fail if not supported.
-      // Let's assume backend supports what it supported before (Excel) but I'll update accept to match screenshot text "pdf, csv, xlsc".
 
       if (files.length >= 2) {
         message.warning("You can only compare 2 files. Please remove one to add another.");
@@ -94,7 +89,6 @@ const ComparePage = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // --- MAIN SUBMIT ---
   const handleSubmit = async (values) => {
     if (files.length < 2) return message.error("Please upload exactly 2 files to compare");
 
@@ -104,13 +98,26 @@ const ComparePage = () => {
       setProgressMessage("Starting comparison...");
       setProcessingModalVisible(true);
 
+      // Fetch user's prompts
+      let systemPrompt = "";
+      let userPrompt = "";
+
+      try {
+        const promptsRes = await promptsAPI.getUserPrompts();
+        systemPrompt = promptsRes.data.compare_prompts.system_prompt || "";
+        userPrompt = promptsRes.data.compare_prompts.user_prompt || "";
+        console.log("Fetched comparison prompts from user prompts");
+      } catch (err) {
+        console.warn("Could not fetch prompts from prompts API");
+      }
+
       const fd = new FormData();
       fd.append("file1", files[0]);
       fd.append("file2", files[1]);
       fd.append("model_provider", values.model_provider);
       fd.append("model_name", values.model_name);
-      fd.append("system_prompt", comparePrompts.system_prompt || "");
-      fd.append("user_prompt", comparePrompts.user_prompt || "");
+      fd.append("system_prompt", systemPrompt);
+      fd.append("user_prompt", userPrompt);
 
       console.log("Starting comparison...");
       const res = await compareAPI.compareGuidelines(fd);
@@ -118,7 +125,6 @@ const ComparePage = () => {
       setSessionId(session_id);
       console.log("Session ID:", session_id);
 
-      // Create progress stream
       const es = compareAPI.createProgressStream(session_id);
 
       es.onmessage = (event) => {
@@ -130,14 +136,12 @@ const ComparePage = () => {
           setProgress(data.progress || 0);
           setProgressMessage(data.message || "Processing...");
 
-          // Check for completion
           if (data.status === "completed" || data.progress >= 100) {
             console.log("Comparison completed, closing stream");
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
 
-            // Load preview after a short delay
             setTimeout(() => {
               console.log("Loading preview for session:", session_id);
               loadPreview(session_id);
@@ -176,7 +180,6 @@ const ComparePage = () => {
     }
   };
 
-  // --- LOAD PREVIEW ---
   const loadPreview = async (sid) => {
     console.log("loadPreview called with session ID:", sid);
     try {
@@ -353,47 +356,46 @@ const ComparePage = () => {
         closable={false}
         centered
         title={
-          <div className="flex items-center gap-3">
-            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 26 }} />} />
-            <span className="text-lg font-semibold">Comparing Guidelines</span>
+          <div className="flex items-center gap-2">
+            <LoadingOutlined className="text-blue-500" />
+            <span>Processing Comparison...</span>
           </div>
         }
       >
-        <Progress percent={progress} status="active" />
-        <p className="text-center mt-3 text-gray-600">{progressMessage}</p>
+        <div className="py-6">
+          <Progress
+            percent={Math.round(progress)}
+            status={progress >= 100 ? "success" : "active"}
+            strokeColor={{
+              '0%': '#108ee9',
+              '100%': '#87d068',
+            }}
+          />
+          <p className="mt-4 text-gray-600 text-center">{progressMessage}</p>
+        </div>
       </Modal>
 
       {/* Preview Modal */}
       <Modal
+        title="Comparison Results"
         open={previewModalVisible}
-        footer={null}
-        width="95vw"
-        centered
-        closable={false}
-        style={{ top: "20px" }}
+        onCancel={() => setPreviewModalVisible(false)}
+        width="90%"
+        footer={[
+          <Button key="close" onClick={() => setPreviewModalVisible(false)}>
+            Close
+          </Button>,
+          <Button
+            key="download"
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={() => compareAPI.downloadExcel(sessionId)}
+          >
+            Download Excel
+          </Button>,
+        ]}
       >
-        <div className="flex justify-between items-center px-6 py-4 border-b bg-white">
-          <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-2 rounded-full">
-              <SwapOutlined className="text-purple-600 text-xl" />
-            </div>
-            <h3 className="font-semibold text-lg">Comparison Results</h3>
-            <Tag color="blue">{convertRows(previewData).length} rows</Tag>
-          </div>
-
-          <Space>
-            <Button onClick={() => setPreviewModalVisible(false)}>Close</Button>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={() => compareAPI.downloadExcel(sessionId)}
-            >
-              Download Excel
-            </Button>
-          </Space>
-        </div>
-
-        <div className="p-4 bg-gray-50">
+        <div className="max-h-[70vh] overflow-auto">
           <Table
             dataSource={convertRows(previewData)}
             columns={tableColumns}

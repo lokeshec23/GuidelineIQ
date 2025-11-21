@@ -23,12 +23,11 @@ async def process_comparison_background(
     model_name: str,
     system_prompt: str,
     user_prompt: str,
-    user_id: str = None,           # ✅ NEW: For history tracking
-    username: str = "Unknown",     # ✅ NEW: For history tracking
+    user_id: str = None,
+    username: str = "Unknown",
 ):
     """
     Background async task to compare two guideline Excel files.
-    Uses REAL system + user roles.
     """
     excel_path = None
 
@@ -40,7 +39,7 @@ async def process_comparison_background(
         print(f"Model: {model_provider}/{model_name}")
         print(f"{'='*60}\n")
 
-        # ✅ VALIDATE PROMPTS - Use defaults if empty
+        # Validate prompts - Use defaults if empty
         if not user_prompt.strip():
             from config import DEFAULT_COMPARISON_PROMPT_USER
             user_prompt = DEFAULT_COMPARISON_PROMPT_USER
@@ -92,7 +91,7 @@ async def process_comparison_background(
             num_chunks
         )
 
-        # ✅ VALIDATE OUTPUT
+        # Validate output
         if not results:
             raise ValueError("LLM returned no valid comparison data. Check prompts and model response.")
 
@@ -127,7 +126,7 @@ async def process_comparison_background(
                 "failed_chunks": failed,
             })
 
-        # ✅ NEW: Save to history after successful completion
+        # Save to history after successful completion
         if user_id:
             try:
                 from history.models import save_compare_history
@@ -140,7 +139,7 @@ async def process_comparison_background(
                         f"comparison_{os.path.splitext(file1_name)[0]}_vs_"
                         f"{os.path.splitext(file2_name)[0]}.xlsx"
                     ),
-                    "preview_data": results  # ✅ NEW: Save comparison output for preview
+                    "preview_data": results
                 })
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
@@ -168,9 +167,6 @@ async def process_comparison_background(
                 print("Temporary comparison file cleaned up.")
 
 
-# ======================================================================
-# ✅ PARALLEL CHUNK PROCESSING WITH VALIDATION
-# ======================================================================
 async def run_parallel_comparison_with_validation(
     llm: LLMProvider,
     comparison_chunks: List[List[Dict]],
@@ -189,7 +185,6 @@ async def run_parallel_comparison_with_validation(
     async def handle_chunk(idx: int, chunk: List[Dict]):
         nonlocal chunk_results, failed_count, completed
 
-        # Convert chunk into clean JSON for LLM
         chunk_json = json.dumps(
             [
                 {
@@ -201,7 +196,6 @@ async def run_parallel_comparison_with_validation(
             indent=2
         )
 
-        # ✅ Enhanced user message with strict output enforcement
         user_content = f"""{user_prompt}
 
 ### DATA CHUNK TO COMPARE
@@ -230,9 +224,7 @@ Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "r
                 async with lock:
                     chunk_results[idx] = parsed
             else:
-                # ✅ Log the actual response for debugging
-                print(f"❌ Chunk {idx+1} returned invalid JSON. Response preview:")
-                print(response[:500])
+                print(f"❌ Chunk {idx+1} returned invalid JSON.")
                 failed_count += 1
                 async with lock:
                     chunk_results[idx] = []
@@ -250,7 +242,6 @@ Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "r
 
     await asyncio.gather(*(handle_chunk(i, c) for i, c in enumerate(comparison_chunks)))
 
-    # ✅ Merge results + assign sequential rule IDs
     final = []
     rule_id = 1
 
@@ -268,31 +259,23 @@ Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "r
     return final, failed_count
 
 
-# ======================================================================
-# ✅ ENHANCED JSON PARSER WITH SCHEMA VALIDATION
-# ======================================================================
 def parse_and_validate_comparison_response(response: str, chunk_num: int) -> List[Dict]:
     import re
     
-    # Remove markdown code blocks if present
     cleaned = re.sub(r'```json\s*|\s*```', '', response.strip())
     
-    # Find JSON array
     start = cleaned.find("[")
     end = cleaned.rfind("]")
 
     if start == -1 or end == -1:
-        print(f"⚠️ Chunk {chunk_num}: No JSON array found in response")
         return []
 
     try:
         data = json.loads(cleaned[start:end + 1])
 
         if not isinstance(data, list):
-            print(f"⚠️ Chunk {chunk_num}: JSON is not a list")
             return []
         
-        # ✅ VALIDATE SCHEMA
         valid_items = []
         required_keys = {"category", "attribute", "guideline_1", "guideline_2", "comparison_notes"}
         
@@ -300,31 +283,18 @@ def parse_and_validate_comparison_response(response: str, chunk_num: int) -> Lis
             if not isinstance(item, dict):
                 continue
                 
-            # Remove rule_id if LLM added it
             if "rule_id" in item:
                 del item["rule_id"]
             
-            # Check if all required keys are present
             if required_keys.issubset(item.keys()):
                 valid_items.append(item)
-            else:
-                missing = required_keys - set(item.keys())
-                print(f"⚠️ Chunk {chunk_num}: Missing keys {missing} in item: {list(item.keys())}")
-        
-        if not valid_items:
-            print(f"⚠️ Chunk {chunk_num}: No valid items after schema validation")
         
         return valid_items
 
-    except json.JSONDecodeError as e:
-        print(f"❌ Chunk {chunk_num}: JSON parse error: {e}")
-        print(f"Attempted to parse: {cleaned[start:start+200]}...")
+    except json.JSONDecodeError:
         return []
 
 
-# ======================================================================
-# HELPERS
-# ======================================================================
 def initialize_llm_provider_for_compare(user_settings: dict, provider: str, model: str) -> LLMProvider:
     params = {
         "temperature": user_settings.get("temperature", 0.3),
@@ -355,13 +325,8 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
 
 
 def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, file2_name: str) -> List[Dict]:
-    """
-    Align two guidelines based on category + attribute.
-    Assumes the Excel has columns: category, attribute, guideline_summary
-    """
     aligned = []
     
-    # Create lookup map for guideline 2
     map2 = {}
     for item in data2:
         key = (
@@ -370,7 +335,6 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
         )
         map2[key] = item
 
-    # Match guideline 1 items
     for item1 in data1:
         key = (
             item1.get("category", "").strip().lower(),
@@ -383,7 +347,6 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
             "guideline2": item2
         })
 
-    # Add remaining unmatched guideline 2 rules
     for item2 in map2.values():
         aligned.append({
             "guideline1": None,
@@ -394,7 +357,6 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
 
 
 def create_comparison_chunks(aligned_data: List[Dict], chunk_size: int = 10) -> List[List[Dict]]:
-    """Split aligned data into chunks for parallel processing"""
     return [
         aligned_data[i:i + chunk_size]
         for i in range(0, len(aligned_data), chunk_size)

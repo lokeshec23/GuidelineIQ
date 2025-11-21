@@ -13,6 +13,7 @@ import {
   MessageOutlined,
   LikeOutlined,
   ArrowRightOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -30,7 +31,7 @@ const MainLayout = ({ children }) => {
     navigate("/login");
   };
 
-  // --- 1. User Profile Dropdown (Card Style) ---
+  // User Profile Dropdown
   const userProfileCard = (
     <div className="bg-white rounded-xl shadow-lg w-72 overflow-hidden border border-gray-100 font-sans mt-2">
       <div className="h-20 bg-sky-50 relative overflow-hidden">
@@ -73,7 +74,7 @@ const MainLayout = ({ children }) => {
     </div>
   );
 
-  // --- 2. Menu Items Construction ---
+  // Menu Items Construction
   const getMenuItems = () => {
     const baseItems = [
       {
@@ -92,14 +93,9 @@ const MainLayout = ({ children }) => {
         label: "Compare Guidelines",
       },
       {
-        key: "/ingestion-prompt",
-        icon: <FileTextOutlined />,
-        label: "Ingestion Prompt",
-      },
-      {
-        key: "/comparison-prompt",
-        icon: <FileTextOutlined />,
-        label: "Comparison Prompt",
+        key: "/prompts",
+        icon: <EditOutlined />,
+        label: "Prompts",
       },
       {
         key: "/settings",
@@ -118,7 +114,7 @@ const MainLayout = ({ children }) => {
       return {
         key: item.key,
         label: (
-          <div className="flex items-center justify-between w-full ">
+          <div className="flex items-center justify-between w-full">
             <span className={isActive ? "font-medium text-gray-900" : ""}>
               {item.label}
             </span>
@@ -132,19 +128,11 @@ const MainLayout = ({ children }) => {
         ),
         icon: (
           <div
-            className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
-              // isActive
-              //   ? "bg-[#1890ff] text-white shadow-md" // Active: Blue Circle
-              //   :
-              "bg-gray-200 text-gray-500 group-hover:bg-gray-300" // Inactive: Gray Circle
-              }`}
+            className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 bg-gray-200 text-gray-500 group-hover:bg-gray-300`}
           >
             {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
           </div>
         ),
-        // STYLING LOGIC:
-        // Active = White Background + Shadow
-        // Inactive = Transparent (showing gray sidebar)
         className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${isActive
             ? "bg-white shadow-sm border border-gray-100"
             : "bg-transparent hover:bg-gray-200/50 text-gray-600"
@@ -202,20 +190,19 @@ const MainLayout = ({ children }) => {
       </Header>
 
       <Layout className="mt-16 h-[calc(100vh-64px)]">
-        {/* SIDEBAR - Light Gray Background */}
+        {/* SIDEBAR */}
         <Sider
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
           trigger={null}
           width={260}
-          // Custom style to override Antd default white background
           style={{
             position: "fixed",
             left: 0,
             height: "calc(100vh - 64px)",
             zIndex: 10,
-            background: "#f9fafb", // Tailwind gray-50 equivalent
+            background: "#f9fafb",
           }}
           className="border-r border-gray-200 h-full flex flex-col justify-between"
         >
@@ -275,7 +262,7 @@ const MainLayout = ({ children }) => {
           </div>
         </Sider>
 
-        {/* MAIN CONTENT - White Background */}
+        {/* MAIN CONTENT */}
         <Layout
           className="bg-white transition-all duration-200 ease-in-out"
           style={{ marginLeft: collapsed ? 80 : 260 }}

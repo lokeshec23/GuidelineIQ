@@ -19,6 +19,7 @@ from settings.routes import router as settings_router
 from ingest.routes import router as ingest_router
 from compare.routes import router as compare_router
 from history.routes import router as history_router
+from prompts.routes import router as prompts_router
 
 # Initialize FastAPI
 app = FastAPI(
@@ -42,6 +43,7 @@ app.include_router(settings_router)
 app.include_router(ingest_router)
 app.include_router(compare_router)
 app.include_router(history_router)
+app.include_router(prompts_router)
 
 # Health check
 @app.get("/")
@@ -55,6 +57,7 @@ def root():
             "ingest": "/ingest",
             "compare": "/compare",
             "history": "/history",
+            "prompts": "/prompts",
             "docs": "/docs"
         }
     }

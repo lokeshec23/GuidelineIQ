@@ -24,7 +24,7 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
-import { ingestAPI, settingsAPI } from "../../services/api";
+import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -99,6 +99,19 @@ const IngestPage = () => {
       setProgressMessage("Initializing...");
       setProcessingModalVisible(true);
 
+      // ✅ Fetch user's prompts from prompts API
+      let systemPrompt = "";
+      let userPrompt = "";
+
+      try {
+        const promptsRes = await promptsAPI.getUserPrompts();
+        systemPrompt = promptsRes.data.ingest_prompts.system_prompt || "";
+        userPrompt = promptsRes.data.ingest_prompts.user_prompt || "";
+        console.log("✅ Fetched ingest prompts from user prompts");
+      } catch (err) {
+        console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("investor", values.investor);
@@ -106,9 +119,9 @@ const IngestPage = () => {
       formData.append("model_provider", values.model_provider);
       formData.append("model_name", values.model_name);
 
-      // Attach prompts
-      formData.append("system_prompt", ingestPrompts.system_prompt || "");
-      formData.append("user_prompt", ingestPrompts.user_prompt || "");
+      // Attach prompts from settings
+      formData.append("system_prompt", systemPrompt);
+      formData.append("user_prompt", userPrompt);
 
       console.log("Starting ingestion...");
       const res = await ingestAPI.ingestGuideline(formData);
