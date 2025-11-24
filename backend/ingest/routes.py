@@ -19,6 +19,7 @@ from auth.middleware import get_admin_user
 from utils.progress import update_progress, get_progress, delete_progress, progress_store, progress_lock
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
+from utils.json_to_excel import dynamic_json_to_excel
 
 router = APIRouter(prefix="/ingest", tags=["Ingest Guideline"])
 
@@ -183,27 +184,49 @@ async def get_preview(session_id: str):
 @router.get("/download/{session_id}")
 async def download_result(session_id: str, background_tasks: BackgroundTasks):
     """Endpoint to download the final Excel file and trigger cleanup."""
+    
+    # 1. Try to get from in-memory store (active/recent jobs)
     with progress_lock:
         session_data = progress_store.get(session_id)
-        if not session_data or "excel_path" not in session_data:
-            raise HTTPException(status_code=404, detail="Result file not found or already downloaded.")
+        if session_data and "excel_path" in session_data:
+            excel_path = session_data["excel_path"]
+            filename = session_data.get("filename", "extraction.xlsx")
+
+            if os.path.exists(excel_path):
+                # Prevent re-downloads by removing session from store immediately
+                del progress_store[session_id]
+                background_tasks.add_task(cleanup_file, path=excel_path)
+                return FileResponse(
+                    excel_path,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename
+                )
+
+    # 2. If not found in memory, try to regenerate from DB (historical records)
+    if ObjectId.is_valid(session_id):
+        from database import ingest_history_collection
+        record = await ingest_history_collection.find_one({"_id": ObjectId(session_id)})
         
-        excel_path = session_data["excel_path"]
-        filename = session_data.get("filename", "extraction.xlsx")
+        if record and "preview_data" in record:
+            try:
+                # Generate temp Excel file
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                dynamic_json_to_excel(record["preview_data"], tmp.name)
+                
+                filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
+                
+                background_tasks.add_task(cleanup_file, path=tmp.name)
+                
+                return FileResponse(
+                    tmp.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename
+                )
+            except Exception as e:
+                print(f"Error regenerating Excel from DB: {e}")
+                raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
 
-        if not os.path.exists(excel_path):
-            raise HTTPException(status_code=404, detail="Result file has been cleaned up or does not exist.")
-            
-        # Prevent re-downloads by removing session from store immediately
-        del progress_store[session_id]
-
-    background_tasks.add_task(cleanup_file, path=excel_path)
-    
-    return FileResponse(
-        excel_path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=filename
-    )
+    raise HTTPException(status_code=404, detail="Result file not found or already downloaded.")
 
 def cleanup_file(path: str):
     """A simple background task to delete a file."""

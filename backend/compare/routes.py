@@ -15,6 +15,7 @@ from utils.progress import get_progress, delete_progress, progress_store, progre
 from config import SUPPORTED_MODELS
 import asyncio
 from typing import AsyncGenerator
+from utils.json_to_excel import dynamic_json_to_excel
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
 
@@ -316,42 +317,56 @@ async def get_preview(session_id: str):
 @router.get("/download/{session_id}")
 async def download_result(session_id: str, background_tasks: BackgroundTasks):
     """Download the comparison Excel file and cleanup"""
+    
+    # 1. Try to get from in-memory store
     with progress_lock:
         session_data = progress_store.get(session_id)
-        
-        if not session_data:
-            raise HTTPException(
-                status_code=404, 
-                detail="Session not found. The file might have already been downloaded or the session expired."
-            )
-        
-        excel_path = session_data.get("excel_path")
-        filename = session_data.get("filename", f"comparison_{session_id[:8]}.xlsx")
-        
-        if not excel_path:
-            raise HTTPException(
-                status_code=404, 
-                detail="Comparison is still processing or no result file available"
-            )
+        if session_data and "excel_path" in session_data:
+            excel_path = session_data["excel_path"]
+            filename = session_data.get("filename", f"comparison_{session_id[:8]}.xlsx")
             
-        if not os.path.exists(excel_path):
-            raise HTTPException(
-                status_code=404, 
-                detail="Result file has been deleted or moved"
-            )
+            if os.path.exists(excel_path):
+                del progress_store[session_id]
+                background_tasks.add_task(cleanup_file, path=excel_path)
+                return FileResponse(
+                    excel_path,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename,
+                    headers={
+                        "Content-Disposition": f"attachment; filename={filename}"
+                    }
+                )
+
+    # 2. If not found in memory, try to regenerate from DB (historical records)
+    if ObjectId.is_valid(session_id):
+        from database import compare_history_collection
+        record = await compare_history_collection.find_one({"_id": ObjectId(session_id)})
         
-        del progress_store[session_id]
-        print(f"Session {session_id[:8]} removed from store after download")
-    
-    background_tasks.add_task(cleanup_file, path=excel_path)
-    
-    return FileResponse(
-        excel_path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=filename,
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}"
-        }
+        if record and "preview_data" in record:
+            try:
+                # Generate temp Excel file
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                dynamic_json_to_excel(record["preview_data"], tmp.name)
+                
+                filename = f"comparison_{session_id[:8]}.xlsx"
+                
+                background_tasks.add_task(cleanup_file, path=tmp.name)
+                
+                return FileResponse(
+                    tmp.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename,
+                    headers={
+                        "Content-Disposition": f"attachment; filename={filename}"
+                    }
+                )
+            except Exception as e:
+                print(f"Error regenerating Excel from DB: {e}")
+                raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
+
+    raise HTTPException(
+        status_code=404, 
+        detail="Session not found. The file might have already been downloaded or the session expired."
     )
 
 

@@ -4,7 +4,7 @@ import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import ConfirmModal from "../../components/ConfirmModal";
-import { historyAPI } from "../../services/api";
+import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
 
 const { TabPane } = Tabs;
 
@@ -19,6 +19,7 @@ const DashboardPage = () => {
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewData, setPreviewData] = useState([]);
     const [previewTitle, setPreviewTitle] = useState("");
+    const [previewRecord, setPreviewRecord] = useState(null);
 
     // Delete confirmation modal state
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -86,7 +87,24 @@ const DashboardPage = () => {
         }
 
         setPreviewData(record.preview_data);
+        setPreviewRecord(record);
         setPreviewVisible(true);
+    };
+
+    const handleDownload = () => {
+        if (!previewRecord) return;
+
+        try {
+            if (activeTab === "ingest") {
+                ingestAPI.downloadExcel(previewRecord.id);
+            } else {
+                compareAPI.downloadExcel(previewRecord.id);
+            }
+            message.success("Download started");
+        } catch (error) {
+            console.error("Download failed:", error);
+            message.error("Failed to start download");
+        }
     };
 
     const handleDelete = (record) => {
@@ -381,6 +399,7 @@ const DashboardPage = () => {
                 columns={previewColumns}
                 showRowCount={false}
                 pageSize={20}
+                onDownload={handleDownload}
             />
 
             {/* Delete Confirmation Modal */}
@@ -390,10 +409,10 @@ const DashboardPage = () => {
                 onCancel={handleCancelDelete}
                 title="Delete Record"
                 message={`Are you sure you want to permanently delete ${recordToDelete
-                        ? activeTab === "ingest"
-                            ? recordToDelete.uploadedFile
-                            : recordToDelete.uploadedFile1
-                        : "this record"
+                    ? activeTab === "ingest"
+                        ? recordToDelete.uploadedFile
+                        : recordToDelete.uploadedFile1
+                    : "this record"
                     }?`}
                 confirmText="Yes, Delete"
                 cancelText="Cancel"
