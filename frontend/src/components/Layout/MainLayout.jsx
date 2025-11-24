@@ -110,7 +110,7 @@ const MainLayout = ({ children }) => {
     ];
 
     const accessibleItems = baseItems.filter(
-      (item) => item.key !== "/settings" || isAdmin
+      (item) => item.key !== "/settings" && item.key !== "/ingestion-prompt" && item.key !== "/comparison-prompt" || isAdmin
     );
 
     return accessibleItems.map((item) => {
