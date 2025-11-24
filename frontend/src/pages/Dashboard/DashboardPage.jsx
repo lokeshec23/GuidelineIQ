@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs, message, Modal } from "antd";
-import { EyeOutlined, DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tabs, message } from "antd";
+import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+import ConfirmModal from "../../components/ConfirmModal";
+import { historyAPI } from "../../services/api";
 
 const { TabPane } = Tabs;
-const { confirm } = Modal;
 
 const DashboardPage = () => {
     const { user } = useAuth();
@@ -18,6 +19,11 @@ const DashboardPage = () => {
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewData, setPreviewData] = useState([]);
     const [previewTitle, setPreviewTitle] = useState("");
+
+    // Delete confirmation modal state
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [recordToDelete, setRecordToDelete] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
         if (activeTab === "ingest") {
@@ -84,40 +90,47 @@ const DashboardPage = () => {
     };
 
     const handleDelete = (record) => {
+        setRecordToDelete(record);
+        setDeleteModalVisible(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!recordToDelete) return;
+
         const isIngest = activeTab === "ingest";
-        const endpoint = isIngest ? "ingest" : "compare";
-        const fileName = isIngest ? record.uploadedFile : record.uploadedFile1;
 
-        confirm({
-            title: "Are you sure you want to delete this record?",
-            icon: <ExclamationCircleOutlined />,
-            content: `This will permanently delete ${fileName}`,
-            okText: "Yes, Delete",
-            okType: "danger",
-            cancelText: "Cancel",
-            onOk: async () => {
-                try {
-                    const response = await fetch(`http://localhost:8003/history/${endpoint}/${record.id}`, {
-                        method: "DELETE",
-                        headers: {
-                            "Authorization": `Bearer ${sessionStorage.getItem("access_token")}`
-                        }
-                    });
-                    if (!response.ok) throw new Error("Failed to delete");
-                    message.success("Record deleted successfully");
+        try {
+            setDeleteLoading(true);
 
-                    // Refresh appropriate list
-                    if (isIngest) {
-                        fetchIngestHistory();
-                    } else {
-                        fetchCompareHistory();
-                    }
-                } catch (error) {
-                    console.error("Failed to delete record:", error);
-                    message.error("Failed to delete record");
-                }
+            if (isIngest) {
+                await historyAPI.deleteIngestHistory(recordToDelete.id);
+            } else {
+                await historyAPI.deleteCompareHistory(recordToDelete.id);
             }
-        });
+
+            message.success("Record deleted successfully");
+
+            // Refresh appropriate list
+            if (isIngest) {
+                fetchIngestHistory();
+            } else {
+                fetchCompareHistory();
+            }
+
+            // Close modal
+            setDeleteModalVisible(false);
+            setRecordToDelete(null);
+        } catch (error) {
+            console.error("Failed to delete record:", error);
+            message.error("Failed to delete record");
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleCancelDelete = () => {
+        setDeleteModalVisible(false);
+        setRecordToDelete(null);
     };
 
     const ingestColumns = [
@@ -368,6 +381,24 @@ const DashboardPage = () => {
                 columns={previewColumns}
                 showRowCount={false}
                 pageSize={20}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                visible={deleteModalVisible}
+                onConfirm={handleConfirmDelete}
+                onCancel={handleCancelDelete}
+                title="Delete Record"
+                message={`Are you sure you want to permanently delete ${recordToDelete
+                        ? activeTab === "ingest"
+                            ? recordToDelete.uploadedFile
+                            : recordToDelete.uploadedFile1
+                        : "this record"
+                    }?`}
+                confirmText="Yes, Delete"
+                cancelText="Cancel"
+                danger={true}
+                loading={deleteLoading}
             />
         </div>
     );
