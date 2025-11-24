@@ -341,39 +341,51 @@ const IngestPage = () => {
 
         {/* Attach Documents Section */}
         <div className="mb-8">
-          <h2 className="text-xl font-normal text-gray-700 mb-4">Attach Documents</h2>
+          <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
+            Attach Document
+          </h2>
 
           {!file ? (
-            <Dragger {...uploadProps} className="bg-gray-50 border-dashed border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors">
-              <div className="py-12">
-                <p className="ant-upload-drag-icon mb-4">
-                  <InboxOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
+            <Dragger
+              {...uploadProps}
+              className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200"
+              style={{ padding: '16px' }}
+            >
+              <div className="py-6">
+                <p className="ant-upload-drag-icon mb-2">
+                  <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
                 </p>
-                <p className="text-lg text-blue-500 mb-2">
-                  Upload a file <span className="text-gray-500">or drag and drop</span>
+                <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  Click to upload or drag and drop
                 </p>
-                <p className="text-gray-400 text-sm">
-                  pdf, csv, xlsc. up to 5MB
+                <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  Supported Format: PDF
                 </p>
               </div>
             </Dragger>
           ) : (
-            <div className="border border-gray-200 rounded-lg p-6 flex items-center justify-between bg-white shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="bg-red-50 p-3 rounded-lg">
-                  <FileTextOutlined className="text-red-500 text-xl" />
+            <div className="border-2 border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 p-2.5 rounded-lg">
+                  <FileTextOutlined className="text-green-600 text-lg" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-800 text-lg">{file.name}</p>
-                  <p className="text-gray-500 text-sm">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <p className="font-medium text-gray-800 text-sm" style={{ fontFamily: 'Jura, sans-serif' }}>
+                    {file.name}
+                  </p>
+                  <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
                 </div>
               </div>
               <Button
                 danger
                 type="text"
+                size="small"
                 icon={<DeleteOutlined />}
                 onClick={handleRemoveFile}
                 className="hover:bg-red-50"
+                style={{ fontFamily: 'Jura, sans-serif' }}
               >
                 Remove
               </Button>

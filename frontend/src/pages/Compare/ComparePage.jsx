@@ -86,12 +86,20 @@ const ComparePage = () => {
     if (status !== 'uploading') {
       const newFile = info.file.originFileObj || info.file;
 
+      // Check if it's an Excel file
+      const isExcel = newFile.name.endsWith('.xlsx') || newFile.name.endsWith('.xls');
+      if (!isExcel) {
+        message.error('Please upload Excel files only (XLSX or XLS)');
+        return;
+      }
+
       if (files.length >= 2) {
         message.warning("You can only compare 2 files. Please remove one to add another.");
         return;
       }
 
       setFiles((prev) => [...prev, newFile]);
+      message.success(`${newFile.name} added successfully`);
     }
   };
 
@@ -266,7 +274,7 @@ const ComparePage = () => {
     showUploadList: false,
     beforeUpload: () => false,
     onChange: handleFileChange,
-    accept: ".pdf,.xlsx,.xls,.csv"
+    accept: ".xlsx,.xls"
   };
 
   // Columns for DB Selection Modal
@@ -360,73 +368,88 @@ const ComparePage = () => {
 
         {/* Attach Documents Section */}
         <div className="mb-8">
-          <h2 className="text-xl font-normal text-gray-700 mb-4">Attach Documents</h2>
+          <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
+            Attach Documents <span className="text-sm text-gray-500 font-normal">(Select exactly 2 Excel files)</span>
+          </h2>
 
-          <Dragger {...uploadProps} className="bg-gray-50 border-dashed border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-colors mb-6">
-            <div className="py-12">
-              <p className="ant-upload-drag-icon mb-4">
-                <InboxOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
-              </p>
-              <p className="text-lg text-blue-500 mb-2">
-                Upload a file <span className="text-gray-500">or drag and drop</span>
-              </p>
-              <p className="text-gray-400 text-sm">
-                pdf, csv, xlsx. up to 5MB
+          {files.length < 2 ? (
+            <Dragger
+              {...uploadProps}
+              className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200 mb-4"
+              style={{ padding: '16px' }}
+            >
+              <div className="py-6">
+                <p className="ant-upload-drag-icon mb-2">
+                  <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
+                </p>
+                <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-gray-500 text-xs mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  Excel files only (XLSX, XLS) • Max 5MB each
+                </p>
+                <p className="text-blue-500 text-xs font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  {files.length}/2 files selected
+                </p>
+              </div>
+            </Dragger>
+          ) : (
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-4">
+              <p className="text-green-700 text-sm font-medium text-center" style={{ fontFamily: 'Jura, sans-serif' }}>
+                ✓ Both files selected. Ready to compare!
               </p>
             </div>
-          </Dragger>
+          )}
 
           {/* File Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {files.map((f, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between bg-white shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <FileTextOutlined className="text-blue-500 text-xl" />
+          {files.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {files.map((f, index) => (
+                <div
+                  key={index}
+                  className="border-2 border-blue-200 bg-blue-50 rounded-lg p-3 flex items-center justify-between transition-all duration-200 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-lg">
+                      <FileTextOutlined className="text-blue-600 text-base" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate" style={{ fontFamily: 'Jura, sans-serif' }}>
+                        {f.name}
+                      </p>
+                      <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
+                        {(f.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-800 text-base truncate max-w-[200px]">{f.name}</p>
-                    <p className="text-gray-500 text-xs">{(f.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
+                  <Button
+                    danger
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleRemoveFile(index)}
+                  />
                 </div>
-                <Button
-                  danger
-                  type="text"
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleRemoveFile(index)}
-                  className="hover:bg-red-50"
-                />
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
 
-            {/* Empty placeholders if less than 2 files */}
-            {Array.from({ length: Math.max(0, 2 - files.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="border border-dashed border-gray-200 rounded-lg p-4 flex items-center justify-center bg-gray-50 h-[88px]">
-                <span className="text-gray-400 text-sm">Upload a file to see it here</span>
-              </div>
-            ))}
+          {/* DB Selection Button */}
+          <div className="flex justify-center mb-4">
+            <Button
+              type="default"
+              icon={<CloudUploadOutlined />}
+              onClick={handleDbModalOpen}
+              size="large"
+              className="px-6"
+            >
+              Attach From DB
+            </Button>
           </div>
         </div>
 
-        {/* Attach From DB Section */}
-        <div className="mb-8">
-          <h2 className="text-xl font-normal text-gray-700 mb-4">Attach From DB</h2>
-          <div
-            className="border border-dashed border-gray-200 rounded-lg p-6 bg-gray-50 flex items-center gap-4 cursor-pointer hover:border-blue-400 transition-colors"
-            onClick={handleDbModalOpen}
-          >
-            <div className="bg-blue-50 p-2 rounded-lg">
-              <CloudUploadOutlined className="text-blue-500 text-xl" />
-            </div>
-            <div>
-              <p className="text-blue-500 font-medium">Upload</p>
-              <p className="text-gray-400 text-sm">Select a file from DB</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Submit Button Area */}
-        <div className="flex justify-end">
+        {/* Submit Button */}
+        <div className="flex justify-center">
           <Button
             type="primary"
             htmlType="submit"
