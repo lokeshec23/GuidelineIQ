@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI } from "../../services/api";
+import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -48,7 +49,6 @@ const ComparePage = () => {
     gemini: [],
   });
   const [selectedProvider, setSelectedProvider] = useState("openai");
-  const [tableColumns, setTableColumns] = useState([]);
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
@@ -246,20 +246,9 @@ const ComparePage = () => {
       const data = res.data;
 
       if (data?.length > 0) {
-        const cols = Object.keys(data[0]).map((key) => ({
-          title: key.replace(/_/g, " ").toUpperCase(),
-          dataIndex: key,
-          key,
-          width: 250,
-          render: (text) => (
-            <div className="whitespace-pre-wrap text-sm">{String(text)}</div>
-          ),
-        }));
-        setTableColumns(cols);
         setPreviewData(data);
         setPreviewModalVisible(true);
       } else {
-        setTableColumns([{ title: "Result", dataIndex: "content" }]);
         setPreviewData([{ key: 1, content: "No structured comparison found" }]);
         setPreviewModalVisible(true);
       }
@@ -268,8 +257,6 @@ const ComparePage = () => {
     }
   };
 
-  const convertRows = (data) =>
-    (data || []).map((row, i) => ({ key: i, ...row }));
 
   const uploadProps = {
     name: 'file',
@@ -476,36 +463,13 @@ const ComparePage = () => {
       </Modal>
 
       {/* Preview Modal */}
-      <Modal
+      <ExcelPreviewModal
+        visible={previewModalVisible}
+        onClose={() => setPreviewModalVisible(false)}
         title="Comparison Results"
-        open={previewModalVisible}
-        onCancel={() => setPreviewModalVisible(false)}
-        width="90%"
-        footer={[
-          <Button key="close" onClick={() => setPreviewModalVisible(false)}>
-            Close
-          </Button>,
-          <Button
-            key="download"
-            type="primary"
-            icon={<DownloadOutlined />}
-            onClick={() => compareAPI.downloadExcel(sessionId)}
-          >
-            Download Excel
-          </Button>,
-        ]}
-      >
-        <div className="max-h-[70vh] overflow-auto">
-          <Table
-            dataSource={convertRows(previewData)}
-            columns={tableColumns}
-            pagination={{ pageSize: 50 }}
-            scroll={{ y: "calc(90vh - 200px)", x: "max-content" }}
-            bordered
-            size="middle"
-          />
-        </div>
-      </Modal>
+        data={previewData}
+        onDownload={() => compareAPI.downloadExcel(sessionId)}
+      />
 
       {/* Attach From DB Modal */}
       <Modal

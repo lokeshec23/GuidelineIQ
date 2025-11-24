@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Table, Button, Space, Tabs, message, Modal } from "antd";
 import { EyeOutlined, DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
+import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 
 const { TabPane } = Tabs;
 const { confirm } = Modal;
@@ -323,31 +324,15 @@ const DashboardPage = () => {
             </Tabs>
 
             {/* Preview Modal */}
-            <Modal
+            <ExcelPreviewModal
+                visible={previewVisible}
+                onClose={() => setPreviewVisible(false)}
                 title={`Preview: ${previewTitle}`}
-                open={previewVisible}
-                onCancel={() => setPreviewVisible(false)}
-                footer={[
-                    <Button key="close" onClick={() => setPreviewVisible(false)}>
-                        Close
-                    </Button>
-                ]}
-                width="90%"
-                style={{ top: 20 }}
-            >
-                <Table
-                    columns={previewColumns}
-                    dataSource={previewData}
-                    rowKey={(record, index) => index}
-                    pagination={{
-                        pageSize: 20,
-                        showSizeChanger: true,
-                        showTotal: (total) => `Total ${total} guidelines`,
-                    }}
-                    scroll={{ y: 500 }}
-                    size="small"
-                />
-            </Modal>
+                data={previewData}
+                columns={previewColumns}
+                showRowCount={false}
+                pageSize={20}
+            />
         </div>
     );
 };

@@ -25,6 +25,7 @@ import {
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
+import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -45,7 +46,6 @@ const IngestPage = () => {
     gemini: [],
   });
   const [selectedProvider, setSelectedProvider] = useState("openai");
-  const [tableColumns, setTableColumns] = useState([]);
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
@@ -208,22 +208,11 @@ const IngestPage = () => {
       const data = res.data;
 
       if (data?.length > 0) {
-        const cols = Object.keys(data[0]).map((key) => ({
-          title: key.toUpperCase(),
-          dataIndex: key,
-          key,
-          width: 250,
-          render: (text) => (
-            <div className="whitespace-pre-wrap text-sm">{String(text)}</div>
-          ),
-        }));
-        setTableColumns(cols);
         setPreviewData(data);
         console.log("Opening preview modal...");
         setPreviewModalVisible(true);
       } else {
         console.log("No data found, showing empty state");
-        setTableColumns([{ title: "Result", dataIndex: "content" }]);
         setPreviewData([{ key: 1, content: "No structured data found." }]);
         setPreviewModalVisible(true);
       }
@@ -233,8 +222,6 @@ const IngestPage = () => {
     }
   };
 
-  const convertToTableData = (data) =>
-    data?.map((item, idx) => ({ key: idx, ...item })) || [];
 
   const uploadProps = {
     name: 'file',
@@ -387,50 +374,17 @@ const IngestPage = () => {
       </Modal>
 
       {/* Preview Modal */}
-      <Modal
-        open={previewModalVisible}
-        footer={null}
-        width="95vw"
-        centered
-        closable={false}
-        style={{ top: "20px" }}
-      >
-        <div className="flex justify-between items-center px-6 py-4 border-b bg-white">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-2 rounded-full">
-              <FileExcelOutlined className="text-green-600 text-xl" />
-            </div>
-            <h3 className="font-semibold text-lg">Extraction Results</h3>
-            <Tag color="blue">{convertToTableData(previewData).length} rows</Tag>
-          </div>
-
-          <Space>
-            <Button onClick={() => setPreviewModalVisible(false)}>Close</Button>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={() => {
-                if (sessionId) {
-                  ingestAPI.downloadExcel(sessionId);
-                }
-              }}
-            >
-              Download Excel
-            </Button>
-          </Space>
-        </div>
-
-        <div className="p-4 bg-gray-50">
-          <Table
-            dataSource={convertToTableData(previewData)}
-            columns={tableColumns}
-            pagination={{ pageSize: 50 }}
-            scroll={{ y: "calc(90vh - 200px)", x: "max-content" }}
-            bordered
-            size="middle"
-          />
-        </div>
-      </Modal>
+      <ExcelPreviewModal
+        visible={previewModalVisible}
+        onClose={() => setPreviewModalVisible(false)}
+        title="Extraction Results"
+        data={previewData}
+        onDownload={() => {
+          if (sessionId) {
+            ingestAPI.downloadExcel(sessionId);
+          }
+        }}
+      />
     </div>
   );
 };
