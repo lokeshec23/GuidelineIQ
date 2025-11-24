@@ -154,6 +154,11 @@ export const historyAPI = {
   deleteCompareHistory: (id) => api.delete(`/history/compare/${id}`),
 };
 
+// ==================== CHAT APIs ====================
+export const chatAPI = {
+  sendMessage: (data) => api.post("/chat/message", data),
+};
+
 // Prompts API
 export const promptsAPI = {
   getUserPrompts: () => api.get("/prompts"),

@@ -6,8 +6,10 @@ import {
     FileExcelOutlined,
     DownloadOutlined,
     SearchOutlined,
-    FilterOutlined
+    FilterOutlined,
+    RobotOutlined
 } from "@ant-design/icons";
+import ChatInterface from "./ChatInterface";
 
 /**
  * Generic Excel Preview Modal Component with Modern Table Features
@@ -43,6 +45,7 @@ const ExcelPreviewModal = ({
     const [searchExpanded, setSearchExpanded] = useState(false);
     const [filteredInfo, setFilteredInfo] = useState({});
     const [sortedInfo, setSortedInfo] = useState({});
+    const [chatVisible, setChatVisible] = useState(false);
 
     // Convert data to table format with keys
     const convertToTableData = (data) =>
@@ -184,94 +187,111 @@ const ExcelPreviewModal = ({
     };
 
     return (
-        <Modal
-            open={visible}
-            footer={null}
-            width="95vw"
-            centered
-            closable={false}
-            style={{ top: "20px" }}
-            onCancel={onClose}
-        >
-            {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b bg-white">
-                <div className="flex items-center gap-3">
-                    <div className={`${iconBgColor} p-2 rounded-full`}>
-                        <IconComponent className={`${iconColor} text-xl`} />
+        <>
+            <Modal
+                open={visible}
+                footer={null}
+                width="95vw"
+                centered
+                closable={false}
+                style={{ top: "20px" }}
+                onCancel={onClose}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center px-6 py-4 border-b bg-white">
+                    <div className="flex items-center gap-3">
+                        <div className={`${iconBgColor} p-2 rounded-full`}>
+                            <IconComponent className={`${iconColor} text-xl`} />
+                        </div>
+                        <h3 className="font-semibold text-lg">{title}</h3>
+                        {showRowCount && (
+                            <Tag color="blue">{getFilteredDataForFilters.length} rows</Tag>
+                        )}
                     </div>
-                    <h3 className="font-semibold text-lg">{title}</h3>
-                    {showRowCount && (
-                        <Tag color="blue">{getFilteredDataForFilters.length} rows</Tag>
-                    )}
+
+                    <Space>
+                        <Button
+                            icon={<RobotOutlined />}
+                            onClick={() => setChatVisible(!chatVisible)}
+                            className={chatVisible ? "text-[#722ED1] border-[#722ED1]" : ""}
+                        >
+                            Ask AI
+                        </Button>
+                        {onDownload && (
+                            <Button
+                                type="primary"
+                                icon={<DownloadOutlined />}
+                                onClick={onDownload}
+                            >
+                                {downloadButtonText}
+                            </Button>
+                        )}
+                        <Button onClick={onClose}>Close</Button>
+                    </Space>
                 </div>
 
-                <Space>
-                    <Button onClick={onClose}>Close</Button>
-                    {onDownload && (
+                {/* Search and Filter Controls */}
+                <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
+                    {/* Collapsible Search */}
+                    {!searchExpanded ? (
                         <Button
-                            type="primary"
-                            icon={<DownloadOutlined />}
-                            onClick={onDownload}
-                        >
-                            {downloadButtonText}
-                        </Button>
+                            icon={<SearchOutlined />}
+                            onClick={handleSearchIconClick}
+                            size="middle"
+                            title="Search"
+                        />
+                    ) : (
+                        <Input
+                            placeholder="Search across all columns..."
+                            prefix={<SearchOutlined />}
+                            value={searchText}
+                            onChange={handleSearchChange}
+                            onBlur={handleSearchBlur}
+                            allowClear
+                            autoFocus
+                            style={{ width: 300 }}
+                        />
                     )}
-                </Space>
-            </div>
 
-            {/* Search and Filter Controls */}
-            <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
-                {/* Collapsible Search */}
-                {!searchExpanded ? (
-                    <Button
-                        icon={<SearchOutlined />}
-                        onClick={handleSearchIconClick}
+                    <Button onClick={clearFilters} size="small">
+                        Clear Filters
+                    </Button>
+
+                    <span className="text-sm text-gray-500">
+                        {(getFilteredDataForFilters.length !== tableData.length || searchText) &&
+                            `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`
+                        }
+                    </span>
+                </div>
+
+                {/* Table */}
+                <div className="p-4 bg-gray-50">
+                    <Table
+                        dataSource={searchFilteredData}
+                        columns={tableColumns}
+                        onChange={handleTableChange}
+                        pagination={{
+                            pageSize,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                            pageSizeOptions: ['10', '20', '50', '100', '200'],
+                        }}
+                        scroll={{ y: "calc(90vh - 280px)", x: "max-content" }}
+                        bordered
                         size="middle"
-                        title="Search"
                     />
-                ) : (
-                    <Input
-                        placeholder="Search across all columns..."
-                        prefix={<SearchOutlined />}
-                        value={searchText}
-                        onChange={handleSearchChange}
-                        onBlur={handleSearchBlur}
-                        allowClear
-                        autoFocus
-                        style={{ width: 300 }}
-                    />
-                )}
+                </div>
+            </Modal>
 
-                <Button onClick={clearFilters} size="small">
-                    Clear Filters
-                </Button>
-
-                <span className="text-sm text-gray-500">
-                    {(getFilteredDataForFilters.length !== tableData.length || searchText) &&
-                        `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`
-                    }
-                </span>
-            </div>
-
-            {/* Table */}
-            <div className="p-4 bg-gray-50">
-                <Table
-                    dataSource={searchFilteredData}
-                    columns={tableColumns}
-                    onChange={handleTableChange}
-                    pagination={{
-                        pageSize,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                        pageSizeOptions: ['10', '20', '50', '100', '200'],
-                    }}
-                    scroll={{ y: "calc(90vh - 280px)", x: "max-content" }}
-                    bordered
-                    size="middle"
-                />
-            </div>
-        </Modal>
+            {/* AI Chat Interface - Only visible when modal is open and chat is toggled */}
+            <ChatInterface
+                visible={visible && chatVisible}
+                onClose={() => setChatVisible(false)}
+                data={data}
+                sessionId={null}
+            />
+        </>
     );
 };
 
