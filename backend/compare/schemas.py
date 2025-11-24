@@ -20,3 +20,10 @@ class ComparisonStatus(BaseModel):
     progress: int
     message: str
     result_url: Optional[str] = None
+
+class CompareFromDBRequest(BaseModel):
+    ingest_ids: list[str]
+    model_provider: str
+    model_name: str
+    system_prompt: Optional[str] = ""
+    user_prompt: Optional[str] = ""

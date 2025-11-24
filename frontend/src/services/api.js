@@ -142,6 +142,16 @@ export const compareAPI = {
     link.click();
     document.body.removeChild(link);
   },
+
+  compareFromDB: (data) => api.post("/compare/from-db", data),
+};
+
+// ==================== HISTORY APIs ====================
+export const historyAPI = {
+  getIngestHistory: () => api.get("/history/ingest"),
+  deleteIngestHistory: (id) => api.delete(`/history/ingest/${id}`),
+  getCompareHistory: () => api.get("/history/compare"),
+  deleteCompareHistory: (id) => api.delete(`/history/compare/${id}`),
 };
 
 // Prompts API

@@ -6,7 +6,7 @@ import json
 from bson import ObjectId
 from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
-from compare.schemas import CompareResponse, ComparisonStatus
+from compare.schemas import CompareResponse, ComparisonStatus, CompareFromDBRequest
 from compare.processor import process_comparison_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
@@ -138,6 +138,99 @@ async def compare_guidelines(
     return CompareResponse(
         status="processing",
         message="Comparison started",
+        session_id=session_id
+    )
+
+
+@router.post("/from-db", response_model=CompareResponse)
+async def compare_from_db(
+    request: CompareFromDBRequest,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id_from_token)
+):
+    """Compare two guidelines selected from ingestion history"""
+    
+    if len(request.ingest_ids) != 2:
+        raise HTTPException(status_code=400, detail="Exactly 2 guidelines must be selected for comparison")
+
+    # Fetch history records
+    from database import ingest_history_collection, users_collection
+    
+    records = []
+    for record_id in request.ingest_ids:
+        record = await ingest_history_collection.find_one({
+            "_id": ObjectId(record_id),
+            "user_id": user_id
+        })
+        if not record:
+            raise HTTPException(status_code=404, detail=f"Record {record_id} not found")
+        records.append(record)
+
+    # Generate temp Excel files from preview_data
+    from utils.json_to_excel import dynamic_json_to_excel
+    from utils.progress import update_progress
+    
+    file_paths = []
+    file_names = []
+    
+    try:
+        for record in records:
+            preview_data = record.get("preview_data", [])
+            if not preview_data:
+                raise HTTPException(status_code=400, detail=f"No data found for record {record['_id']}")
+            
+            # Create temp file
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+            dynamic_json_to_excel(preview_data, tmp.name)
+            file_paths.append(tmp.name)
+            
+            # Construct filename
+            investor = record.get("investor", "Unknown")
+            version = record.get("version", "v1")
+            file_names.append(f"{investor}_{version}.xlsx")
+            
+    except Exception as e:
+        # Cleanup on error
+        for path in file_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        raise HTTPException(status_code=500, detail=f"Failed to prepare files: {str(e)}")
+
+    # Fetch admin settings
+    admin_user = await get_admin_user()
+    if not admin_user:
+        raise HTTPException(status_code=500, detail="System configuration error")
+        
+    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    if not admin_settings:
+        raise HTTPException(status_code=403, detail="API keys not configured")
+
+    # Get current user info
+    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    
+    # Start processing
+    session_id = str(uuid.uuid4())
+    update_progress(session_id, 0, "Initializing from DB...")
+    
+    background_tasks.add_task(
+        process_comparison_background,
+        session_id=session_id,
+        file1_path=file_paths[0],
+        file2_path=file_paths[1],
+        file1_name=file_names[0],
+        file2_name=file_names[1],
+        user_settings=admin_settings,
+        model_provider=request.model_provider,
+        model_name=request.model_name,
+        system_prompt=request.system_prompt,
+        user_prompt=request.user_prompt,
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+    )
+    
+    return CompareResponse(
+        status="processing",
+        message="Comparison started from DB",
         session_id=session_id
     )
 

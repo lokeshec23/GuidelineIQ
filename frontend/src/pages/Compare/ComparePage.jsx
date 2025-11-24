@@ -13,6 +13,7 @@ import {
   Space,
   Tag,
   Spin,
+  Tooltip
 } from "antd";
 import {
   InboxOutlined,
@@ -23,9 +24,10 @@ import {
   LoadingOutlined,
   DownOutlined,
   CloudUploadOutlined,
+  EyeOutlined
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
-import { compareAPI, settingsAPI, promptsAPI } from "../../services/api";
+import { compareAPI, settingsAPI, promptsAPI, historyAPI } from "../../services/api";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -49,6 +51,12 @@ const ComparePage = () => {
   const [tableColumns, setTableColumns] = useState([]);
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
+
+  // DB Selection State
+  const [dbModalVisible, setDbModalVisible] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedDbRecords, setSelectedDbRecords] = useState([]);
 
   useEffect(() => {
     fetchModels();
@@ -89,9 +97,48 @@ const ComparePage = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (values) => {
-    if (files.length < 2) return message.error("Please upload exactly 2 files to compare");
+  // --- DB Selection Logic ---
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await historyAPI.getIngestHistory();
+      setHistoryData(res.data);
+    } catch (error) {
+      message.error("Failed to fetch history");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
+  const handleDbModalOpen = () => {
+    setDbModalVisible(true);
+    fetchHistory();
+    setSelectedDbRecords([]);
+  };
+
+  const handleDbSelectionChange = (selectedRowKeys, selectedRows) => {
+    if (selectedRows.length > 2) {
+      message.warning("You can only select 2 guidelines to compare.");
+      return;
+    }
+    setSelectedDbRecords(selectedRows);
+  };
+
+  const handleDbCompare = async () => {
+    if (selectedDbRecords.length !== 2) {
+      message.error("Please select exactly 2 records to compare.");
+      return;
+    }
+
+    setDbModalVisible(false);
+
+    // Start comparison with DB records
+    const values = form.getFieldsValue();
+    await startComparison(values, true);
+  };
+
+  // --- Comparison Logic ---
+  const startComparison = async (values, isFromDb = false) => {
     try {
       setProcessing(true);
       setProgress(0);
@@ -106,50 +153,63 @@ const ComparePage = () => {
         const promptsRes = await promptsAPI.getUserPrompts();
         systemPrompt = promptsRes.data.compare_prompts.system_prompt || "";
         userPrompt = promptsRes.data.compare_prompts.user_prompt || "";
-        console.log("Fetched comparison prompts from user prompts");
       } catch (err) {
         console.warn("Could not fetch prompts from prompts API");
       }
 
-      const fd = new FormData();
-      fd.append("file1", files[0]);
-      fd.append("file2", files[1]);
-      fd.append("model_provider", values.model_provider);
-      fd.append("model_name", values.model_name);
-      fd.append("system_prompt", systemPrompt);
-      fd.append("user_prompt", userPrompt);
+      let res;
+      if (isFromDb) {
+        // DB Comparison
+        const payload = {
+          ingest_ids: selectedDbRecords.map(r => r.id),
+          model_provider: values.model_provider,
+          model_name: values.model_name,
+          system_prompt: systemPrompt,
+          user_prompt: userPrompt
+        };
+        res = await compareAPI.compareFromDB(payload);
+      } else {
+        // File Upload Comparison
+        if (files.length < 2) {
+          setProcessing(false);
+          setProcessingModalVisible(false);
+          return message.error("Please upload exactly 2 files to compare");
+        }
 
-      console.log("Starting comparison...");
-      const res = await compareAPI.compareGuidelines(fd);
+        const fd = new FormData();
+        fd.append("file1", files[0]);
+        fd.append("file2", files[1]);
+        fd.append("model_provider", values.model_provider);
+        fd.append("model_name", values.model_name);
+        fd.append("system_prompt", systemPrompt);
+        fd.append("user_prompt", userPrompt);
+
+        res = await compareAPI.compareGuidelines(fd);
+      }
+
       const { session_id } = res.data;
       setSessionId(session_id);
-      console.log("Session ID:", session_id);
 
+      // Start SSE
       const es = compareAPI.createProgressStream(session_id);
 
       es.onmessage = (event) => {
-        console.log("Progress event received:", event.data);
         try {
           const data = JSON.parse(event.data);
-          console.log("Parsed progress data:", data);
-
           setProgress(data.progress || 0);
           setProgressMessage(data.message || "Processing...");
 
           if (data.status === "completed" || data.progress >= 100) {
-            console.log("Comparison completed, closing stream");
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
 
             setTimeout(() => {
-              console.log("Loading preview for session:", session_id);
               loadPreview(session_id);
             }, 500);
 
             message.success("Comparison complete!");
           } else if (data.status === "failed") {
-            console.error("Comparison failed:", data.error);
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
@@ -168,10 +228,6 @@ const ComparePage = () => {
         message.error("Connection error. Please try again.");
       };
 
-      es.onopen = () => {
-        console.log("SSE connection opened");
-      };
-
     } catch (err) {
       console.error("Submission error:", err);
       setProcessing(false);
@@ -180,11 +236,13 @@ const ComparePage = () => {
     }
   };
 
+  const handleSubmit = (values) => {
+    startComparison(values, false);
+  };
+
   const loadPreview = async (sid) => {
-    console.log("loadPreview called with session ID:", sid);
     try {
       const res = await compareAPI.getPreview(sid);
-      console.log("Preview data received:", res.data);
       const data = res.data;
 
       if (data?.length > 0) {
@@ -199,16 +257,13 @@ const ComparePage = () => {
         }));
         setTableColumns(cols);
         setPreviewData(data);
-        console.log("Opening preview modal...");
         setPreviewModalVisible(true);
       } else {
-        console.log("No data found, showing empty state");
         setTableColumns([{ title: "Result", dataIndex: "content" }]);
         setPreviewData([{ key: 1, content: "No structured comparison found" }]);
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      console.error("Failed to load preview:", error);
       message.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
     }
   };
@@ -224,6 +279,48 @@ const ComparePage = () => {
     onChange: handleFileChange,
     accept: ".pdf,.xlsx,.xls,.csv"
   };
+
+  // Columns for DB Selection Modal
+  const dbColumns = [
+    {
+      title: "S.no",
+      key: "sno",
+      width: 60,
+      render: (_, __, index) => index + 1,
+    },
+    {
+      title: "Investor",
+      dataIndex: "investor",
+      key: "investor",
+    },
+    {
+      title: "Version",
+      dataIndex: "version",
+      key: "version",
+    },
+    {
+      title: "File Name",
+      dataIndex: "uploadedFile",
+      key: "uploadedFile",
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 80,
+      render: (_, record) => (
+        <Tooltip title="View Details">
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Could implement view details logic here if needed
+            }}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
@@ -323,7 +420,10 @@ const ComparePage = () => {
         {/* Attach From DB Section */}
         <div className="mb-8">
           <h2 className="text-xl font-normal text-gray-700 mb-4">Attach From DB</h2>
-          <div className="border border-dashed border-gray-200 rounded-lg p-6 bg-gray-50 flex items-center gap-4 cursor-pointer hover:border-blue-400 transition-colors">
+          <div
+            className="border border-dashed border-gray-200 rounded-lg p-6 bg-gray-50 flex items-center gap-4 cursor-pointer hover:border-blue-400 transition-colors"
+            onClick={handleDbModalOpen}
+          >
             <div className="bg-blue-50 p-2 rounded-lg">
               <CloudUploadOutlined className="text-blue-500 text-xl" />
             </div>
@@ -405,6 +505,44 @@ const ComparePage = () => {
             size="middle"
           />
         </div>
+      </Modal>
+
+      {/* Attach From DB Modal */}
+      <Modal
+        title="Attach From DB"
+        open={dbModalVisible}
+        onCancel={() => setDbModalVisible(false)}
+        width={1000}
+        footer={[
+          <Button key="cancel" onClick={() => setDbModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="compare"
+            type="primary"
+            icon={<SwapOutlined />}
+            disabled={selectedDbRecords.length !== 2}
+            onClick={handleDbCompare}
+          >
+            Compare
+          </Button>,
+        ]}
+      >
+        <Table
+          dataSource={historyData}
+          columns={dbColumns}
+          rowKey="id"
+          loading={loadingHistory}
+          pagination={{ pageSize: 10 }}
+          rowSelection={{
+            type: "checkbox",
+            selectedRowKeys: selectedDbRecords.map(r => r.id),
+            onChange: (keys, rows) => handleDbSelectionChange(keys, rows),
+            getCheckboxProps: (record) => ({
+              disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find(r => r.id === record.id),
+            }),
+          }}
+        />
       </Modal>
     </div>
   );
