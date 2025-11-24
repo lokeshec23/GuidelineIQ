@@ -15,6 +15,8 @@ class IngestHistoryItem(BaseModel):
     uploadedFile: str  # Match frontend naming
     extractedFile: str  # Match frontend naming
     created_at: datetime
+    effective_date: Optional[str] = None
+    expiry_date: Optional[str] = None
     preview_data: Optional[List[Dict[str, Any]]] = None  # Excel output data
 
 

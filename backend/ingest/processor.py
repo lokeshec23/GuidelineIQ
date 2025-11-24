@@ -26,6 +26,8 @@ async def process_guideline_background(
     user_prompt: str,
     user_id: str = None,
     username: str = "Unknown",
+    effective_date: str = None,
+    expiry_date: str = None,
 ):
     excel_path = None
     try:
@@ -36,6 +38,8 @@ async def process_guideline_background(
         print(f"File: {filename}")
         print(f"Model: {model_provider}/{model_name}")
         print(f"Pages per chunk: {pages_per_chunk}")
+        print(f"Effective Date: {effective_date}")
+        print(f"Expiry Date: {expiry_date if expiry_date else 'N/A'}")
         print(f"{'='*60}\n")
 
         # Validate prompts - Use defaults if empty
@@ -110,7 +114,9 @@ async def process_guideline_background(
                     "version": version,
                     "uploaded_file": filename,
                     "extracted_file": f"extraction_{investor}_{version}.xlsx",
-                    "preview_data": results
+                    "preview_data": results,
+                    "effective_date": effective_date,
+                    "expiry_date": expiry_date,
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
             except Exception as hist_err:

@@ -53,6 +53,8 @@ async def ingest_guideline(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
+    effective_date: str = Form(...),
+    expiry_date: str = Form(None),
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
@@ -121,6 +123,8 @@ async def ingest_guideline(
         user_prompt=user_prompt,
         user_id=user_id,  # ✅ NEW: Pass user_id for history
         username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
+        effective_date=effective_date,  # ✅ NEW: Pass effective_date
+        expiry_date=expiry_date,  # ✅ NEW: Pass expiry_date
     )
     
     return IngestResponse(status="processing", message="Processing started", session_id=session_id)

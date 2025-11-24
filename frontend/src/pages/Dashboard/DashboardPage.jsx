@@ -138,6 +138,42 @@ const DashboardPage = () => {
             key: "version",
         },
         {
+            title: "Effective Date",
+            dataIndex: "effective_date",
+            key: "effective_date",
+            width: 130,
+            render: (date) => {
+                if (!date) return "-";
+                try {
+                    return new Date(date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                } catch {
+                    return "-";
+                }
+            },
+        },
+        {
+            title: "Expiry Date",
+            dataIndex: "expiry_date",
+            key: "expiry_date",
+            width: 130,
+            render: (date) => {
+                if (!date) return "-";
+                try {
+                    return new Date(date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                } catch {
+                    return "-";
+                }
+            },
+        },
+        {
             title: "Uploaded File Name",
             dataIndex: "uploadedFile",
             key: "uploadedFile",

@@ -14,6 +14,7 @@ import {
   Space,
   Spin,
   Upload,
+  DatePicker,
 } from "antd";
 import {
   InboxOutlined,
@@ -118,6 +119,12 @@ const IngestPage = () => {
       formData.append("version", values.version);
       formData.append("model_provider", values.model_provider);
       formData.append("model_name", values.model_name);
+
+      // Attach dates
+      formData.append("effective_date", values.effective_date.toISOString());
+      if (values.expiry_date) {
+        formData.append("expiry_date", values.expiry_date.toISOString());
+      }
 
       // Attach prompts from settings
       formData.append("system_prompt", systemPrompt);
@@ -295,6 +302,36 @@ const IngestPage = () => {
             className="mb-0"
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
+          </Form.Item>
+        </div>
+
+        {/* Date Fields Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Form.Item
+            name="effective_date"
+            label={<span className="text-gray-600">Effective Date</span>}
+            rules={[{ required: true, message: "Effective date is required" }]}
+            className="mb-0"
+          >
+            <DatePicker
+              size="large"
+              placeholder="Select date"
+              className="w-full rounded-md"
+              format="DD/MM/YYYY"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="expiry_date"
+            label={<span className="text-gray-600">Expiry Date (Optional)</span>}
+            className="mb-0"
+          >
+            <DatePicker
+              size="large"
+              placeholder="Select date"
+              className="w-full rounded-md"
+              format="DD/MM/YYYY"
+            />
           </Form.Item>
         </div>
 

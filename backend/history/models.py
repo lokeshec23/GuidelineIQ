@@ -16,6 +16,8 @@ async def save_ingest_history(data: dict) -> str:
         "uploaded_file": data["uploaded_file"],
         "extracted_file": data["extracted_file"],
         "preview_data": data.get("preview_data", []),
+        "effective_date": data.get("effective_date"),
+        "expiry_date": data.get("expiry_date"),
         "created_at": datetime.utcnow()
     }
     result = await ingest_history_collection.insert_one(history_data)
@@ -37,6 +39,8 @@ async def get_user_ingest_history(user_id: str) -> List[Dict]:
             "uploadedFile": doc.get("uploaded_file", ""),
             "extractedFile": doc.get("extracted_file", ""),
             "preview_data": doc.get("preview_data", []),
+            "effective_date": doc.get("effective_date"),
+            "expiry_date": doc.get("expiry_date"),
             "created_at": doc["created_at"]
         })
     return history
