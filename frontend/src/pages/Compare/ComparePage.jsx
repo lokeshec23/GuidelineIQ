@@ -27,6 +27,7 @@ import {
   EyeOutlined
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
+import { useAuth } from "../../context/AuthContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 
@@ -34,6 +35,7 @@ const { Dragger } = Upload;
 const { Option } = Select;
 
 const ComparePage = () => {
+  const { isAdmin } = useAuth();
   const [form] = Form.useForm();
   const { comparePrompts } = usePrompts();
 
@@ -319,40 +321,42 @@ const ComparePage = () => {
         layout="vertical"
         className="w-full"
       >
-        {/* Model Selection Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Form.Item
-            name="model_provider"
-            className="mb-0"
-          >
-            <Select
-              size="large"
-              className="w-full"
-              onChange={(v) => {
-                setSelectedProvider(v);
-                const defaultModel =
-                  v === "gemini" ? "gemini-2.5-pro" : supportedModels[v]?.[0];
-                form.setFieldsValue({ model_name: defaultModel });
-              }}
+        {/* Model Selection Row - Admin Only */}
+        {isAdmin && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Form.Item
+              name="model_provider"
+              className="mb-0"
             >
-              <Option value="openai">OpenAI</Option>
-              <Option value="gemini">Google Gemini</Option>
-            </Select>
-          </Form.Item>
+              <Select
+                size="large"
+                className="w-full"
+                onChange={(v) => {
+                  setSelectedProvider(v);
+                  const defaultModel =
+                    v === "gemini" ? "gemini-2.5-pro" : supportedModels[v]?.[0];
+                  form.setFieldsValue({ model_name: defaultModel });
+                }}
+              >
+                <Option value="openai">OpenAI</Option>
+                <Option value="gemini">Google Gemini</Option>
+              </Select>
+            </Form.Item>
 
-          <Form.Item
-            name="model_name"
-            className="mb-0"
-          >
-            <Select size="large" className="w-full">
-              {supportedModels[selectedProvider]?.map((model) => (
-                <Option key={model} value={model}>
-                  {model}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </div>
+            <Form.Item
+              name="model_name"
+              className="mb-0"
+            >
+              <Select size="large" className="w-full">
+                {supportedModels[selectedProvider]?.map((model) => (
+                  <Option key={model} value={model}>
+                    {model}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </div>
+        )}
 
         {/* Attach Documents Section */}
         <div className="mb-8">
