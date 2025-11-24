@@ -243,7 +243,7 @@ const IngestPage = () => {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
-      <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1>
+      {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1> */}
 
       <Form
         form={form}

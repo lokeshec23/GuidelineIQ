@@ -161,11 +161,23 @@ async def progress_stream(session_id: str):
 @router.get("/preview/{session_id}")
 async def get_preview(session_id: str):
     """Endpoint to get the JSON data for the frontend preview table."""
+    # 1. Try to get from in-memory store (active/recent jobs)
     with progress_lock:
         session_data = progress_store.get(session_id)
-        if not session_data or "preview_data" not in session_data:
-            raise HTTPException(status_code=404, detail="Preview data not found or job is not complete.")
-        return JSONResponse(content=session_data["preview_data"])
+        if session_data and "preview_data" in session_data:
+            return JSONResponse(content=session_data["preview_data"])
+
+    # 2. If not found, try to get from database (historical records)
+    try:
+        if ObjectId.is_valid(session_id):
+            from database import ingest_history_collection
+            record = await ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+            if record and "preview_data" in record:
+                return JSONResponse(content=record["preview_data"])
+    except Exception as e:
+        print(f"Error fetching preview from DB: {e}")
+
+    raise HTTPException(status_code=404, detail="Preview data not found or job is not complete.")
 
 
 @router.get("/download/{session_id}")

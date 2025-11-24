@@ -13,7 +13,8 @@ import {
   Space,
   Tag,
   Spin,
-  Tooltip
+  Tooltip,
+  Input
 } from "antd";
 import {
   InboxOutlined,
@@ -24,11 +25,12 @@ import {
   LoadingOutlined,
   DownOutlined,
   CloudUploadOutlined,
-  EyeOutlined
+  EyeOutlined,
+  SearchOutlined
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
-import { compareAPI, settingsAPI, promptsAPI, historyAPI } from "../../services/api";
+import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 
 const { Dragger } = Upload;
@@ -53,15 +55,17 @@ const ComparePage = () => {
   const [selectedProvider, setSelectedProvider] = useState("openai");
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [isComparePreview, setIsComparePreview] = useState(false);
 
   // DB Selection State
-  const [dbModalVisible, setDbModalVisible] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedDbRecords, setSelectedDbRecords] = useState([]);
+  const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     fetchModels();
+    fetchHistory();
     form.setFieldsValue({
       model_provider: "openai",
       model_name: "gpt-4o",
@@ -120,11 +124,7 @@ const ComparePage = () => {
     }
   };
 
-  const handleDbModalOpen = () => {
-    setDbModalVisible(true);
-    fetchHistory();
-    setSelectedDbRecords([]);
-  };
+
 
   const handleDbSelectionChange = (selectedRowKeys, selectedRows) => {
     if (selectedRows.length > 2) {
@@ -134,13 +134,21 @@ const ComparePage = () => {
     setSelectedDbRecords(selectedRows);
   };
 
+  // Filter history data based on search text
+  const filteredHistoryData = historyData.filter((record) => {
+    const searchLower = searchText.toLowerCase();
+    return (
+      record.investor?.toLowerCase().includes(searchLower) ||
+      record.version?.toLowerCase().includes(searchLower) ||
+      record.uploadedFile?.toLowerCase().includes(searchLower)
+    );
+  });
+
   const handleDbCompare = async () => {
     if (selectedDbRecords.length !== 2) {
       message.error("Please select exactly 2 records to compare.");
       return;
     }
-
-    setDbModalVisible(false);
 
     // Start comparison with DB records
     const values = form.getFieldsValue();
@@ -167,13 +175,17 @@ const ComparePage = () => {
         console.warn("Could not fetch prompts from prompts API");
       }
 
+      // Ensure model values are present (default to OpenAI if not set/admin)
+      const modelProvider = values.model_provider || "openai";
+      const modelName = values.model_name || "gpt-4o";
+
       let res;
       if (isFromDb) {
         // DB Comparison
         const payload = {
           ingest_ids: selectedDbRecords.map(r => r.id),
-          model_provider: values.model_provider,
-          model_name: values.model_name,
+          model_provider: modelProvider,
+          model_name: modelName,
           system_prompt: systemPrompt,
           user_prompt: userPrompt
         };
@@ -189,8 +201,8 @@ const ComparePage = () => {
         const fd = new FormData();
         fd.append("file1", files[0]);
         fd.append("file2", files[1]);
-        fd.append("model_provider", values.model_provider);
-        fd.append("model_name", values.model_name);
+        fd.append("model_provider", modelProvider);
+        fd.append("model_name", modelName);
         fd.append("system_prompt", systemPrompt);
         fd.append("user_prompt", userPrompt);
 
@@ -252,6 +264,7 @@ const ComparePage = () => {
 
   const loadPreview = async (sid) => {
     try {
+      setIsComparePreview(true);
       const res = await compareAPI.getPreview(sid);
       const data = res.data;
 
@@ -267,6 +280,24 @@ const ComparePage = () => {
     }
   };
 
+  const handleViewDetails = async (record) => {
+    try {
+      setIsComparePreview(false);
+      setSessionId(record.id);
+
+      const res = await ingestAPI.getPreview(record.id);
+
+      setPreviewData(res.data || []);
+      setPreviewModalVisible(true);
+
+      if (!res.data || res.data.length === 0) {
+        message.info("No structured preview data found for this file");
+      }
+    } catch (error) {
+      console.error("Failed to load details:", error);
+      message.error("Failed to load details: " + (error.response?.data?.detail || error.message));
+    }
+  };
 
   const uploadProps = {
     name: 'file',
@@ -305,23 +336,26 @@ const ComparePage = () => {
       key: "actions",
       width: 80,
       render: (_, record) => (
-        <Tooltip title="View Details">
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              // Could implement view details logic here if needed
-            }}
-          />
-        </Tooltip>
+        <div onClick={(e) => e.stopPropagation()}>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleViewDetails(record);
+              }}
+            />
+          </Tooltip>
+        </div>
       ),
     },
   ];
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto">
-      <h1 className="text-2xl font-normal text-gray-700 mb-6">Compare Guidelines</h1>
+    <div className="p-8 max-w-[1400px] mx-auto">
+      {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Compare Guidelines</h1> */}
 
       <Form
         form={form}
@@ -366,10 +400,76 @@ const ComparePage = () => {
           </div>
         )}
 
-        {/* Attach Documents Section */}
+        {/* Database Selection Section */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-medium text-gray-700" style={{ fontFamily: 'Jura, sans-serif' }}>
+              Select from Database <span className="text-sm text-gray-500 font-normal">(Select exactly 2 guidelines)</span>
+            </h2>
+            <Input
+              placeholder="Search by investor, version, or file name..."
+              prefix={<SearchOutlined className="text-gray-400" />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="w-80"
+              size="large"
+              allowClear
+            />
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-4">
+            <Table
+              dataSource={filteredHistoryData}
+              columns={dbColumns}
+              rowKey="id"
+              loading={loadingHistory}
+              pagination={{
+                pageSize: 3,
+                showSizeChanger: true,
+                pageSizeOptions: ['3', '5', '10'],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
+              }}
+              rowSelection={{
+                type: "checkbox",
+                selectedRowKeys: selectedDbRecords.map(r => r.id),
+                onChange: (keys, rows) => handleDbSelectionChange(keys, rows),
+                getCheckboxProps: (record) => ({
+                  disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find(r => r.id === record.id),
+                }),
+              }}
+              scroll={{ x: 800 }}
+            />
+          </div>
+
+          {selectedDbRecords.length === 2 && (
+            <div className="flex justify-center mb-4">
+              <Button
+                type="primary"
+                icon={<SwapOutlined />}
+                onClick={handleDbCompare}
+                size="large"
+                className="px-8 bg-green-600 hover:bg-green-700"
+              >
+                Compare Selected Guidelines
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="relative mb-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-gray-50 text-gray-500 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>OR</span>
+          </div>
+        </div>
+
+        {/* Local File Upload Section */}
         <div className="mb-8">
           <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
-            Attach Documents <span className="text-sm text-gray-500 font-normal">(Select exactly 2 Excel files)</span>
+            Upload Local Files <span className="text-sm text-gray-500 font-normal">(Select exactly 2 Excel files)</span>
           </h2>
 
           {files.length < 2 ? (
@@ -433,34 +533,22 @@ const ComparePage = () => {
               ))}
             </div>
           )}
+        </div>
 
-          {/* DB Selection Button */}
-          <div className="flex justify-center mb-4">
+        {/* Submit Button for Local Files */}
+        {files.length === 2 && (
+          <div className="flex justify-center">
             <Button
-              type="default"
-              icon={<CloudUploadOutlined />}
-              onClick={handleDbModalOpen}
+              type="primary"
+              htmlType="submit"
               size="large"
-              className="px-6"
+              className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
+              loading={processing}
             >
-              Attach From DB
+              {processing ? "Processing..." : "Compare Local Files"}
             </Button>
           </div>
-        </div>
-
-        {/* Submit Button */}
-        <div className="flex justify-center">
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
-            loading={processing}
-            disabled={files.length !== 2}
-          >
-            {processing ? "Processing..." : "Compare Guidelines"}
-          </Button>
-        </div>
+        )}
       </Form>
 
       {/* Processing Modal */}
@@ -495,46 +583,14 @@ const ComparePage = () => {
         onClose={() => setPreviewModalVisible(false)}
         title="Comparison Results"
         data={previewData}
-        onDownload={() => compareAPI.downloadExcel(sessionId)}
+        onDownload={() => {
+          if (isComparePreview) {
+            compareAPI.downloadExcel(sessionId);
+          } else {
+            ingestAPI.downloadExcel(sessionId);
+          }
+        }}
       />
-
-      {/* Attach From DB Modal */}
-      <Modal
-        title="Attach From DB"
-        open={dbModalVisible}
-        onCancel={() => setDbModalVisible(false)}
-        width={1000}
-        footer={[
-          <Button key="cancel" onClick={() => setDbModalVisible(false)}>
-            Cancel
-          </Button>,
-          <Button
-            key="compare"
-            type="primary"
-            icon={<SwapOutlined />}
-            disabled={selectedDbRecords.length !== 2}
-            onClick={handleDbCompare}
-          >
-            Compare
-          </Button>,
-        ]}
-      >
-        <Table
-          dataSource={historyData}
-          columns={dbColumns}
-          rowKey="id"
-          loading={loadingHistory}
-          pagination={{ pageSize: 10 }}
-          rowSelection={{
-            type: "checkbox",
-            selectedRowKeys: selectedDbRecords.map(r => r.id),
-            onChange: (keys, rows) => handleDbSelectionChange(keys, rows),
-            getCheckboxProps: (record) => ({
-              disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find(r => r.id === record.id),
-            }),
-          }}
-        />
-      </Modal>
     </div>
   );
 };
