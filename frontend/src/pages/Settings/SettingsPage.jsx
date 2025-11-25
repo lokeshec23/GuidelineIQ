@@ -68,9 +68,9 @@ const SettingsPage = () => {
       ...values,
       stop_sequences: values.stop_sequences
         ? values.stop_sequences
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
         : [],
     };
 
@@ -96,14 +96,14 @@ const SettingsPage = () => {
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 md:px-8 pb-14">
-      <div className="mb-10">
+      {/* <div className="mb-10">
         <h1 className="text-3xl font-bold flex items-center gap-2 text-gray-800">
           <SettingOutlined /> Settings
         </h1>
         <p className="text-gray-600 mt-1 text-base">
           Configure your API keys and extraction behavior.
         </p>
-      </div>
+      </div> */}
 
       <Form
         form={form}
