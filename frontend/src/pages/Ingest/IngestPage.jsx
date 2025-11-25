@@ -108,9 +108,16 @@ const IngestPage = () => {
 
       try {
         const promptsRes = await promptsAPI.getUserPrompts();
-        systemPrompt = promptsRes.data.ingest_prompts.system_prompt || "";
-        userPrompt = promptsRes.data.ingest_prompts.user_prompt || "";
-        console.log("✅ Fetched ingest prompts from user prompts");
+
+        // Determine provider (values.model_provider might be missing if not admin)
+        const provider = values.model_provider || selectedProvider || "openai";
+
+        // Get prompts for the specific model
+        const modelPrompts = promptsRes.data.ingest_prompts[provider] || promptsRes.data.ingest_prompts.openai || {};
+
+        systemPrompt = modelPrompts.system_prompt || "";
+        userPrompt = modelPrompts.user_prompt || "";
+        console.log(`✅ Fetched ingest prompts for ${provider}`);
       } catch (err) {
         console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
       }

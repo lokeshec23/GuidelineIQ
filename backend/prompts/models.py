@@ -20,21 +20,37 @@ async def get_user_prompts(user_id: str) -> Optional[Dict]:
     
     # Create default prompts for new user
     from config import (
-        DEFAULT_INGEST_PROMPT_SYSTEM,
-        DEFAULT_INGEST_PROMPT_USER,
-        DEFAULT_COMPARISON_PROMPT_SYSTEM,
-        DEFAULT_COMPARISON_PROMPT_USER
+        DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+        DEFAULT_INGEST_PROMPT_USER_OPENAI,
+        DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+        DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
+        DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
+        DEFAULT_INGEST_PROMPT_USER_GEMINI,
+        DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
+        DEFAULT_COMPARISON_PROMPT_USER_GEMINI
     )
     
     default_prompts = {
         "user_id": ObjectId(user_id),
         "ingest_prompts": {
-            "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM,
-            "user_prompt": DEFAULT_INGEST_PROMPT_USER
+            "openai": {
+                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI
+            },
+            "gemini": {
+                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
+                "user_prompt": DEFAULT_INGEST_PROMPT_USER_GEMINI
+            }
         },
         "compare_prompts": {
-            "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM,
-            "user_prompt": DEFAULT_COMPARISON_PROMPT_USER
+            "openai": {
+                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI
+            },
+            "gemini": {
+                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
+                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_GEMINI
+            }
         },
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
@@ -70,20 +86,36 @@ async def reset_user_prompts(user_id: str) -> bool:
     Reset user's prompts to defaults from config.
     """
     from config import (
-        DEFAULT_INGEST_PROMPT_SYSTEM,
-        DEFAULT_INGEST_PROMPT_USER,
-        DEFAULT_COMPARISON_PROMPT_SYSTEM,
-        DEFAULT_COMPARISON_PROMPT_USER
+        DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+        DEFAULT_INGEST_PROMPT_USER_OPENAI,
+        DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+        DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
+        DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
+        DEFAULT_INGEST_PROMPT_USER_GEMINI,
+        DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
+        DEFAULT_COMPARISON_PROMPT_USER_GEMINI
     )
     
     reset_data = {
         "ingest_prompts": {
-            "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM,
-            "user_prompt": DEFAULT_INGEST_PROMPT_USER
+            "openai": {
+                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI
+            },
+            "gemini": {
+                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
+                "user_prompt": DEFAULT_INGEST_PROMPT_USER_GEMINI
+            }
         },
         "compare_prompts": {
-            "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM,
-            "user_prompt": DEFAULT_COMPARISON_PROMPT_USER
+            "openai": {
+                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI
+            },
+            "gemini": {
+                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
+                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_GEMINI
+            }
         },
         "updated_at": datetime.utcnow()
     }

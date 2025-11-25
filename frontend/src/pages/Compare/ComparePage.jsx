@@ -167,17 +167,24 @@ const ComparePage = () => {
       let systemPrompt = "";
       let userPrompt = "";
 
+      // Ensure model values are present (default to OpenAI if not set/admin)
+      const modelProvider = values.model_provider || selectedProvider || "openai";
+      const modelName = values.model_name || "gpt-4o";
+
       try {
         const promptsRes = await promptsAPI.getUserPrompts();
-        systemPrompt = promptsRes.data.compare_prompts.system_prompt || "";
-        userPrompt = promptsRes.data.compare_prompts.user_prompt || "";
+
+        // Get prompts for the specific model
+        const modelPrompts = promptsRes.data.compare_prompts[modelProvider] || promptsRes.data.compare_prompts.openai || {};
+
+        systemPrompt = modelPrompts.system_prompt || "";
+        userPrompt = modelPrompts.user_prompt || "";
+        console.log(`✅ Fetched compare prompts for ${modelProvider}`);
       } catch (err) {
         console.warn("Could not fetch prompts from prompts API");
       }
 
-      // Ensure model values are present (default to OpenAI if not set/admin)
-      const modelProvider = values.model_provider || "openai";
-      const modelName = values.model_name || "gpt-4o";
+
 
       let res;
       if (isFromDb) {

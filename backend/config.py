@@ -72,7 +72,8 @@ def get_model_config(model_name: str) -> dict:
         "recommended_chunk": 1500,
     })
 
-DEFAULT_INGEST_PROMPT_USER = """You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
+# --- Default Prompts for OpenAI ---
+DEFAULT_INGEST_PROMPT_USER_OPENAI = """You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
  
 ### PRIMARY GOAL
 Convert unstructured mortgage guideline text into a structured list of self-contained rules. Each rule must be a complete JSON object.
@@ -117,24 +118,24 @@ This is the exact format and quality you must follow. Notice how no rule refers 
 - DO NOT include any introductory text, explanations, summaries, or markdown like ```json.
 - Every object MUST have the keys: "category", "attribute", and "guideline_summary"."""
 
-DEFAULT_INGEST_PROMPT_SYSTEM ="""You are an expert Mortgage Underwriting Analyst trained to convert unstructured mortgage guideline text into structured rule objects.
+DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI ="""You are an expert Mortgage Underwriting Analyst trained to convert unstructured mortgage guideline text into structured rule objects.
 
 ### YOUR REQUIRED OUTPUT FORMAT
 You MUST output a **JSON array**, where each item is a single underwriting rule.
 
 Each JSON object MUST contain exactly these keys:
 
-1. "Category" – High-level section name such as “Credit”, “Income”, “Loan Terms”, “Property Eligibility”.
-2. "Attribute" – The specific rule name or topic (e.g., “Minimum Credit Score”, “DTI Max”, “Cash-Out Restrictions”).
+1. "Category" – High-level section name such as "Credit", "Income", "Loan Terms", "Property Eligibility".
+2. "Attribute" – The specific rule name or topic (e.g., "Minimum Credit Score", "DTI Max", "Cash-Out Restrictions").
 3. "Guideline Summary" – A clear, complete, self-contained summary.
 
 ### HARD RULES
-- You must NEVER return “undefined”, “none”, “not provided”, or empty strings.
+- You must NEVER return "undefined", "none", "not provided", or empty strings.
 - EVERY rule MUST have meaningful values for Category, Attribute, and Guideline Summary.
 - If the text contains header sections, treat headers as Categories.
 - If the text contains bullet points inside a category, treat each bullet as a unique Attribute + Summary.
 - You must split rules into multiple JSON objects if they represent separate policies.
-- You must rewrite missing references such as “See matrix below” into full meaningful statements using local context.
+- You must rewrite missing references such as "See matrix below" into full meaningful statements using local context.
 - You cannot copy giant paragraphs; summarize accurately and concisely.
 - You cannot leave any field blank.
 
@@ -142,9 +143,7 @@ Each JSON object MUST contain exactly these keys:
 Return only the JSON array. No comments. No markdown.
 ."""
 
-
-
-DEFAULT_COMPARISON_PROMPT_USER = """You are a senior mortgage underwriting analyst. Your task is to perform a detailed, side-by-side comparison of guideline rules provided as pairs of JSON objects.
+DEFAULT_COMPARISON_PROMPT_USER_OPENAI = """You are a senior mortgage underwriting analyst. Your task is to perform a detailed, side-by-side comparison of guideline rules provided as pairs of JSON objects.
 
 ### PRIMARY GOAL
 For each pair of objects in the "DATA CHUNK TO COMPARE" array, you must generate a single, consolidated JSON object that accurately represents the comparison, matching the desired output schema.
@@ -194,7 +193,7 @@ Your corresponding output object MUST be:
 - DO NOT add any text or markdown outside of the JSON array. Start with '[' and end with ']'.
 - DO NOT include "rule_id" in your output - it will be added automatically."""
 
-DEFAULT_COMPARISON_PROMPT_SYSTEM = """You are a Senior Mortgage Compliance Officer and a high-precision Data Reconciliation Engine.
+DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI = """You are a Senior Mortgage Compliance Officer and a high-precision Data Reconciliation Engine.
 
 ### YOUR PERSONA
 You represent the final authority in "Gap Analysis" between lending products. You can instantly identify whether a rule change makes a guideline "Stricter," "More Lenient," or "Equivalent." You do not chat; you analyze data pairs and output structured results.
@@ -220,3 +219,15 @@ You represent the final authority in "Gap Analysis" between lending products. Yo
 -   **Input:** A JSON array of paired data objects.
 -   **Output:** A strictly formatted JSON array matching the requested schema.
 -   **Tone:** Concise, comparative, and decisive."""
+
+# --- Default Prompts for Gemini ---
+DEFAULT_INGEST_PROMPT_USER_GEMINI = DEFAULT_INGEST_PROMPT_USER_OPENAI
+DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI = DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI
+DEFAULT_COMPARISON_PROMPT_USER_GEMINI = DEFAULT_COMPARISON_PROMPT_USER_OPENAI
+DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI = DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI
+
+# Legacy exports for backward compatibility
+DEFAULT_INGEST_PROMPT_USER = DEFAULT_INGEST_PROMPT_USER_OPENAI
+DEFAULT_INGEST_PROMPT_SYSTEM = DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI
+DEFAULT_COMPARISON_PROMPT_USER = DEFAULT_COMPARISON_PROMPT_USER_OPENAI
+DEFAULT_COMPARISON_PROMPT_SYSTEM = DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI
