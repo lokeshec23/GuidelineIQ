@@ -486,7 +486,7 @@ const ComparePage = () => {
                   Click to upload or drag and drop
                 </p>
                 <p className="text-gray-500 text-xs mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
-                  Excel files only (XLSX, XLS) • Max 5MB each
+                  Excel files only
                 </p>
                 <p className="text-blue-500 text-xs font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
                   {files.length}/2 files selected

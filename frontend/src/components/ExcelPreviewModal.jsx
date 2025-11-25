@@ -7,13 +7,14 @@ import {
     DownloadOutlined,
     SearchOutlined,
     FilterOutlined,
-    RobotOutlined
+    RobotOutlined,
+    CloseOutlined,
 } from "@ant-design/icons";
 import ChatInterface from "./ChatInterface";
 
 /**
  * Generic Excel Preview Modal Component with Modern Table Features
- * 
+ *
  * @param {boolean} visible - Controls modal visibility
  * @param {function} onClose - Callback when modal is closed
  * @param {string} title - Modal title (default: "Extraction Results")
@@ -56,9 +57,8 @@ const ExcelPreviewModal = ({
     // Global search filter
     const searchFilteredData = useMemo(() => {
         if (!searchText) return tableData;
-
-        return tableData.filter(record =>
-            Object.values(record).some(value =>
+        return tableData.filter((record) =>
+            Object.values(record).some((value) =>
                 String(value).toLowerCase().includes(searchText.toLowerCase())
             )
         );
@@ -67,28 +67,28 @@ const ExcelPreviewModal = ({
     // Apply column filters to get currently filtered data
     const getFilteredDataForFilters = useMemo(() => {
         let filtered = searchFilteredData;
-
-        // Apply each active filter
-        Object.keys(filteredInfo).forEach(key => {
+        Object.keys(filteredInfo).forEach((key) => {
             const filterValues = filteredInfo[key];
             if (filterValues && filterValues.length > 0) {
-                filtered = filtered.filter(record =>
+                filtered = filtered.filter((record) =>
                     filterValues.includes(record[key])
                 );
             }
         });
-
         return filtered;
     }, [searchFilteredData, filteredInfo]);
 
-    // Get unique values for a column (for filters) - based on currently filtered data
+    // Get unique values for a column (for filters)
     const getColumnFilters = (dataIndex) => {
-        // Use currently filtered data to generate filter options
-        const uniqueValues = [...new Set(getFilteredDataForFilters.map(item => item[dataIndex]))];
+        const uniqueValues = [
+            ...new Set(getFilteredDataForFilters.map((item) => item[dataIndex])),
+        ];
         return uniqueValues
-            .filter(val => val !== null && val !== undefined && val !== "")
-            .map(val => ({
-                text: String(val).substring(0, 50) + (String(val).length > 50 ? "..." : ""),
+            .filter((val) => val !== null && val !== undefined && val !== "")
+            .map((val) => ({
+                text:
+                    String(val).substring(0, 50) +
+                    (String(val).length > 50 ? "..." : ""),
                 value: val,
             }));
     };
@@ -96,20 +96,23 @@ const ExcelPreviewModal = ({
     // Auto-generate columns from data if not provided
     const getColumns = () => {
         if (columns) {
-            // Enhance provided columns with search, filter, sort
-            return columns.map(col => ({
+            return columns.map((col) => ({
                 ...col,
                 sorter: (a, b) => {
                     const aVal = String(a[col.dataIndex] || "");
                     const bVal = String(b[col.dataIndex] || "");
                     return aVal.localeCompare(bVal);
                 },
-                sortOrder: sortedInfo.columnKey === col.dataIndex ? sortedInfo.order : null,
+                sortOrder:
+                    sortedInfo.columnKey === col.dataIndex ? sortedInfo.order : null,
                 filters: getColumnFilters(col.dataIndex),
                 filteredValue: filteredInfo[col.dataIndex] || null,
-                onFilter: (value, record) => String(record[col.dataIndex]) === String(value),
+                onFilter: (value, record) =>
+                    String(record[col.dataIndex]) === String(value),
                 filterIcon: (filtered) => (
-                    <FilterOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+                    <FilterOutlined
+                        style={{ color: filtered ? "#1890ff" : undefined }}
+                    />
                 ),
                 ellipsis: false,
                 render: (text) => (
@@ -136,7 +139,9 @@ const ExcelPreviewModal = ({
                 filteredValue: filteredInfo[key] || null,
                 onFilter: (value, record) => String(record[key]) === String(value),
                 filterIcon: (filtered) => (
-                    <FilterOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+                    <FilterOutlined
+                        style={{ color: filtered ? "#1890ff" : undefined }}
+                    />
                 ),
                 ellipsis: false,
                 render: (text) => (
@@ -147,15 +152,17 @@ const ExcelPreviewModal = ({
             }));
         }
 
-        return [{
-            title: "Result",
-            dataIndex: "content",
-            render: (text) => (
-                <div className="whitespace-pre-wrap break-words text-sm">
-                    {String(text || "")}
-                </div>
-            ),
-        }];
+        return [
+            {
+                title: "Result",
+                dataIndex: "content",
+                render: (text) => (
+                    <div className="whitespace-pre-wrap break-words text-sm">
+                        {String(text || "")}
+                    </div>
+                ),
+            },
+        ];
     };
 
     const tableColumns = getColumns();
@@ -165,20 +172,11 @@ const ExcelPreviewModal = ({
         setSortedInfo(sorter);
     };
 
-    const handleSearchChange = (e) => {
-        setSearchText(e.target.value);
-    };
-
-    const handleSearchIconClick = () => {
-        setSearchExpanded(true);
-    };
-
+    const handleSearchChange = (e) => setSearchText(e.target.value);
+    const handleSearchIconClick = () => setSearchExpanded(true);
     const handleSearchBlur = () => {
-        if (!searchText) {
-            setSearchExpanded(false);
-        }
+        if (!searchText) setSearchExpanded(false);
     };
-
     const clearFilters = () => {
         setFilteredInfo({});
         setSortedInfo({});
@@ -208,15 +206,7 @@ const ExcelPreviewModal = ({
                             <Tag color="blue">{getFilteredDataForFilters.length} rows</Tag>
                         )}
                     </div>
-
                     <Space>
-                        <Button
-                            icon={<RobotOutlined />}
-                            onClick={() => setChatVisible(!chatVisible)}
-                            className={chatVisible ? "text-[#722ED1] border-[#722ED1]" : ""}
-                        >
-                            Ask AI
-                        </Button>
                         {onDownload && (
                             <Button
                                 type="primary"
@@ -226,13 +216,14 @@ const ExcelPreviewModal = ({
                                 {downloadButtonText}
                             </Button>
                         )}
-                        <Button onClick={onClose}>Close</Button>
+                        <Button onClick={onClose} icon={<CloseOutlined />}>
+                            Close
+                        </Button>
                     </Space>
                 </div>
 
                 {/* Search and Filter Controls */}
                 <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
-                    {/* Collapsible Search */}
                     {!searchExpanded ? (
                         <Button
                             icon={<SearchOutlined />}
@@ -252,20 +243,18 @@ const ExcelPreviewModal = ({
                             style={{ width: 300 }}
                         />
                     )}
-
                     <Button onClick={clearFilters} size="small">
                         Clear Filters
                     </Button>
-
                     <span className="text-sm text-gray-500">
-                        {(getFilteredDataForFilters.length !== tableData.length || searchText) &&
-                            `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`
-                        }
+                        {(getFilteredDataForFilters.length !== tableData.length ||
+                            searchText) &&
+                            `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`}
                     </span>
                 </div>
 
-                {/* Table */}
-                <div className="p-4 bg-gray-50">
+                {/* Table with floating Ask AI button */}
+                <div className="p-4 bg-gray-50 relative">
                     <Table
                         dataSource={searchFilteredData}
                         columns={tableColumns}
@@ -274,23 +263,45 @@ const ExcelPreviewModal = ({
                             pageSize,
                             showSizeChanger: true,
                             showQuickJumper: true,
-                            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                            pageSizeOptions: ['10', '20', '50', '100', '200'],
+                            showTotal: (total, range) =>
+                                `${range[0]}-${range[1]} of ${total} items`,
+                            pageSizeOptions: ["10", "20", "50", "100", "200"],
                         }}
                         scroll={{ y: "calc(90vh - 280px)", x: "max-content" }}
                         bordered
                         size="middle"
                     />
+                    {/* Floating Ask AI button - Sky Blue color */}
+                    <Button
+                        type="primary"
+                        shape="circle"
+                        icon={<RobotOutlined />}
+                        size="large"
+                        onClick={() => setChatVisible(true)}
+                        className="absolute bottom-4 right-4 z-10 shadow-lg"
+                        style={{ backgroundColor: "#0EA5E9", borderColor: "#0EA5E9" }}
+                        title="Ask AI about this data"
+                    />
                 </div>
             </Modal>
 
-            {/* AI Chat Interface - Only visible when modal is open and chat is toggled */}
-            <ChatInterface
-                visible={visible && chatVisible}
-                onClose={() => setChatVisible(false)}
-                data={data}
-                sessionId={null}
-            />
+            {/* Blur overlay when chat is open */}
+            {visible && chatVisible && (
+                <div
+                    className="fixed inset-0 backdrop-blur-sm z-[1040]"
+                    onClick={() => setChatVisible(false)}
+                />
+            )}
+
+            {/* Chat Interface */}
+            {visible && chatVisible && (
+                <ChatInterface
+                    visible={true}
+                    onClose={() => setChatVisible(false)}
+                    data={data}
+                    sessionId={null}
+                />
+            )}
         </>
     );
 };
