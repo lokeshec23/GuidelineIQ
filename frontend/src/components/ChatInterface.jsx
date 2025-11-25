@@ -90,9 +90,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
                         <Avatar
                             size="small"
                             icon={<RobotOutlined />}
-                            style={{ backgroundColor: '#722ED1' }}
+                            style={{ backgroundColor: '#0EA5E9' }}
                         />
-                        <Text strong>Kodee</Text>
+                        {/* <Text strong>Kodee</Text> */}
                     </div>
                     <Space>
                         <Button
@@ -115,8 +115,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
                                 <div className={`max-w-[85%] ${item.role === 'user' ? 'order-1' : 'order-2'}`}>
                                     <div
                                         className={`p-3 rounded-2xl ${item.role === 'user'
-                                                ? 'bg-[#722ED1] text-white rounded-tr-none'
-                                                : 'bg-white border border-gray-100 shadow-sm rounded-tl-none'
+                                            ? 'bg-[#0EA5E9] text-white rounded-tr-none'
+                                            : 'bg-white border border-gray-100 shadow-sm rounded-tl-none'
                                             }`}
                                     >
                                         <Text className={item.role === 'user' ? 'text-white' : 'text-gray-800'}>
@@ -133,7 +133,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
                                                     className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-sm text-gray-600"
                                                     onClick={() => handleSendMessage(suggestion)}
                                                 >
-                                                    <BulbOutlined className="text-[#722ED1]" />
+                                                    <BulbOutlined className="text-[#0EA5E9]" />
                                                     {suggestion}
                                                 </div>
                                             ))}
@@ -166,7 +166,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
                                 icon={<SendOutlined />}
                                 onClick={() => handleSendMessage()}
                                 disabled={!inputValue.trim() || loading}
-                                className={inputValue.trim() ? "text-[#722ED1]" : "text-gray-300"}
+                                className={inputValue.trim() ? "text-[#0EA5E9]" : "text-gray-300"}
                             />
                         }
                         className="rounded-full py-2 px-4 bg-gray-50 border-gray-200 hover:bg-white focus:bg-white"
