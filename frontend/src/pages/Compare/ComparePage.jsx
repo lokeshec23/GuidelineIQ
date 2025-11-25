@@ -403,9 +403,9 @@ const ComparePage = () => {
         {/* Database Selection Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-medium text-gray-700" style={{ fontFamily: 'Jura, sans-serif' }}>
+            {/* <h2 className="text-base font-medium text-gray-700" style={{ fontFamily: 'Jura, sans-serif' }}>
               Select from Database <span className="text-sm text-gray-500 font-normal">(Select exactly 2 guidelines)</span>
-            </h2>
+            </h2> */}
             <Input
               placeholder="Search by investor, version, or file name..."
               prefix={<SearchOutlined className="text-gray-400" />}
