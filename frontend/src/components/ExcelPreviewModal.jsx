@@ -1,7 +1,7 @@
 // src/components/ExcelPreviewModal.jsx
 
 import React, { useState, useMemo } from "react";
-import { Modal, Table, Button, Space, Tag, Input, Tooltip } from "antd";
+import { Modal, Table, Button, Space, Tag, Input, Tooltip, Spin } from "antd";
 import {
     FileExcelOutlined,
     DownloadOutlined,
@@ -9,6 +9,7 @@ import {
     FilterOutlined,
     RobotOutlined,
     CloseOutlined,
+    LoadingOutlined,
 } from "@ant-design/icons";
 import ChatInterface from "./ChatInterface";
 
@@ -30,6 +31,7 @@ const ExcelPreviewModal = ({
     const [searchExpanded, setSearchExpanded] = useState(false);
     const [filteredInfo, setFilteredInfo] = useState({});
     const [sortedInfo, setSortedInfo] = useState({});
+    const [filterLoading, setFilterLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
 
     const convertToTableData = (data) =>
@@ -85,8 +87,86 @@ const ExcelPreviewModal = ({
             filteredValue: filteredInfo[key] || null,
             onFilter: (value, record) => String(record[key]) === String(value),
             filterIcon: (filtered) => (
-                <FilterOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
+                filterLoading ? (
+                    <LoadingOutlined style={{ color: "#1890ff" }} />
+                ) : (
+                    <FilterOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
+                )
             ),
+            filterDropdownOpen: undefined,
+            onFilterDropdownOpenChange: (visible) => {
+                if (visible) {
+                    setFilterLoading(true);
+                    // Use setTimeout to allow the loading state to render before computing filters
+                    setTimeout(() => {
+                        setFilterLoading(false);
+                    }, 100);
+                }
+            },
+            filterDropdown: (props) => {
+                const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
+                const filterOptions = getColumnFilters(key);
+
+                if (filterLoading) {
+                    return (
+                        <div style={{ padding: 40, textAlign: 'center' }}>
+                            <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+                            <div style={{ marginTop: 8, color: '#999' }}>Loading filters...</div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div style={{ padding: 8 }}>
+                        <div style={{ marginBottom: 8, maxHeight: 300, overflow: 'auto' }}>
+                            {filterOptions.map((option) => (
+                                <div
+                                    key={option.value}
+                                    style={{
+                                        padding: '4px 8px',
+                                        cursor: 'pointer',
+                                        backgroundColor: selectedKeys?.includes(option.value) ? '#e6f7ff' : 'transparent',
+                                    }}
+                                    onClick={() => {
+                                        const keys = selectedKeys || [];
+                                        if (keys.includes(option.value)) {
+                                            setSelectedKeys(keys.filter(k => k !== option.value));
+                                        } else {
+                                            setSelectedKeys([...keys, option.value]);
+                                        }
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedKeys?.includes(option.value)}
+                                        onChange={() => { }}
+                                        style={{ marginRight: 8 }}
+                                    />
+                                    {option.text}
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                            <Button
+                                size="small"
+                                onClick={() => {
+                                    clearFilters();
+                                    confirm();
+                                }}
+                            >
+                                Reset
+                            </Button>
+                            <Button
+                                type="primary"
+                                size="small"
+                                onClick={() => confirm()}
+                            >
+                                OK
+                            </Button>
+                        </div>
+                    </div>
+                );
+            },
             render: (text) => (
                 <div className="whitespace-pre-wrap break-words text-sm max-w-md">
                     {String(text || "")}
