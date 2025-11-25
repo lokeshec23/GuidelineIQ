@@ -64,7 +64,7 @@ async def process_comparison_background(
         chunk_size = user_settings.get("comparison_chunk_size", 10)
         comparison_chunks = create_comparison_chunks(aligned_data, chunk_size)
 
-        max_chunks = user_settings.get("max_comparison_chunks", 15)
+        max_chunks = user_settings.get("max_comparison_chunks", 0)
         if max_chunks > 0:
             comparison_chunks = comparison_chunks[:max_chunks]
             print(f"⚠️ Limited to {max_chunks} chunks for testing")
