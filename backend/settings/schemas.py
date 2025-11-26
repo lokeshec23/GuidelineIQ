@@ -20,6 +20,10 @@ class SettingsUpdate(BaseModel):
     openai_deployment: Optional[str] = None
     gemini_api_key: Optional[str] = None
     
+    # --- Default Model Configuration ---
+    default_model_provider: Optional[str] = None
+    default_model_name: Optional[str] = None
+
     # --- LLM Generation Parameters ---
     temperature: float = Field(default=DEFAULT_TEMPERATURE, ge=0.0, le=2.0)
     max_output_tokens: int = Field(default=DEFAULT_MAX_TOKENS, ge=1, le=128000)
@@ -41,6 +45,10 @@ class SettingsResponse(BaseModel):
     openai_endpoint: Optional[str] = None
     openai_deployment: Optional[str] = None
     gemini_api_key: Optional[str] = None
+
+    # --- Default Model Configuration ---
+    default_model_provider: Optional[str] = None
+    default_model_name: Optional[str] = None
 
     # --- LLM & Chunking Parameters ---
     temperature: float

@@ -9,6 +9,7 @@ import {
   message,
   Spin,
   Tabs,
+  Select,
 } from "antd";
 import {
   SaveOutlined,
@@ -27,16 +28,26 @@ const SettingsPage = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [supportedModels, setSupportedModels] = useState({
+    openai: [],
+    gemini: [],
+  });
 
   useEffect(() => {
-    fetchSettings();
+    fetchSettingsAndModels();
   }, []);
 
-  const fetchSettings = async () => {
+  const fetchSettingsAndModels = async () => {
     try {
       setFetching(true);
-      const response = await settingsAPI.getSettings();
+      const [settingsRes, modelsRes] = await Promise.all([
+        settingsAPI.getSettings(),
+        settingsAPI.getSupportedModels(),
+      ]);
 
+      setSupportedModels(modelsRes.data);
+
+      const response = settingsRes;
       const stopSequences = Array.isArray(response.data.stop_sequences)
         ? response.data.stop_sequences.join(", ")
         : response.data.stop_sequences || "";
@@ -150,6 +161,58 @@ const SettingsPage = () => {
               </Form.Item>
             </TabPane>
           </Tabs>
+        </Card>
+
+        <Card
+          className="shadow-sm"
+          title={
+            <div className="flex items-center gap-2">
+              <ThunderboltOutlined /> Default Model Configuration
+            </div>
+          }
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Form.Item
+              label="Default Provider"
+              name="default_model_provider"
+              rules={[{ required: false }]}
+            >
+              <Select
+                placeholder="Select a provider"
+                onChange={() => form.setFieldsValue({ default_model_name: null })}
+              >
+                <Select.Option value="openai">Azure OpenAI</Select.Option>
+                <Select.Option value="gemini">Google Gemini</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              shouldUpdate={(prevValues, currentValues) =>
+                prevValues.default_model_provider !== currentValues.default_model_provider
+              }
+            >
+              {({ getFieldValue }) => {
+                const provider = getFieldValue("default_model_provider");
+                const models = provider ? supportedModels[provider] : [];
+
+                return (
+                  <Form.Item
+                    label="Default Model"
+                    name="default_model_name"
+                    rules={[{ required: !!provider, message: "Please select a model" }]}
+                  >
+                    <Select placeholder="Select a model" disabled={!provider}>
+                      {models?.map((model) => (
+                        <Select.Option key={model} value={model}>
+                          {model}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                );
+              }}
+            </Form.Item>
+          </div>
         </Card>
 
         <Card

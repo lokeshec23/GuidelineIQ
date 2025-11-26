@@ -64,24 +64,46 @@ const ComparePage = () => {
   const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
-    fetchModels();
+    fetchModelsAndSettings();
     fetchHistory();
-    form.setFieldsValue({
-      model_provider: "openai",
-      model_name: "gpt-4o",
-    });
-    setSelectedProvider("openai");
   }, []);
 
-  const fetchModels = async () => {
+  const fetchModelsAndSettings = async () => {
     try {
-      const res = await settingsAPI.getSupportedModels();
-      setSupportedModels(res.data);
-    } catch {
+      const [modelsRes, settingsRes] = await Promise.all([
+        settingsAPI.getSupportedModels(),
+        settingsAPI.getSettings(),
+      ]);
+
+      setSupportedModels(modelsRes.data);
+
+      const settings = settingsRes.data;
+      if (settings.default_model_provider && settings.default_model_name) {
+        form.setFieldsValue({
+          model_provider: settings.default_model_provider,
+          model_name: settings.default_model_name,
+        });
+        setSelectedProvider(settings.default_model_provider);
+      } else {
+        // Fallback defaults
+        form.setFieldsValue({
+          model_provider: "openai",
+          model_name: "gpt-4o",
+        });
+        setSelectedProvider("openai");
+      }
+    } catch (error) {
+      console.error("Failed to fetch models or settings:", error);
+      // Fallback if API fails
       setSupportedModels({
         openai: ["gpt-4o"],
         gemini: ["gemini-2.5-pro"],
       });
+      form.setFieldsValue({
+        model_provider: "openai",
+        model_name: "gpt-4o",
+      });
+      setSelectedProvider("openai");
     }
   };
 
