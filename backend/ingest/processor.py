@@ -107,7 +107,8 @@ async def process_guideline_background(
         if user_id:
             try:
                 from history.models import save_ingest_history
-                await save_ingest_history({
+                # ✅ UPDATED: Pass file_path to history
+                history_id = await save_ingest_history({
                     "user_id": user_id,
                     "username": username,
                     "investor": investor,
@@ -117,8 +118,15 @@ async def process_guideline_background(
                     "preview_data": results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
+                    "file_path": pdf_path 
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
+                
+                # Update progress with history ID
+                with progress_lock:
+                    if session_id in progress_store:
+                        progress_store[session_id]["history_id"] = history_id
+                        
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
 
@@ -132,11 +140,16 @@ async def process_guideline_background(
         with progress_lock:
             if session_id in progress_store:
                 progress_store[session_id].update({"status": "failed", "error": error_msg})
+        
+        # Cleanup Excel if failed
+        if excel_path and os.path.exists(excel_path):
+            os.remove(excel_path)
 
-    finally:
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-            print("Temporary PDF file cleaned up.")
+    # ✅ REMOVED: Do not delete the PDF file, we need it for chat
+    # finally:
+    #     if os.path.exists(pdf_path):
+    #         os.remove(pdf_path)
+    #         print("Temporary PDF file cleaned up.")
 
 
 async def run_parallel_llm_processing(

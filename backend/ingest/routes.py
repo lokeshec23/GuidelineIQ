@@ -100,11 +100,18 @@ async def ingest_guideline(
 
     session_id = str(uuid.uuid4())
     
+    # ✅ UPDATED: Save file permanently to backend/uploads
+    UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    pdf_filename = f"{session_id}{file_ext}"
+    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
+    
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        with open(pdf_path, "wb") as f:
             content = await file.read()
-            tmp_file.write(content)
-            pdf_path = tmp_file.name
+            f.write(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
@@ -117,15 +124,15 @@ async def ingest_guideline(
         filename=file.filename,
         investor=investor,
         version=version,  
-        user_settings=admin_settings,  # ✅ UPDATED: Use admin's settings
+        user_settings=admin_settings,
         model_provider=model_provider,
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        user_id=user_id,  # ✅ NEW: Pass user_id for history
-        username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
-        effective_date=effective_date,  # ✅ NEW: Pass effective_date
-        expiry_date=expiry_date,  # ✅ NEW: Pass expiry_date
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+        effective_date=effective_date,
+        expiry_date=expiry_date,
     )
     
     return IngestResponse(status="processing", message="Processing started", session_id=session_id)
@@ -145,7 +152,6 @@ async def progress_stream(session_id: str):
 
             current_progress = progress_data["progress"]
             if current_progress != last_progress:
-                # ✅ FIXED: Use proper newlines instead of escaped backslashes
                 yield f"data: {json.dumps(progress_data)}\n\n"
                 last_progress = current_progress
 

@@ -85,3 +85,5 @@ openapi.json
 # These files are typically generated before PyInstaller builds the exe
 *.manifest
 *.spec
+
+uploads/

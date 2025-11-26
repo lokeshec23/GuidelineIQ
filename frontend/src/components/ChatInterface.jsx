@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Card, List, Avatar, Typography, Space, Spin } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined } from '@ant-design/icons';
+import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip } from 'antd';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 
 const { Text } = Typography;
 
-const ChatInterface = ({ sessionId, data, visible, onClose }) => {
+const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [] }) => {
+    const [mode, setMode] = useState("excel"); // "excel" or "pdf"
     const [messages, setMessages] = useState([
         {
             id: 'welcome',
@@ -51,7 +52,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
             const response = await chatAPI.sendMessage({
                 session_id: sessionId,
                 message: messageText,
-                context_data: data // Optional: send data context if backend needs it directly
+                history: messages.map(m => ({ role: m.role, content: m.content })), // Send history
+                mode: mode, // "pdf" or "excel"
+                context_ids: selectedRecordIds // Send selected IDs
             });
 
             // Add AI response
@@ -95,6 +98,14 @@ const ChatInterface = ({ sessionId, data, visible, onClose }) => {
                         {/* <Text strong>Kodee</Text> */}
                     </div>
                     <Space>
+                        <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
+                            <Switch
+                                checkedChildren={<FilePdfOutlined />}
+                                unCheckedChildren={<FileExcelOutlined />}
+                                checked={mode === "pdf"}
+                                onChange={(checked) => setMode(checked ? "pdf" : "excel")}
+                            />
+                        </Tooltip>
                         <Button
                             type="text"
                             size="small"

@@ -157,6 +157,13 @@ export const historyAPI = {
 // ==================== CHAT APIs ====================
 export const chatAPI = {
   sendMessage: (data) => api.post("/chat/message", data),
+  uploadFile: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/chat/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 // Prompts API
