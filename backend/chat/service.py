@@ -47,15 +47,9 @@ def chat_with_gemini(
     configure_gemini(api_key)
     
     # ✅ Configure tools for file search if needed
-    tools = None
-    if use_file_search and file_uris:
-        # Enable file search tool for better RAG
-        tools = [{"file_search": {}}]
-    
-    # Initialize model with tools
+    # Initialize model
     model = genai.GenerativeModel(
-        model_name=model_name,
-        tools=tools if tools else None
+        model_name=model_name
     )
     
     # Prepare chat history for Gemini SDK
