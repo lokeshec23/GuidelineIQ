@@ -48,13 +48,11 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         setLoading(true);
 
         try {
-            // Call API
+            // Call API with session-based endpoint
             const response = await chatAPI.sendMessage({
                 session_id: sessionId,
                 message: messageText,
-                history: messages.map(m => ({ role: m.role, content: m.content })), // Send history
-                mode: mode, // "pdf" or "excel"
-                context_ids: selectedRecordIds // Send selected IDs
+                mode: mode // "pdf" or "excel"
             });
 
             // Add AI response
@@ -69,7 +67,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
             const errorMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: 'Sorry, I encountered an error processing your request. Please try again.'
+                content: `Sorry, I encountered an error: ${error.response?.data?.detail || error.message}`
             };
             setMessages(prev => [...prev, errorMsg]);
         } finally {

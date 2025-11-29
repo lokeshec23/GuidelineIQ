@@ -156,14 +156,14 @@ export const historyAPI = {
 
 // ==================== CHAT APIs ====================
 export const chatAPI = {
-  sendMessage: (data) => api.post("/chat/message", data),
-  uploadFile: (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    return api.post("/chat/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-  },
+  sendMessage: ({ session_id, message, mode = "excel" }) =>
+    api.post(`/chat/session/${session_id}/message`, { message, mode }),
+
+  getChatHistory: (session_id) =>
+    api.get(`/chat/session/${session_id}/history`),
+
+  clearChatHistory: (session_id) =>
+    api.delete(`/chat/session/${session_id}/history`),
 };
 
 // Prompts API

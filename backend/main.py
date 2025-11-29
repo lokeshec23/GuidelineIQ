@@ -47,6 +47,14 @@ app.include_router(history_router)
 app.include_router(prompts_router)
 app.include_router(chat_router)
 
+# Startup event to initialize database
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection on startup."""
+    from database import get_database
+    get_database()
+    print("🚀 Application started successfully")
+
 # Health check
 @app.get("/")
 def root():
@@ -60,6 +68,7 @@ def root():
             "compare": "/compare",
             "history": "/history",
             "prompts": "/prompts",
+            "chat": "/chat",
             "docs": "/docs"
         }
     }

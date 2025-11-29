@@ -15,7 +15,7 @@ from utils.progress import update_progress
 
 async def process_guideline_background(
     session_id: str,
-    pdf_path: str,
+    gridfs_file_id: str,  # ✅ Changed from pdf_path to gridfs_file_id
     filename: str,
     investor: str,
     version: str,
@@ -30,12 +30,15 @@ async def process_guideline_background(
     expiry_date: str = None,
 ):
     excel_path = None
+    temp_pdf_path = None  # ✅ Track temporary PDF file
+    
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
         print(f"\n{'='*60}")
         print(f"Parallel ingestion started for session {session_id[:8]}")
         print(f"Investor: {investor} | Version: {version}")
         print(f"File: {filename}")
+        print(f"GridFS File ID: {gridfs_file_id}")
         print(f"Model: {model_provider}/{model_name}")
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"Effective Date: {effective_date}")
@@ -53,22 +56,40 @@ async def process_guideline_background(
             system_prompt = DEFAULT_INGEST_PROMPT_SYSTEM
             print("⚠️ Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
 
-        # === STEP 1: OCR ===
+        # === STEP 1: Retrieve PDF from GridFS ===
+        update_progress(session_id, 2, "Retrieving PDF from storage...")
+        from utils.gridfs_helper import get_pdf_from_gridfs
+        
+        pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
+        
+        # Create temporary file for OCR processing
+        temp_pdf_path = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".pdf",
+            prefix=f"ocr_{session_id[:8]}_"
+        ).name
+        
+        with open(temp_pdf_path, "wb") as f:
+            f.write(pdf_content)
+        
+        print(f"✅ Created temporary PDF for OCR: {temp_pdf_path}")
+
+        # === STEP 2: OCR ===
         update_progress(session_id, 5, f"Extracting text ({pages_per_chunk} page(s) per chunk)...")
         ocr_client = AzureOCR()
-        text_chunks = ocr_client.analyze_doc_page_by_page(pdf_path, pages_per_chunk=pages_per_chunk)
+        text_chunks = ocr_client.analyze_doc_page_by_page(temp_pdf_path, pages_per_chunk=pages_per_chunk)
         num_chunks = len(text_chunks)
         if num_chunks == 0:
             raise ValueError("OCR process failed to extract text from document.")
 
         update_progress(session_id, 35, f"OCR complete. Created {num_chunks} text chunk(s).")
 
-        # === STEP 2: Initialize LLM ===
+        # === STEP 3: Initialize LLM ===
         update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
         llm = initialize_llm_provider(user_settings, model_provider, model_name)
         update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel with {model_name}...")
 
-        # === STEP 3: Parallel LLM Calls ===
+        # === STEP 4: Parallel LLM Calls ===
         results, failed = await run_parallel_llm_processing(
             llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks
         )
@@ -77,7 +98,7 @@ async def process_guideline_background(
         if not results:
             raise ValueError("LLM returned no valid data. Check prompts and model response.")
 
-        # === STEP 4: Convert results to Excel ===
+        # === STEP 5: Convert results to Excel ===
         update_progress(session_id, 90, "Converting results to Excel...")
 
         excel_path = tempfile.NamedTemporaryFile(
@@ -107,7 +128,7 @@ async def process_guideline_background(
         if user_id:
             try:
                 from history.models import save_ingest_history
-                # ✅ UPDATED: Pass file_path to history
+                # ✅ UPDATED: Pass gridfs_file_id to history
                 history_id = await save_ingest_history({
                     "user_id": user_id,
                     "username": username,
@@ -118,7 +139,7 @@ async def process_guideline_background(
                     "preview_data": results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
-                    "file_path": pdf_path 
+                    "gridfs_file_id": gridfs_file_id  # ✅ Store GridFS ID instead of path
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
                 
@@ -144,12 +165,15 @@ async def process_guideline_background(
         # Cleanup Excel if failed
         if excel_path and os.path.exists(excel_path):
             os.remove(excel_path)
-
-    # ✅ REMOVED: Do not delete the PDF file, we need it for chat
-    # finally:
-    #     if os.path.exists(pdf_path):
-    #         os.remove(pdf_path)
-    #         print("Temporary PDF file cleaned up.")
+    
+    finally:
+        # ✅ Clean up temporary PDF file
+        if temp_pdf_path and os.path.exists(temp_pdf_path):
+            try:
+                os.remove(temp_pdf_path)
+                print(f"🧹 Cleaned up temporary PDF: {temp_pdf_path}")
+            except Exception as e:
+                print(f"⚠️ Failed to clean up temporary PDF: {e}")
 
 
 async def run_parallel_llm_processing(

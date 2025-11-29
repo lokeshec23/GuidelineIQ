@@ -26,6 +26,7 @@ const ExcelPreviewModal = ({
     icon: IconComponent = FileExcelOutlined,
     iconColor = "text-green-600",
     iconBgColor = "bg-green-100",
+    sessionId = null, // ✅ Add sessionId prop
 }) => {
     const [searchText, setSearchText] = useState("");
     const [searchExpanded, setSearchExpanded] = useState(false);
@@ -317,7 +318,7 @@ const ExcelPreviewModal = ({
                     visible={true}
                     onClose={() => setChatVisible(false)}
                     data={data}
-                    sessionId={null}
+                    sessionId={sessionId}
                 />
             )}
         </>

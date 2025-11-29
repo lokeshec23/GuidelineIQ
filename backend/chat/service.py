@@ -1,4 +1,5 @@
 import os
+import tempfile
 import google.generativeai as genai
 from typing import List, Dict, Optional
 
@@ -9,13 +10,13 @@ def configure_gemini(api_key: str):
 def upload_file_to_gemini(api_key: str, file_path: str, mime_type: str = "application/pdf"):
     """
     Uploads a file to Gemini using the File API.
-    Returns the file object (which contains the URI).
+    Returns the file object (which contains the URI and name).
     """
     configure_gemini(api_key)
     
     print(f"📤 Uploading file to Gemini: {file_path}")
     file = genai.upload_file(file_path, mime_type=mime_type)
-    print(f"✅ File uploaded: {file.uri}")
+    print(f"✅ File uploaded: {file.uri} (name: {file.name})")
     
     return file
 
@@ -25,18 +26,39 @@ def chat_with_gemini(
     message: str,
     history: List[Dict],
     file_uris: Optional[List[str]] = None,
-    text_context: Optional[str] = None
+    text_context: Optional[str] = None,
+    use_file_search: bool = True
 ) -> str:
     """
     Sends a message to Gemini, optionally with file attachments or text context.
+    
+    Args:
+        api_key: Gemini API key
+        model_name: Model to use (e.g., 'gemini-2.0-flash-exp')
+        message: User message
+        history: Chat history as list of dicts with 'role' and 'content'
+        file_uris: List of Gemini file names (e.g., ['files/xxx'])
+        text_context: Text context for Excel mode
+        use_file_search: Whether to enable file search tool
+    
+    Returns:
+        Assistant's reply
     """
     configure_gemini(api_key)
     
-    # Initialize model
-    model = genai.GenerativeModel(model_name)
+    # ✅ Configure tools for file search if needed
+    tools = None
+    if use_file_search and file_uris:
+        # Enable file search tool for better RAG
+        tools = [{"file_search": {}}]
+    
+    # Initialize model with tools
+    model = genai.GenerativeModel(
+        model_name=model_name,
+        tools=tools if tools else None
+    )
     
     # Prepare chat history for Gemini SDK
-    # Gemini expects history as a list of Content objects or dicts with 'role' and 'parts'
     gemini_history = []
     for msg in history:
         role = "user" if msg["role"] == "user" else "model"
@@ -53,40 +75,92 @@ def chat_with_gemini(
     
     # Add text context if provided (for Excel mode)
     if text_context:
-        parts.append(f"CONTEXT DATA:\n{text_context}\n\nUSER QUESTION:")
+        context_msg = f"""You are a helpful assistant analyzing mortgage guideline data. 
         
-    parts.append(message)
+Here is the context data from Excel:
+
+{text_context}
+
+Please answer the following question based on this data:
+"""
+        parts.append({"text": context_msg})
+        
+    # Add user message
+    parts.append({"text": message})
     
     # Add file references if provided (for PDF mode)
     if file_uris:
         for uri in file_uris:
-            # We need to retrieve the file object or construct a part that references it
-            # The SDK allows passing the file object directly or a Part object
-            # For simplicity, we'll assume we can pass the file object if we had it, 
-            # but here we only have URIs. 
-            # Actually, genai.GenerativeModel.generate_content accepts file objects.
-            # But start_chat might be trickier with files in the middle of history.
-            # For the *current* message, we can attach files.
-            
-            # We need to fetch the file object using get_file to pass it to the model
-            # Or we can just pass the URI string? No, SDK needs the file object or specific structure.
-            # Let's try to get the file object first.
             try:
-                # This is a bit inefficient to do every time, but safe for now.
-                # In a real app, we might cache the file object or its representation.
-                # However, genai.get_file(name) returns a File object.
-                # The name is usually 'files/...' which is part of the URI or the name attribute.
-                # If file_uri is the full URI, we might need to parse it or store the name instead.
-                # Let's assume file_uris contains the 'name' (e.g. 'files/xxxx').
-                
-                # If we passed the full URI, we might need to extract the name.
-                # But let's assume the caller passes the 'name' property of the uploaded file.
+                # Retrieve the file object using the file name
                 file_ref = genai.get_file(uri)
                 parts.append(file_ref)
+                print(f"✅ Added file to context: {uri}")
             except Exception as e:
                 print(f"⚠️ Failed to retrieve file {uri}: {e}")
 
     # Send message
-    response = chat.send_message(parts)
+    try:
+        response = chat.send_message(parts)
+        return response.text
+    except Exception as e:
+        print(f"❌ Chat error: {e}")
+        raise
+
+
+async def upload_pdf_with_cache(api_key: str, gridfs_file_id: str, pdf_content: bytes, filename: str):
+    """
+    Upload PDF to Gemini with caching support.
     
-    return response.text
+    Args:
+        api_key: Gemini API key
+        gridfs_file_id: GridFS file ID for caching
+        pdf_content: PDF file content as bytes
+        filename: Original filename
+    
+    Returns:
+        Dict with gemini_uri and gemini_name
+    """
+    from chat.models import get_cached_file_uri, cache_gemini_file_uri
+    
+    # Check cache first
+    cached = await get_cached_file_uri(gridfs_file_id)
+    if cached:
+        print(f"✅ Using cached Gemini file: {cached['gemini_name']}")
+        return {
+            "gemini_uri": cached["gemini_uri"],
+            "gemini_name": cached["gemini_name"]
+        }
+    
+    # Not cached, upload to Gemini
+    # Create temporary file
+    temp_path = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".pdf",
+        prefix="gemini_upload_"
+    ).name
+    
+    try:
+        with open(temp_path, "wb") as f:
+            f.write(pdf_content)
+        
+        # Upload to Gemini
+        uploaded_file = upload_file_to_gemini(api_key, temp_path, "application/pdf")
+        
+        # Cache the result
+        await cache_gemini_file_uri(
+            gridfs_file_id=gridfs_file_id,
+            gemini_uri=uploaded_file.uri,
+            gemini_name=uploaded_file.name,
+            ttl_hours=48  # Gemini files typically last 48 hours
+        )
+        
+        return {
+            "gemini_uri": uploaded_file.uri,
+            "gemini_name": uploaded_file.name
+        }
+        
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)

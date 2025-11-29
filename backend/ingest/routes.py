@@ -71,7 +71,11 @@ async def ingest_guideline(
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
     # ✅ UPDATED: Fetch admin's settings instead of current user's
-    admin_user = await get_admin_user()
+    import database
+    if database.users_collection is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+        
+    admin_user = await database.users_collection.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(
             status_code=500, 
@@ -86,8 +90,7 @@ async def ingest_guideline(
         )
 
     # ✅ NEW: Get current user's info for history tracking
-    from database import users_collection
-    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    current_user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -100,18 +103,25 @@ async def ingest_guideline(
 
     session_id = str(uuid.uuid4())
     
-    # ✅ UPDATED: Save file permanently to backend/uploads
-    UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    
-    file_ext = os.path.splitext(file.filename)[1]
-    pdf_filename = f"{session_id}{file_ext}"
-    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
-    
+    # ✅ UPDATED: Save PDF to GridFS instead of file system
     try:
-        with open(pdf_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        content = await file.read()
+        
+        # Import GridFS helper
+        from utils.gridfs_helper import save_pdf_to_gridfs
+        
+        # Save to GridFS with metadata
+        gridfs_file_id = await save_pdf_to_gridfs(
+            file_content=content,
+            filename=file.filename,
+            metadata={
+                "investor": investor,
+                "version": version,
+                "session_id": session_id,
+                "user_id": user_id,
+                "uploaded_by": current_user.get("email", "Unknown")
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
 
@@ -120,7 +130,7 @@ async def ingest_guideline(
     background_tasks.add_task(
         process_guideline_background,
         session_id=session_id,
-        pdf_path=pdf_path,
+        gridfs_file_id=gridfs_file_id,  # ✅ Pass GridFS ID instead of path
         filename=file.filename,
         investor=investor,
         version=version,  
@@ -177,10 +187,11 @@ async def get_preview(session_id: str):
     # 2. If not found, try to get from database (historical records)
     try:
         if ObjectId.is_valid(session_id):
-            from database import ingest_history_collection
-            record = await ingest_history_collection.find_one({"_id": ObjectId(session_id)})
-            if record and "preview_data" in record:
-                return JSONResponse(content=record["preview_data"])
+            import database
+            if database.ingest_history_collection is not None:
+                record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+                if record and "preview_data" in record:
+                    return JSONResponse(content=record["preview_data"])
     except Exception as e:
         print(f"Error fetching preview from DB: {e}")
 
@@ -210,27 +221,28 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
     if ObjectId.is_valid(session_id):
-        from database import ingest_history_collection
-        record = await ingest_history_collection.find_one({"_id": ObjectId(session_id)})
-        
-        if record and "preview_data" in record:
-            try:
-                # Generate temp Excel file
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                dynamic_json_to_excel(record["preview_data"], tmp.name)
-                
-                filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
-                
-                background_tasks.add_task(cleanup_file, path=tmp.name)
-                
-                return FileResponse(
-                    tmp.name,
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
-                )
-            except Exception as e:
-                print(f"Error regenerating Excel from DB: {e}")
-                raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
+        import database
+        if database.ingest_history_collection is not None:
+            record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+            
+            if record and "preview_data" in record:
+                try:
+                    # Generate temp Excel file
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                    dynamic_json_to_excel(record["preview_data"], tmp.name)
+                    
+                    filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
+                    
+                    background_tasks.add_task(cleanup_file, path=tmp.name)
+                    
+                    return FileResponse(
+                        tmp.name,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        filename=filename
+                    )
+                except Exception as e:
+                    print(f"Error regenerating Excel from DB: {e}")
+                    raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
 
     raise HTTPException(status_code=404, detail="Result file not found or already downloaded.")
 

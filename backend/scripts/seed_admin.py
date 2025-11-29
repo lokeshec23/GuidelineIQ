@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 # Add parent directory to path to import from backend modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import users_collection
+import database
 from auth.utils import hash_password
 
 async def seed_admin():
@@ -16,6 +16,9 @@ async def seed_admin():
     Creates the admin user if it doesn't already exist.
     Reads credentials from environment variables.
     """
+    # Initialize database
+    database.get_database()
+    
     # Load environment variables
     load_dotenv()
     
@@ -28,7 +31,7 @@ async def seed_admin():
         return False
     
     # Check if admin already exists
-    existing_admin = await users_collection.find_one({"role": "admin"})
+    existing_admin = await database.users_collection.find_one({"role": "admin"})
     
     if existing_admin:
         print(f"✅ Admin user already exists: {existing_admin['email']}")
@@ -43,7 +46,7 @@ async def seed_admin():
     }
     
     try:
-        result = await users_collection.insert_one(admin_data)
+        result = await database.users_collection.insert_one(admin_data)
         print(f"✅ Admin user created successfully!")
         print(f"   Email: {admin_email}")
         print(f"   ID: {result.inserted_id}")

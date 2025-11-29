@@ -410,6 +410,7 @@ const DashboardPage = () => {
                 showRowCount={false}
                 pageSize={20}
                 onDownload={handleDownload}
+                sessionId={previewRecord?.id}
             />
 
             {/* Delete Confirmation Modal */}

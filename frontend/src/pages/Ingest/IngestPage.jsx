@@ -461,6 +461,7 @@ const IngestPage = () => {
         onClose={() => setPreviewModalVisible(false)}
         title="Extraction Results"
         data={previewData}
+        sessionId={sessionId}
         onDownload={() => {
           if (sessionId) {
             ingestAPI.downloadExcel(sessionId);

@@ -619,6 +619,7 @@ const ComparePage = () => {
             ingestAPI.downloadExcel(sessionId);
           }
         }}
+        sessionId={sessionId}
       />
     </div>
   );

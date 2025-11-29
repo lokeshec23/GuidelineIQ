@@ -2,9 +2,10 @@
 from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from auth.models import users_collection, find_user_by_email, create_user
+from auth.models import find_user_by_email, create_user
 from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh
 from auth.utils import hash_password, verify_password, create_tokens, verify_token
+import database
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -60,7 +61,11 @@ async def get_current_user(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     user_id = payload.get("sub")
-    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    
+    if database.users_collection is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+        
+    user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
