@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 
 const { Text } = Typography;
 
 const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [] }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
+    const [isExpanded, setIsExpanded] = useState(false);
     const [messages, setMessages] = useState([
         {
             id: 'welcome',
@@ -81,8 +82,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         <div className="fixed bottom-6 right-6 z-[1050] flex flex-col items-end">
             {/* Chat Window */}
             <Card
-                className="mb-4 w-[380px] shadow-xl border-0 rounded-2xl overflow-hidden flex flex-col"
-                bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: '500px' }}
+                className={`mb-4 shadow-xl border-0 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${isExpanded ? 'w-[800px]' : 'w-[450px]'}`}
+                bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: isExpanded ? '700px' : '600px' }}
                 style={{ animation: 'fadeInUp 0.3s ease-out' }}
             >
                 {/* Header */}
@@ -93,7 +94,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                             icon={<RobotOutlined />}
                             style={{ backgroundColor: '#0EA5E9' }}
                         />
-                        {/* <Text strong>Kodee</Text> */}
+                        {/* <Text strong className="text-gray-700">Kodee</Text> */}
                     </div>
                     <Space>
                         <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
@@ -102,6 +103,14 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                 unCheckedChildren={<FileExcelOutlined />}
                                 checked={mode === "pdf"}
                                 onChange={(checked) => setMode(checked ? "pdf" : "excel")}
+                            />
+                        </Tooltip>
+                        <Tooltip title={isExpanded ? "Collapse" : "Expand"}>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={isExpanded ? <ShrinkOutlined /> : <ArrowsAltOutlined />}
+                                onClick={() => setIsExpanded(!isExpanded)}
                             />
                         </Tooltip>
                         <Button
@@ -165,7 +174,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 {/* Input Area */}
                 <div className="p-4 bg-white border-t">
                     <Input
-                        placeholder="Ask Kodee anything..."
+                        placeholder="Ask  anything..."
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onPressEnter={() => handleSendMessage()}
@@ -182,7 +191,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                     />
                     <div className="text-center mt-2">
                         <Text type="secondary" style={{ fontSize: '10px' }}>
-                            Kodee can make mistakes. Double-check replies.
+                            AI chat can make mistakes. Double-check replies.
                         </Text>
                     </div>
                 </div>
