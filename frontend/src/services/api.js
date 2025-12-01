@@ -156,8 +156,8 @@ export const historyAPI = {
 
 // ==================== CHAT APIs ====================
 export const chatAPI = {
-  sendMessage: ({ session_id, message, mode = "excel" }) =>
-    api.post(`/chat/session/${session_id}/message`, { message, mode }),
+  sendMessage: ({ session_id, message, mode = "excel", instructions = null }) =>
+    api.post(`/chat/session/${session_id}/message`, { message, mode, instructions }),
 
   getChatHistory: (session_id) =>
     api.get(`/chat/session/${session_id}/history`),

@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined } from '@ant-design/icons';
+import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip, Modal } from 'antd';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-const { Text } = Typography;
+const { Text, TextArea } = Typography;
 
 const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [] }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
@@ -23,6 +25,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     ]);
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
+    const [instructions, setInstructions] = useState('');
+    const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
+    const [tempInstructions, setTempInstructions] = useState('');
+
     const messagesEndRef = useRef(null);
     const isResizingRef = useRef(false);
     const startPosRef = useRef({ x: 0, y: 0 });
@@ -66,7 +72,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
             const response = await chatAPI.sendMessage({
                 session_id: sessionId,
                 message: messageText,
-                mode: mode // "pdf" or "excel"
+                mode: mode, // "pdf" or "excel"
+                instructions: instructions || null
             });
 
             // Add AI response
@@ -117,6 +124,16 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         document.removeEventListener('mouseup', handleMouseUp);
     };
 
+    const openInstructionModal = () => {
+        setTempInstructions(instructions);
+        setIsInstructionModalOpen(true);
+    };
+
+    const saveInstructions = () => {
+        setInstructions(tempInstructions);
+        setIsInstructionModalOpen(false);
+    };
+
     if (!visible) return null;
 
     return (
@@ -163,6 +180,16 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                 onChange={(checked) => setMode(checked ? "pdf" : "excel")}
                             />
                         </Tooltip>
+                        <Tooltip title="Set Instructions">
+                            <Button
+                                type={instructions ? "primary" : "text"}
+                                size="small"
+                                icon={<FormOutlined />}
+                                onClick={openInstructionModal}
+                            >
+                                Instruction
+                            </Button>
+                        </Tooltip>
                         <Tooltip title={isExpanded ? "Collapse" : "Expand"}>
                             <Button
                                 type="text"
@@ -195,9 +222,34 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                             : 'bg-white border border-gray-100 shadow-sm rounded-tl-none'
                                             }`}
                                     >
-                                        <Text className={item.role === 'user' ? 'text-white' : 'text-gray-800'}>
-                                            {item.content}
-                                        </Text>
+                                        <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                                                    ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
+                                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                                                    li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                                                    a: ({ node, ...props }) => <a className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                                                    code: ({ node, inline, className, children, ...props }) => {
+                                                        const match = /language-(\w+)/.exec(className || '')
+                                                        return !inline && match ? (
+                                                            <div className="bg-gray-800 rounded p-2 my-2 overflow-x-auto">
+                                                                <code className={className} {...props}>
+                                                                    {children}
+                                                                </code>
+                                                            </div>
+                                                        ) : (
+                                                            <code className="bg-gray-100 px-1 rounded text-sm font-mono text-red-500" {...props}>
+                                                                {children}
+                                                            </code>
+                                                        )
+                                                    }
+                                                }}
+                                            >
+                                                {item.content}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
 
                                     {/* Suggestions Chips */}
@@ -255,13 +307,35 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 </div>
             </Card>
 
+            {/* Instruction Modal */}
+            <Modal
+                title="Set Chat Instructions"
+                open={isInstructionModalOpen}
+                onOk={saveInstructions}
+                onCancel={() => setIsInstructionModalOpen(false)}
+                okText="Save"
+                cancelText="Close"
+                zIndex={2000}
+            >
+                <p className="mb-2 text-gray-600">
+                    Provide specific instructions for the AI (e.g., "Reply in 2 lines", "Format as a list").
+                    These instructions will be applied to every message until you clear them.
+                </p>
+                <Input.TextArea
+                    rows={4}
+                    value={tempInstructions}
+                    onChange={(e) => setTempInstructions(e.target.value)}
+                    placeholder="Enter instructions here..."
+                />
+            </Modal>
+
             <style jsx>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-        </div>
+        </div >
     );
 };
 

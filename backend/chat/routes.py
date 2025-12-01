@@ -19,6 +19,7 @@ async def chat_with_session(
     session_id: str,
     message: str = Body(...),
     mode: str = Body(default="excel"),  # "pdf" or "excel"
+    instructions: Optional[str] = Body(default=None),
 ):
     """
     Chat with a specific ingestion session.
@@ -132,7 +133,8 @@ Extracted Guidelines:
             history=history,
             file_uris=file_uris if mode == "pdf" else None,
             text_context=text_context if mode == "excel" else None,
-            use_file_search=(mode == "pdf")
+            use_file_search=(mode == "pdf"),
+            instructions=instructions
         )
         
         # 6. Save chat messages to history

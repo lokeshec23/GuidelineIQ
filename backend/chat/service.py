@@ -27,7 +27,8 @@ def chat_with_gemini(
     history: List[Dict],
     file_uris: Optional[List[str]] = None,
     text_context: Optional[str] = None,
-    use_file_search: bool = True
+    use_file_search: bool = True,
+    instructions: Optional[str] = None
 ) -> str:
     """
     Sends a message to Gemini, optionally with file attachments or text context.
@@ -80,7 +81,16 @@ Please answer the following question based on this data:
         parts.append({"text": context_msg})
         
     # Add user message
-    parts.append({"text": message})
+    # Add user message
+    final_message = message
+    if instructions:
+        final_message = f"""SYSTEM INSTRUCTION: You must strictly follow the user's formatting and content instructions below.
+INSTRUCTIONS: {instructions}
+
+USER MESSAGE:
+{message}"""
+        
+    parts.append({"text": final_message})
     
     # Add file references if provided (for PDF mode)
     if file_uris:
