@@ -8,6 +8,7 @@ const { Text } = Typography;
 const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [] }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
     const [isExpanded, setIsExpanded] = useState(false);
+    const [size, setSize] = useState({ width: 450, height: 600 });
     const [messages, setMessages] = useState([
         {
             id: 'welcome',
@@ -23,6 +24,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [inputValue, setInputValue] = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
+    const isResizingRef = useRef(false);
+    const startPosRef = useRef({ x: 0, y: 0 });
+    const startSizeRef = useRef({ width: 0, height: 0 });
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,6 +37,15 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
             scrollToBottom();
         }
     }, [messages, visible]);
+
+    // Handle Expand Toggle
+    useEffect(() => {
+        if (isExpanded) {
+            setSize({ width: 800, height: 700 });
+        } else {
+            setSize({ width: 450, height: 600 });
+        }
+    }, [isExpanded]);
 
     const handleSendMessage = async (text) => {
         const messageText = text || inputValue.trim();
@@ -76,19 +89,64 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         }
     };
 
+    // Resize Handlers
+    const handleMouseDown = (e) => {
+        isResizingRef.current = true;
+        startPosRef.current = { x: e.clientX, y: e.clientY };
+        startSizeRef.current = { width: size.width, height: size.height };
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        e.preventDefault(); // Prevent text selection
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isResizingRef.current) return;
+
+        const deltaX = startPosRef.current.x - e.clientX; // Dragging left increases width
+        const deltaY = startPosRef.current.y - e.clientY; // Dragging up increases height
+
+        setSize({
+            width: Math.max(300, Math.min(1000, startSizeRef.current.width + deltaX)),
+            height: Math.max(400, Math.min(window.innerHeight - 100, startSizeRef.current.height + deltaY))
+        });
+    };
+
+    const handleMouseUp = () => {
+        isResizingRef.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    };
+
     if (!visible) return null;
 
     return (
         <div className="fixed bottom-6 right-6 z-[1050] flex flex-col items-end">
             {/* Chat Window */}
             <Card
-                className={`mb-4 shadow-xl border-0 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${isExpanded ? 'w-[800px]' : 'w-[450px]'}`}
-                bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: isExpanded ? '700px' : '600px' }}
-                style={{ animation: 'fadeInUp 0.3s ease-out' }}
+                className="mb-4 shadow-xl border-0 rounded-2xl overflow-hidden flex flex-col relative"
+                bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+                style={{
+                    width: `${size.width}px`,
+                    height: `${size.height}px`,
+                    maxHeight: 'calc(100vh - 100px)', // Prevent going off-screen
+                    animation: 'fadeInUp 0.3s ease-out',
+                    transition: isResizingRef.current ? 'none' : 'width 0.3s, height 0.3s'
+                }}
             >
+                {/* Resize Handle (Top-Left Corner) */}
+                <div
+                    className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-50 hover:bg-gray-200 rounded-br"
+                    onMouseDown={handleMouseDown}
+                    style={{
+                        background: 'linear-gradient(135deg, #ccc 50%, transparent 50%)',
+                        opacity: 0.5
+                    }}
+                    title="Resize"
+                />
+
                 {/* Header */}
-                <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
-                    <div className="flex items-center gap-2">
+                <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10 select-none">
+                    <div className="flex items-center gap-2 pl-4"> {/* Added padding-left to avoid overlap with resize handle */}
                         <Avatar
                             size="small"
                             icon={<RobotOutlined />}
