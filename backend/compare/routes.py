@@ -10,7 +10,7 @@ from compare.schemas import CompareResponse, ComparisonStatus, CompareFromDBRequ
 from compare.processor import process_comparison_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
-from auth.middleware import get_admin_user
+# from auth.middleware import get_admin_user
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
 from config import SUPPORTED_MODELS
 import asyncio
@@ -59,7 +59,7 @@ async def compare_guidelines(
     # Validate model
     if model_provider not in SUPPORTED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {model_provider}")
-    
+
     if model_name not in SUPPORTED_MODELS[model_provider]:
         raise HTTPException(
             status_code=400,
@@ -67,7 +67,8 @@ async def compare_guidelines(
         )
     
     # Fetch admin's settings
-    admin_user = await get_admin_user()
+    from database import users_collection
+    admin_user = await users_collection.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(
             status_code=500, 
@@ -110,7 +111,6 @@ async def compare_guidelines(
         print(f"File 2 saved: {len(content2) / 1024:.2f} KB")
     
     # ✅ NEW: Get current user's info for history tracking
-    from database import users_collection
     current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -198,7 +198,8 @@ async def compare_from_db(
         raise HTTPException(status_code=500, detail=f"Failed to prepare files: {str(e)}")
 
     # Fetch admin settings
-    admin_user = await get_admin_user()
+    from database import users_collection
+    admin_user = await users_collection.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(status_code=500, detail="System configuration error")
         
