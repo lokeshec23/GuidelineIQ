@@ -35,7 +35,7 @@ def chat_with_gemini(
     
     Args:
         api_key: Gemini API key
-        model_name: Model to use (e.g., 'gemini-2.0-flash-exp')
+        model_name: Model to use (e.g., 'gemini-2.5-pro')
         message: User message
         history: Chat history as list of dicts with 'role' and 'content'
         file_uris: List of Gemini file names (e.g., ['files/xxx'])

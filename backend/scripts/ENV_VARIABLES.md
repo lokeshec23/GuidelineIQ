@@ -34,7 +34,7 @@ AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 ### Default Model Settings
 ```bash
 DEFAULT_MODEL_PROVIDER=gemini  # or "openai"
-DEFAULT_MODEL_NAME=gemini-2.0-flash-exp  # or "gpt-4o", etc.
+DEFAULT_MODEL_NAME=gemini-2.5-pro  # or "gpt-4o", etc.
 ```
 
 ### LLM Parameters
@@ -85,7 +85,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 
 # Default Model
 DEFAULT_MODEL_PROVIDER=gemini
-DEFAULT_MODEL_NAME=gemini-2.0-flash-exp
+DEFAULT_MODEL_NAME=gemini-2.5-pro
 
 # LLM Parameters
 DEFAULT_TEMPERATURE=0.3

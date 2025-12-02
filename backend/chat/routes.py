@@ -128,7 +128,7 @@ Extracted Guidelines:
     try:
         reply = chat_with_gemini(
             api_key=api_key,
-            model_name="gemini-2.0-flash-exp",  # Use latest model with file search
+            model_name="gemini-2.5-pro",  # Use latest model with file search
             message=message,
             history=history,
             file_uris=file_uris if mode == "pdf" else None,

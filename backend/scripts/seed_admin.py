@@ -74,7 +74,7 @@ async def seed_admin():
         
         # Default Model Configuration
         "default_model_provider": os.getenv("DEFAULT_MODEL_PROVIDER", "gemini"),
-        "default_model_name": os.getenv("DEFAULT_MODEL_NAME", "gemini-2.0-flash-exp"),
+        "default_model_name": os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-pro"),
         
         # LLM Parameters (with defaults)
         "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.3")),

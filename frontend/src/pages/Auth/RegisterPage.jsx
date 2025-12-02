@@ -93,8 +93,8 @@ const RegisterPage = () => {
             rules={[
               { required: true, message: "Please create a password!" },
               {
-                min: 8,
-                message: "Password must be at least 8 characters long.",
+                min: 4,
+                message: "Password must be at least 4 characters long.",
               },
             ]}
             hasFeedback
