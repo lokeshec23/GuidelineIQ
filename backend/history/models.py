@@ -57,9 +57,9 @@ async def save_compare_history(data: dict) -> str:
     history_data = {
         "user_id": data["user_id"],
         "username": data.get("username", "Unknown"),
-        "file1": data["file1"],
-        "file2": data["file2"],
-        "comparison_file": data["comparison_file"],
+        "uploaded_file1": data["uploaded_file1"],
+        "uploaded_file2": data["uploaded_file2"],
+        "extracted_file": data["extracted_file"],
         "preview_data": data.get("preview_data", []),
         "created_at": datetime.utcnow()
     }
@@ -83,9 +83,9 @@ async def get_user_compare_history(user_id: str) -> List[Dict]:
             "id": str(doc["_id"]),
             "user_id": doc["user_id"],
             "username": doc.get("username", "Unknown"),
-            "file1": doc.get("file1", ""),
-            "file2": doc.get("file2", ""),
-            "comparisonFile": doc.get("comparison_file", ""),
+            "uploadedFile1": doc.get("uploaded_file1", ""),
+            "uploadedFile2": doc.get("uploaded_file2", ""),
+            "extractedFile": doc.get("extracted_file", ""),
             "preview_data": doc.get("preview_data", []),
             "created_at": doc["created_at"]
         })
