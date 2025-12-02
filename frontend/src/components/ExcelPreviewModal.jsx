@@ -12,6 +12,7 @@ import {
     LoadingOutlined,
 } from "@ant-design/icons";
 import ChatInterface from "./ChatInterface";
+import PdfViewerModal from "./PdfViewerModal";
 
 const ExcelPreviewModal = ({
     visible,
@@ -35,6 +36,7 @@ const ExcelPreviewModal = ({
     const [sortedInfo, setSortedInfo] = useState({});
     const [filterLoading, setFilterLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
+    const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
 
     const convertToTableData = (data) =>
         data?.map((item, idx) => ({ key: idx, ...item })) || [];
@@ -321,6 +323,17 @@ const ExcelPreviewModal = ({
                     data={data}
                     sessionId={sessionId}
                     isComparisonMode={isComparisonMode}
+                    onOpenPdf={() => setPdfViewerVisible(true)}
+                />
+            )}
+
+            {/* PDF Viewer Modal - Outside chatbot for higher z-index */}
+            {sessionId && (
+                <PdfViewerModal
+                    visible={pdfViewerVisible}
+                    onClose={() => setPdfViewerVisible(false)}
+                    pdfUrl={`http://localhost:8003/history/ingest/${sessionId}/pdf`}
+                    title="PDF Document"
                 />
             )}
         </>

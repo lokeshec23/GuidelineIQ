@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip, Modal } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined } from '@ant-design/icons';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const { Text, TextArea } = Typography;
 
-const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [], isComparisonMode = false }) => {
+const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [], isComparisonMode = false, onOpenPdf }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
     const [isExpanded, setIsExpanded] = useState(false);
     const [size, setSize] = useState({ width: 450, height: 600 });
@@ -181,14 +181,28 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                     </div>
                     <Space>
                         {!isComparisonMode && (
-                            <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
-                                <Switch
-                                    checkedChildren={<FilePdfOutlined />}
-                                    unCheckedChildren={<FileExcelOutlined />}
-                                    checked={mode === "pdf"}
-                                    onChange={(checked) => setMode(checked ? "pdf" : "excel")}
-                                />
-                            </Tooltip>
+                            <>
+                                <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
+                                    <Switch
+                                        checkedChildren={<FilePdfOutlined />}
+                                        unCheckedChildren={<FileExcelOutlined />}
+                                        checked={mode === "pdf"}
+                                        onChange={(checked) => setMode(checked ? "pdf" : "excel")}
+                                    />
+                                </Tooltip>
+                                {mode === "pdf" && sessionId && (
+                                    <Tooltip title="View PDF">
+                                        <Button
+                                            type="primary"
+                                            size="small"
+                                            icon={<EyeOutlined />}
+                                            onClick={() => onOpenPdf && onOpenPdf()}
+                                        >
+                                            Open PDF
+                                        </Button>
+                                    </Tooltip>
+                                )}
+                            </>
                         )}
                         <Tooltip title="Set Instructions">
                             <Button
@@ -316,6 +330,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                     </div>
                 </div>
             </Card>
+
+
 
             {/* Instruction Modal */}
             <Modal
