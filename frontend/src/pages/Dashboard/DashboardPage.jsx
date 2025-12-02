@@ -411,6 +411,7 @@ const DashboardPage = () => {
                 pageSize={20}
                 onDownload={handleDownload}
                 sessionId={previewRecord?.id}
+                isComparisonMode={activeTab === "compare"}
             />
 
             {/* Delete Confirmation Modal */}

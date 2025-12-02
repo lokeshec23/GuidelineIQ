@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 
 const { Text, TextArea } = Typography;
 
-const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [] }) => {
+const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [], isComparisonMode = false }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
     const [isExpanded, setIsExpanded] = useState(false);
     const [size, setSize] = useState({ width: 450, height: 600 });
@@ -15,12 +15,20 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         {
             id: 'welcome',
             role: 'assistant',
-            content: 'Hello 👋\nHow can I help you analyze this data today?',
-            suggestions: [
-                'Summarize this data',
-                'Find key insights',
-                'Identify any anomalies'
-            ]
+            content: isComparisonMode
+                ? 'Hello 👋\nHow can I help you analyze this comparison data today?'
+                : 'Hello 👋\nHow can I help you analyze this data today?',
+            suggestions: isComparisonMode
+                ? [
+                    'Summarize the key differences',
+                    'Highlight major changes',
+                    'Explain the comparison results'
+                ]
+                : [
+                    'Summarize this data',
+                    'Find key insights',
+                    'Identify any anomalies'
+                ]
         }
     ]);
     const [inputValue, setInputValue] = useState('');
@@ -172,14 +180,16 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                         {/* <Text strong className="text-gray-700">Kodee</Text> */}
                     </div>
                     <Space>
-                        <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
-                            <Switch
-                                checkedChildren={<FilePdfOutlined />}
-                                unCheckedChildren={<FileExcelOutlined />}
-                                checked={mode === "pdf"}
-                                onChange={(checked) => setMode(checked ? "pdf" : "excel")}
-                            />
-                        </Tooltip>
+                        {!isComparisonMode && (
+                            <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
+                                <Switch
+                                    checkedChildren={<FilePdfOutlined />}
+                                    unCheckedChildren={<FileExcelOutlined />}
+                                    checked={mode === "pdf"}
+                                    onChange={(checked) => setMode(checked ? "pdf" : "excel")}
+                                />
+                            </Tooltip>
+                        )}
                         <Tooltip title="Set Instructions">
                             <Button
                                 type={instructions ? "primary" : "text"}

@@ -55,9 +55,15 @@ async def chat_with_session(
     
     # Check if it's a valid ObjectId (history record)
     if ObjectId.is_valid(session_id):
-        if database.ingest_history_collection is None:
+        if database.ingest_history_collection is None or database.compare_history_collection is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
+        
+        # Try ingest history first
         record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+        
+        # If not found in ingest history, try compare history
+        if not record:
+            record = await database.compare_history_collection.find_one({"_id": ObjectId(session_id)})
     
     if not record:
         raise HTTPException(status_code=404, detail="Session not found")

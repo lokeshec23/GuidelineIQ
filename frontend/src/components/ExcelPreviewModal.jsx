@@ -27,6 +27,7 @@ const ExcelPreviewModal = ({
     iconColor = "text-green-600",
     iconBgColor = "bg-green-100",
     sessionId = null, // ✅ Add sessionId prop
+    isComparisonMode = false, // ✅ Add isComparisonMode prop
 }) => {
     const [searchText, setSearchText] = useState("");
     const [searchExpanded, setSearchExpanded] = useState(false);
@@ -319,6 +320,7 @@ const ExcelPreviewModal = ({
                     onClose={() => setChatVisible(false)}
                     data={data}
                     sessionId={sessionId}
+                    isComparisonMode={isComparisonMode}
                 />
             )}
         </>
