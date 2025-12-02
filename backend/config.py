@@ -6,7 +6,7 @@ from typing import Dict
 
 # --- MongoDB Configuration ---
 MONGO_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME: str = os.getenv("DB_NAME", "GC_AI_DB")
+DB_NAME: str = os.getenv("DB_NAME", "guidelineiq_db")
 
 # --- JWT Authentication ---
 JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "a-very-secret-key-that-should-be-changed")
