@@ -5,8 +5,6 @@ import { useAuth } from "../../context/AuthContext";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
-import ChatInterface from "../../components/ChatInterface";
-import { RobotOutlined } from "@ant-design/icons";
 
 const { TabPane } = Tabs;
 
@@ -28,9 +26,7 @@ const DashboardPage = () => {
     const [recordToDelete, setRecordToDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    // Chat state
-    const [chatVisible, setChatVisible] = useState(false);
-    const [selectedIngestKeys, setSelectedIngestKeys] = useState([]);
+
 
     useEffect(() => {
         if (activeTab === "ingest") {
@@ -364,10 +360,7 @@ const DashboardPage = () => {
                             dataSource={ingestHistory}
                             loading={loading}
                             rowKey="id"
-                            rowSelection={{
-                                selectedRowKeys: selectedIngestKeys,
-                                onChange: (keys) => setSelectedIngestKeys(keys),
-                            }}
+                            bordered
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
@@ -387,6 +380,7 @@ const DashboardPage = () => {
                             dataSource={compareHistory}
                             loading={loading}
                             rowKey="id"
+                            bordered
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
@@ -432,30 +426,7 @@ const DashboardPage = () => {
                 loading={deleteLoading}
             />
 
-            {/* Floating Chat Button */}
-            {selectedIngestKeys.length > 0 && (
-                <div className="fixed bottom-6 right-6 z-[1000]">
-                    <Button
-                        type="primary"
-                        shape="circle"
-                        icon={<RobotOutlined />}
-                        size="large"
-                        onClick={() => setChatVisible(!chatVisible)}
-                        className="shadow-lg h-14 w-14 flex items-center justify-center"
-                        style={{ backgroundColor: "#0EA5E9" }}
-                    />
-                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
-                        {selectedIngestKeys.length}
-                    </div>
-                </div>
-            )}
 
-            {/* Chat Interface */}
-            <ChatInterface
-                visible={chatVisible}
-                onClose={() => setChatVisible(false)}
-                selectedRecordIds={selectedIngestKeys}
-            />
         </div>
     );
 };
