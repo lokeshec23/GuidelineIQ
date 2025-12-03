@@ -211,7 +211,7 @@ const ExcelPreviewModal = ({
                 width="95vw"
                 centered
                 closable={false}
-                style={{ top: "20px" }}
+                style={{ top: "20px", height: "90dvh" }}
                 onCancel={onClose}
             >
                 {/* Header */}
@@ -285,7 +285,7 @@ const ExcelPreviewModal = ({
                             showSizeChanger: true,
                             pageSizeOptions: ["10", "20", "50", "100", "200"],
                         }}
-                        scroll={{ y: "calc(90vh - 280px)", x: "max-content" }}
+                        scroll={{ y: "calc(90dvh - 280px)", x: "max-content" }}
                         bordered
                         size="middle"
                     />

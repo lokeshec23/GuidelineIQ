@@ -3,11 +3,9 @@ import { Modal, Button, Input, Space, Spin, message } from 'antd';
 import { CloseOutlined, SearchOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
 
 const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
-    const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(true);
     const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
     const [error, setError] = useState(null);
-    const [searchActive, setSearchActive] = useState(false);
 
     useEffect(() => {
         if (visible && pdfUrl) {
@@ -51,80 +49,7 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
         }
     };
 
-    const handleSearch = () => {
-        if (!searchText.trim()) {
-            message.warning('Please enter text to search');
-            return;
-        }
 
-        const iframe = document.getElementById('pdf-iframe');
-        if (iframe && iframe.contentWindow) {
-            try {
-                // Use the browser's built-in find functionality
-                iframe.contentWindow.focus();
-                const found = iframe.contentWindow.find(searchText, false, false, true, false, true, false);
-
-                if (found) {
-                    setSearchActive(true);
-                } else {
-                    message.info('No matches found');
-                    setSearchActive(false);
-                }
-            } catch (e) {
-                console.error('Search error:', e);
-                // Fallback: Try using execCommand
-                try {
-                    iframe.contentDocument.execCommand('find', false, searchText);
-                    setSearchActive(true);
-                } catch (err) {
-                    message.warning('Search functionality may be limited in this browser');
-                }
-            }
-        }
-    };
-
-    const handleFindNext = () => {
-        if (!searchText.trim()) return;
-
-        const iframe = document.getElementById('pdf-iframe');
-        if (iframe && iframe.contentWindow) {
-            try {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.find(searchText, false, false, true, false, true, false);
-            } catch (e) {
-                console.error('Find next error:', e);
-            }
-        }
-    };
-
-    const handleFindPrevious = () => {
-        if (!searchText.trim()) return;
-
-        const iframe = document.getElementById('pdf-iframe');
-        if (iframe && iframe.contentWindow) {
-            try {
-                iframe.contentWindow.focus();
-                // Third parameter = true means search backwards
-                iframe.contentWindow.find(searchText, false, true, true, false, true, false);
-            } catch (e) {
-                console.error('Find previous error:', e);
-            }
-        }
-    };
-
-    const handleSearchKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            if (e.shiftKey) {
-                handleFindPrevious();
-            } else {
-                if (searchActive) {
-                    handleFindNext();
-                } else {
-                    handleSearch();
-                }
-            }
-        }
-    };
 
     const handleModalClose = () => {
         // Revoke blob URL to free memory
@@ -134,8 +59,6 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
         }
         setLoading(true);
         setError(null);
-        setSearchText('');
-        setSearchActive(false);
         onClose();
     };
 
@@ -156,45 +79,12 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
                 <div className="flex items-center gap-3">
                     <h3 className="font-semibold text-lg m-0">{title}</h3>
                 </div>
-                <Space>
-                    <Input
-                        placeholder="Search in PDF..."
-                        prefix={<SearchOutlined />}
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        onKeyDown={handleSearchKeyPress}
-                        style={{ width: 250 }}
-                        allowClear
-                    />
-                    <Button
-                        type="primary"
-                        icon={<SearchOutlined />}
-                        onClick={handleSearch}
-                        disabled={!searchText.trim()}
-                    >
-                        Find
-                    </Button>
-                    <Button.Group>
-                        <Button
-                            icon={<UpOutlined />}
-                            onClick={handleFindPrevious}
-                            disabled={!searchActive || !searchText.trim()}
-                            title="Previous match (Shift+Enter)"
-                        />
-                        <Button
-                            icon={<DownOutlined />}
-                            onClick={handleFindNext}
-                            disabled={!searchActive || !searchText.trim()}
-                            title="Next match (Enter)"
-                        />
-                    </Button.Group>
-                    <Button
-                        icon={<CloseOutlined />}
-                        onClick={handleModalClose}
-                    >
-                        Close
-                    </Button>
-                </Space>
+                <Button
+                    icon={<CloseOutlined />}
+                    onClick={handleModalClose}
+                >
+                    Close
+                </Button>
             </div>
 
             {/* PDF Viewer */}
@@ -224,6 +114,13 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
                     />
                 )}
             </div>
+
+            {/* Search Instructions */}
+            {/* <div className="px-4 py-2 bg-blue-50 border-t flex-shrink-0">
+                <p className="m-0 text-sm text-blue-800">
+                    <strong>💡 To search in PDF:</strong> Use <kbd className="px-2 py-1 bg-white border border-blue-200 rounded text-xs font-mono">Ctrl+F</kbd> (or <kbd className="px-2 py-1 bg-white border border-blue-200 rounded text-xs font-mono">Cmd+F</kbd> on Mac) to open your browser's search tool
+                </p>
+            </div> */}
         </Modal>
     );
 };

@@ -452,7 +452,7 @@ const IngestPage = () => {
       >
         <Progress percent={Math.round(progress)} status="active" strokeColor="#1890ff" />
         <p className="text-center mt-3 text-gray-600">{progressMessage}</p>
-        <p className="text-center mt-2 text-gray-400 text-xs">Session: {sessionId?.substring(0, 8)}</p>
+        {/* <p className="text-center mt-2 text-gray-400 text-xs">Session: {sessionId?.substring(0, 8)}</p> */}
       </Modal>
 
       {/* Preview Modal */}
