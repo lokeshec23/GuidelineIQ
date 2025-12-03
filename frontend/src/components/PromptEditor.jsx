@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Card, Tabs, Button, message, Input, Space } from "antd";
+import { Card, Tabs, Button, Input, Space } from "antd";
+import { showToast } from "../utils/toast";
 import {
   DEFAULT_INGEST_PROMPT_USER,
   DEFAULT_COMPARISON_PROMPT_USER,
@@ -59,7 +60,7 @@ const PromptEditor = ({ pageType }) => {
       setComparePrompts(data);
     }
 
-    message.success("Prompt saved");
+    showToast.success("Prompt saved");
   };
 
   // Reset to defaults
@@ -88,7 +89,7 @@ const PromptEditor = ({ pageType }) => {
       setComparePrompts(data);
     }
 
-    message.success("Reset to default prompts");
+    showToast.success("Reset to default prompts");
   };
 
   return (

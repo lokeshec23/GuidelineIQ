@@ -32,6 +32,7 @@ import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+import { showToast } from "../../utils/toast";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -115,17 +116,17 @@ const ComparePage = () => {
       // Check if it's an Excel file
       const isExcel = newFile.name.endsWith('.xlsx') || newFile.name.endsWith('.xls');
       if (!isExcel) {
-        message.error('Please upload Excel files only (XLSX or XLS)');
+        showToast.error('Please upload Excel files only (XLSX or XLS)');
         return;
       }
 
       if (files.length >= 2) {
-        message.warning("You can only compare 2 files. Please remove one to add another.");
+        showToast.warning("You can only compare 2 files. Please remove one to add another.");
         return;
       }
 
       setFiles((prev) => [...prev, newFile]);
-      message.success(`${newFile.name} added successfully`);
+      showToast.success(`${newFile.name} added successfully`);
     }
   };
 
@@ -140,7 +141,7 @@ const ComparePage = () => {
       const res = await historyAPI.getIngestHistory();
       setHistoryData(res.data);
     } catch (error) {
-      message.error("Failed to fetch history");
+      showToast.error("Failed to fetch history");
     } finally {
       setLoadingHistory(false);
     }
@@ -150,7 +151,7 @@ const ComparePage = () => {
 
   const handleDbSelectionChange = (selectedRowKeys, selectedRows) => {
     if (selectedRows.length > 2) {
-      message.warning("You can only select 2 guidelines to compare.");
+      showToast.warning("You can only select 2 guidelines to compare.");
       return;
     }
     setSelectedDbRecords(selectedRows);
@@ -168,7 +169,7 @@ const ComparePage = () => {
 
   const handleDbCompare = async () => {
     if (selectedDbRecords.length !== 2) {
-      message.error("Please select exactly 2 records to compare.");
+      showToast.error("Please select exactly 2 records to compare.");
       return;
     }
 
@@ -224,7 +225,7 @@ const ComparePage = () => {
         if (files.length < 2) {
           setProcessing(false);
           setProcessingModalVisible(false);
-          return message.error("Please upload exactly 2 files to compare");
+          return showToast.error("Please upload exactly 2 files to compare");
         }
 
         const fd = new FormData();
@@ -259,12 +260,12 @@ const ComparePage = () => {
               loadPreview(session_id);
             }, 500);
 
-            message.success("Comparison complete!");
+            showToast.success("Comparison complete!");
           } else if (data.status === "failed") {
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
-            message.error(data.error || "Comparison failed");
+            showToast.error(data.error || "Comparison failed");
           }
         } catch (parseError) {
           console.error("Error parsing progress data:", parseError);
@@ -276,14 +277,14 @@ const ComparePage = () => {
         es.close();
         setProcessing(false);
         setProcessingModalVisible(false);
-        message.error("Connection error. Please try again.");
+        showToast.error("Connection error. Please try again.");
       };
 
     } catch (err) {
       console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
-      message.error(err.response?.data?.detail || "Failed to start comparison");
+      showToast.error(err.response?.data?.detail || "Failed to start comparison");
     }
   };
 
@@ -305,7 +306,7 @@ const ComparePage = () => {
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      message.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
+      showToast.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
     }
   };
 
@@ -320,11 +321,11 @@ const ComparePage = () => {
       setPreviewModalVisible(true);
 
       if (!res.data || res.data.length === 0) {
-        message.info("No structured preview data found for this file");
+        showToast.info("No structured preview data found for this file");
       }
     } catch (error) {
       console.error("Failed to load details:", error);
-      message.error("Failed to load details: " + (error.response?.data?.detail || error.message));
+      showToast.error("Failed to load details: " + (error.response?.data?.detail || error.message));
     }
   };
 

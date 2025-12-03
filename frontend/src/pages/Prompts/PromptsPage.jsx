@@ -1,9 +1,10 @@
 // src/pages/Prompts/PromptsPage.jsx
 
 import React, { useState, useEffect } from "react";
-import { Tabs, Form, Input, Button, message, Spin } from "antd";
+import { Tabs, Form, Input, Button, Spin } from "antd";
 import { SaveOutlined, ReloadOutlined } from "@ant-design/icons";
 import { promptsAPI } from "../../services/api";
+import { showToast } from "../../utils/toast";
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
@@ -30,7 +31,7 @@ const PromptsPage = () => {
             });
         } catch (error) {
             console.error("Failed to fetch prompts:", error);
-            message.error("Failed to load prompts");
+            showToast.error("Failed to load prompts");
         } finally {
             setFetching(false);
         }
@@ -53,10 +54,10 @@ const PromptsPage = () => {
             };
 
             await promptsAPI.saveUserPrompts(prompts);
-            message.success("Prompts saved successfully!");
+            showToast.success("Prompts saved successfully!");
         } catch (error) {
             console.error("Failed to save prompts:", error);
-            message.error("Failed to save prompts");
+            showToast.error("Failed to save prompts");
         } finally {
             setLoading(false);
         }
@@ -74,10 +75,10 @@ const PromptsPage = () => {
                 compare_user_prompt: res.data.compare_prompts.user_prompt,
             });
 
-            message.success("Prompts reset to defaults!");
+            showToast.success("Prompts reset to defaults!");
         } catch (error) {
             console.error("Failed to reset prompts:", error);
-            message.error("Failed to reset prompts");
+            showToast.error("Failed to reset prompts");
         } finally {
             setLoading(false);
         }

@@ -1,9 +1,10 @@
 // src/pages/Prompts/ComparisonPromptPage.jsx
 
 import React, { useState, useEffect } from "react";
-import { Form, Input, Button, message, Spin, Card, Tabs, Select } from "antd";
+import { Form, Input, Button, Spin, Card, Tabs, Select } from "antd";
 import { SaveOutlined, ReloadOutlined } from "@ant-design/icons";
 import { promptsAPI } from "../../services/api";
+import { showToast } from "../../utils/toast";
 
 const { TextArea } = Input;
 
@@ -47,7 +48,7 @@ const ComparisonPromptPage = () => {
       console.log("Form values set successfully");
     } catch (error) {
       console.error("Failed to fetch prompts:", error);
-      message.error("Failed to load prompts");
+      showToast.error("Failed to load prompts");
     } finally {
       setFetching(false);
     }
@@ -82,10 +83,10 @@ const ComparisonPromptPage = () => {
       };
 
       await promptsAPI.saveUserPrompts(prompts);
-      message.success(`Comparison prompts for ${selectedModel.toUpperCase()} saved successfully!`);
+      showToast.success(`Comparison prompts for ${selectedModel.toUpperCase()} saved successfully!`);
     } catch (error) {
       console.error("Failed to save prompts:", error);
-      message.error("Failed to save prompts");
+      showToast.error("Failed to save prompts");
     } finally {
       setLoading(false);
     }
@@ -102,10 +103,10 @@ const ComparisonPromptPage = () => {
         user_prompt: modelPrompts.user_prompt,
       });
 
-      message.success(`Prompts reset to defaults for ${selectedModel.toUpperCase()}!`);
+      showToast.success(`Prompts reset to defaults for ${selectedModel.toUpperCase()}!`);
     } catch (error) {
       console.error("Failed to reset prompts:", error);
-      message.error("Failed to reset prompts");
+      showToast.error("Failed to reset prompts");
     } finally {
       setLoading(false);
     }

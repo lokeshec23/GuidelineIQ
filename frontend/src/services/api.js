@@ -1,4 +1,6 @@
 import axios from "axios";
+import { showToast, getErrorMessage } from "../utils/toast";
+
 
 // Use environment variable with fallback for development
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8003";
@@ -54,14 +56,22 @@ api.interceptors.response.use(
         sessionStorage.removeItem("access_token");
         sessionStorage.removeItem("refresh_token");
         sessionStorage.removeItem("user");
+        showToast.error("Session expired. Please login again.");
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }
     }
 
+    // Show error toast for all errors except 401 (handled above)
+    if (error.response?.status !== 401) {
+      const errorMessage = getErrorMessage(error);
+      showToast.error(errorMessage);
+    }
+
     return Promise.reject(error);
   }
 );
+
 
 // ==================== AUTH APIs ====================
 export const authAPI = {

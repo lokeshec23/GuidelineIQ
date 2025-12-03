@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, Space, Spin, message } from 'antd';
+import { Modal, Button, Input, Space, Spin } from 'antd';
 import { CloseOutlined, SearchOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { showToast } from "../utils/toast";
 
 const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
     const [loading, setLoading] = useState(true);
@@ -45,7 +46,7 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
             console.error('Error loading PDF:', err);
             setError(err.message);
             setLoading(false);
-            message.error('Failed to load PDF');
+            showToast.error('Failed to load PDF');
         }
     };
 

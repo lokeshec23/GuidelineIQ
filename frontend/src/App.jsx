@@ -13,6 +13,8 @@ import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
 import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
 import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -149,6 +151,7 @@ function App() {
       <AuthProvider>
         <PromptProvider>
           <AppRoutes />
+          <ToastContainer />
         </PromptProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -1,7 +1,8 @@
 // src/pages/Auth/RegisterPage.jsx
 
 import React, { useState } from "react";
-import { Form, Input, Button, Card, Typography, message } from "antd";
+import { Form, Input, Button, Card, Typography } from "antd";
+import { showToast } from "../../utils/toast";
 import {
   UserOutlined,
   LockOutlined,
@@ -35,7 +36,7 @@ const RegisterPage = () => {
     setLoading(false);
 
     if (success) {
-      message.success("Registration successful! Please log in.");
+      showToast.success("Registration successful! Please log in.");
       navigate("/login");
     }
   };

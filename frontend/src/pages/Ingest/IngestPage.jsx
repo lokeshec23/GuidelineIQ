@@ -28,6 +28,7 @@ import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+import { showToast } from "../../utils/toast";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -102,7 +103,7 @@ const IngestPage = () => {
       const selectedFile = info.file.originFileObj || info.file;
 
       if (selectedFile.type !== "application/pdf") {
-        message.error("Please upload a valid PDF file");
+        showToast.error("Please upload a valid PDF file");
         return;
       }
       setFile(selectedFile);
@@ -116,7 +117,7 @@ const IngestPage = () => {
 
   // --- MAIN SUBMIT ---
   const handleSubmit = async (values) => {
-    if (!file) return message.error("Please upload a PDF file");
+    if (!file) return showToast.error("Please upload a PDF file");
 
     try {
       setProcessing(true);
@@ -192,13 +193,13 @@ const IngestPage = () => {
               loadPreview(session_id);
             }, 500);
 
-            message.success("Processing complete!");
+            showToast.success("Processing complete!");
           } else if (data.status === "failed") {
             console.error("Processing failed:", data.error);
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
-            message.error(data.error || "Processing failed");
+            showToast.error(data.error || "Processing failed");
           }
         } catch (parseError) {
           console.error("Error parsing progress data:", parseError);
@@ -210,7 +211,7 @@ const IngestPage = () => {
         es.close();
         setProcessing(false);
         setProcessingModalVisible(false);
-        message.error("Connection error. Please try again.");
+        showToast.error("Connection error. Please try again.");
       };
 
       es.onopen = () => {
@@ -230,9 +231,9 @@ const IngestPage = () => {
         //   content: errorMessage,
         //   okText: "Got it",
         // });
-        alert(errorMessage)
+        showToast.warning(errorMessage)
       } else {
-        message.error(errorMessage);
+        showToast.error(errorMessage);
       }
     }
   };
@@ -256,7 +257,7 @@ const IngestPage = () => {
       }
     } catch (error) {
       console.error("Failed to load preview:", error);
-      message.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
+      showToast.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
     }
   };
 

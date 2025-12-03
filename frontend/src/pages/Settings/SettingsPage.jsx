@@ -20,6 +20,7 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { settingsAPI } from "../../services/api";
+import { showToast } from "../../utils/toast";
 
 const { Password } = Input;
 const { TabPane } = Tabs;
@@ -65,9 +66,9 @@ const SettingsPage = () => {
           pages_per_chunk: 1,
           stop_sequences: "",
         });
-        message.info("No existing settings found. Configure to get started.");
+        showToast.info("No existing settings found. Configure to get started.");
       } else {
-        message.error("Unable to load settings.");
+        // Error toast is handled by API interceptor
       }
     } finally {
       setFetching(false);
@@ -89,9 +90,9 @@ const SettingsPage = () => {
       setLoading(true);
       await settingsAPI.updateSettings(payload);
 
-      alert("✅ Settings updated successfully!");
+      showToast.success("Settings updated successfully!");
     } catch (error) {
-      alert(error.response?.data?.detail || "❌ Failed to save settings.");
+      // Error toast is handled by API interceptor
     } finally {
       setLoading(false);
     }

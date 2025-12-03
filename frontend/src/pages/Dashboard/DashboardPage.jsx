@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs, message } from "antd";
+import { Table, Button, Space, Tabs } from "antd";
 import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
+import { showToast } from "../../utils/toast";
 
 const { TabPane } = Tabs;
 
@@ -43,7 +44,7 @@ const DashboardPage = () => {
             setIngestHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch ingest history:", error);
-            message.error("Failed to load ingest history");
+            showToast.error("Failed to load ingest history");
         } finally {
             setLoading(false);
         }
@@ -56,7 +57,7 @@ const DashboardPage = () => {
             setCompareHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch compare history:", error);
-            message.error("Failed to load compare history");
+            showToast.error("Failed to load compare history");
         } finally {
             setLoading(false);
         }
@@ -65,7 +66,7 @@ const DashboardPage = () => {
     const handleView = (record) => {
         console.log("View record:", record);
         if (!record.preview_data || record.preview_data.length === 0) {
-            message.warning("No preview data available for this record");
+            showToast.warning("No preview data available for this record");
             return;
         }
 
@@ -90,10 +91,10 @@ const DashboardPage = () => {
             } else {
                 compareAPI.downloadExcel(previewRecord.id);
             }
-            message.success("Download started");
+            showToast.success("Download started");
         } catch (error) {
             console.error("Download failed:", error);
-            message.error("Failed to start download");
+            showToast.error("Failed to start download");
         }
     };
 
@@ -116,7 +117,7 @@ const DashboardPage = () => {
                 await historyAPI.deleteCompareHistory(recordToDelete.id);
             }
 
-            message.success("Record deleted successfully");
+            showToast.success("Record deleted successfully");
 
             // Refresh appropriate list
             if (isIngest) {
@@ -130,7 +131,7 @@ const DashboardPage = () => {
             setRecordToDelete(null);
         } catch (error) {
             console.error("Failed to delete record:", error);
-            message.error("Failed to delete record");
+            showToast.error("Failed to delete record");
         } finally {
             setDeleteLoading(false);
         }

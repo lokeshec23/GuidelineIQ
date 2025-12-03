@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { authAPI } from "../services/api";
-import { message } from "antd";
+import { showToast } from "../utils/toast";
 
 const AuthContext = createContext();
 
@@ -41,10 +41,10 @@ export const AuthProvider = ({ children }) => {
 
       setUser(user);
       setIsAdmin(user?.role === "admin");
-      message.success("Login successful!");
+      showToast.success("Login successful!");
       return true;
     } catch (error) {
-      message.error(error.response?.data?.detail || "Login failed");
+      // Error toast is handled by API interceptor
       return false;
     }
   };
@@ -52,10 +52,10 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     try {
       await authAPI.register({ username, email, password, role: "user" });
-      message.success("Registration successful! Please login.");
+      showToast.success("Registration successful! Please login.");
       return true;
     } catch (error) {
-      message.error(error.response?.data?.detail || "Registration failed");
+      // Error toast is handled by API interceptor
       return false;
     }
   };
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("user");
     setUser(null);
     setIsAdmin(false);
-    message.info("Logged out successfully");
+    showToast.info("Logged out successfully");
   };
 
   return (
