@@ -13,6 +13,7 @@ import {
 } from "@ant-design/icons";
 import ChatInterface from "./ChatInterface";
 import PdfViewerModal from "./PdfViewerModal";
+import { API_BASE_URL } from "../services/api";
 
 const ExcelPreviewModal = ({
     visible,
@@ -332,7 +333,7 @@ const ExcelPreviewModal = ({
                 <PdfViewerModal
                     visible={pdfViewerVisible}
                     onClose={() => setPdfViewerVisible(false)}
-                    pdfUrl={`http://localhost:8003/history/ingest/${sessionId}/pdf`}
+                    pdfUrl={`${API_BASE_URL}/history/ingest/${sessionId}/pdf`}
                     title="PDF Document"
                 />
             )}

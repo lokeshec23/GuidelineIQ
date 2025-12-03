@@ -39,14 +39,8 @@ const DashboardPage = () => {
     const fetchIngestHistory = async () => {
         try {
             setLoading(true);
-            const response = await fetch("http://localhost:8003/history/ingest", {
-                headers: {
-                    "Authorization": `Bearer ${sessionStorage.getItem("access_token")}`
-                }
-            });
-            if (!response.ok) throw new Error("Failed to fetch history");
-            const data = await response.json();
-            setIngestHistory(data);
+            const response = await historyAPI.getIngestHistory();
+            setIngestHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch ingest history:", error);
             message.error("Failed to load ingest history");
@@ -58,14 +52,8 @@ const DashboardPage = () => {
     const fetchCompareHistory = async () => {
         try {
             setLoading(true);
-            const response = await fetch("http://localhost:8003/history/compare", {
-                headers: {
-                    "Authorization": `Bearer ${sessionStorage.getItem("access_token")}`
-                }
-            });
-            if (!response.ok) throw new Error("Failed to fetch history");
-            const data = await response.json();
-            setCompareHistory(data);
+            const response = await historyAPI.getCompareHistory();
+            setCompareHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch compare history:", error);
             message.error("Failed to load compare history");

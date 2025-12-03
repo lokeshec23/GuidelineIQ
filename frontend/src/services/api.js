@@ -1,6 +1,8 @@
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8003";
+// Use environment variable with fallback for development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8003";
+
 
 // Create axios instance
 const api = axios.create({
@@ -172,5 +174,8 @@ export const promptsAPI = {
   saveUserPrompts: (prompts) => api.put("/prompts", prompts),
   resetUserPrompts: () => api.post("/prompts/reset"),
 };
+
+// Export API_BASE_URL for use in components
+export { API_BASE_URL };
 
 export default api;
