@@ -1,4 +1,5 @@
 # backend/config.py
+# Reload trigger
 
 import os
 from datetime import timedelta
@@ -167,7 +168,10 @@ You MUST return a valid JSON array. Each object in the array MUST contain these 
 2.  **Identify Key Information:** From the 'guideline_1' and 'guideline_2' objects, extract the values for 'category' and 'attribute'.
 3.  **Extract Guideline Text:** The main rule text is in the 'guideline_summary' field of each guideline object.
 4.  **Analyze and Summarize:** Compare the extracted guideline texts. In "comparison_notes", do not just state they are different. Explain *how*. For example: "Guideline 2 has a more lenient credit score requirement (640 vs 660), but stricter LTV limits for loans over $1.5M (75% vs 80%)."
-5.  **Handle Missing Data:** If 'guideline_1' is not present, state "New rule added in Guideline 2" in comparison_notes. If 'guideline_2' is not present, state "Rule removed from Guideline 2" in comparison_notes.
+5.  **Handle Missing Data:** 
+    - If 'guideline_1' is not present, state "New rule added in Guideline 2" in comparison_notes. 
+    - If 'guideline_2' is not present, state "Rule removed from Guideline 2" in comparison_notes.
+    - If both are present but one is empty or null, note that as well.
 
 ### EXAMPLE OF PERFECT OUTPUT
 If you are given an input pair like this:
@@ -282,7 +286,7 @@ Each rule must include these three fields:
 - Treat document headers as Categories
 - Convert bullet points within sections into separate Attribute + Summary pairs
 - Split compound policies into multiple JSON objects
-- Replace vague references (e.g., "See matrix below") with actual information from the document
+- Replace vague references (e.g., "See matrix below" into full meaningful statements using local context.
 - Summarize lengthy paragraphs into clear, concise statements
 - No field can be left empty
 
@@ -317,6 +321,7 @@ Return a JSON array where each object contains these five fields:
 5. **Handle Gaps:** 
    - If guideline_1 is missing: Note "New rule introduced in Guideline 2"
    - If guideline_2 is missing: Note "Rule discontinued in Guideline 2"
+   - If both are present but one is empty, note that as well.
 
 ### SAMPLE OUTPUT
 Input:

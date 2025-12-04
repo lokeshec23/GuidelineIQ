@@ -325,32 +325,78 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
 
 
 def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, file2_name: str) -> List[Dict]:
+    import difflib
+    
     aligned = []
     
-    map2 = {}
-    for item in data2:
-        key = (
-            item.get("category", "").strip().lower(),
-            item.get("attribute", "").strip().lower(),
-        )
-        map2[key] = item
+    # Create a pool of items from data2 that haven't been matched yet
+    # We'll use a list of indices to keep track
+    unmatched_indices_2 = set(range(len(data2)))
+    
+    # Helper to normalize strings for comparison
+    def normalize(s):
+        return str(s).strip().lower()
+
+    # Threshold for fuzzy matching (0.0 to 1.0)
+    # 0.85 is a good balance between matching typos and avoiding false positives
+    SIMILARITY_THRESHOLD = 0.85
 
     for item1 in data1:
-        key = (
-            item1.get("category", "").strip().lower(),
-            item1.get("attribute", "").strip().lower(),
-        )
-        item2 = map2.pop(key, None)
+        cat1 = normalize(item1.get("category", ""))
+        attr1 = normalize(item1.get("attribute", ""))
+        key1_str = f"{cat1} | {attr1}"
+        
+        best_match_idx = -1
+        best_match_score = 0.0
+        
+        # 1. Try Exact Match First
+        for idx in unmatched_indices_2:
+            item2 = data2[idx]
+            cat2 = normalize(item2.get("category", ""))
+            attr2 = normalize(item2.get("attribute", ""))
+            
+            if cat1 == cat2 and attr1 == attr2:
+                best_match_idx = idx
+                best_match_score = 1.0
+                break
+        
+        # 2. If no exact match, try Fuzzy Match
+        if best_match_idx == -1:
+            for idx in unmatched_indices_2:
+                item2 = data2[idx]
+                cat2 = normalize(item2.get("category", ""))
+                attr2 = normalize(item2.get("attribute", ""))
+                key2_str = f"{cat2} | {attr2}"
+                
+                # Calculate similarity ratio
+                ratio = difflib.SequenceMatcher(None, key1_str, key2_str).ratio()
+                
+                if ratio > best_match_score and ratio >= SIMILARITY_THRESHOLD:
+                    best_match_score = ratio
+                    best_match_idx = idx
+        
+        # 3. Assign match or None
+        if best_match_idx != -1:
+            item2 = data2[best_match_idx]
+            unmatched_indices_2.remove(best_match_idx)
+            aligned.append({
+                "guideline1": item1,
+                "guideline2": item2,
+                "match_type": "exact" if best_match_score == 1.0 else f"fuzzy ({best_match_score:.2f})"
+            })
+        else:
+            aligned.append({
+                "guideline1": item1,
+                "guideline2": None,
+                "match_type": "none"
+            })
 
-        aligned.append({
-            "guideline1": item1,
-            "guideline2": item2
-        })
-
-    for item2 in map2.values():
+    # 4. Add remaining unmatched items from data2
+    for idx in unmatched_indices_2:
         aligned.append({
             "guideline1": None,
-            "guideline2": item2
+            "guideline2": data2[idx],
+            "match_type": "none"
         })
 
     return aligned
