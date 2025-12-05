@@ -38,6 +38,7 @@ const ExcelPreviewModal = ({
     const [filterLoading, setFilterLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+    const [currentPageSize, setCurrentPageSize] = useState(pageSize);
 
     const convertToTableData = (data) =>
         data?.map((item, idx) => ({ key: idx, ...item })) || [];
@@ -280,9 +281,12 @@ const ExcelPreviewModal = ({
                         onChange={(pagination, filters, sorter) => {
                             setFilteredInfo(filters);
                             setSortedInfo(sorter);
+                            if (pagination.pageSize) {
+                                setCurrentPageSize(pagination.pageSize);
+                            }
                         }}
                         pagination={{
-                            pageSize,
+                            pageSize: currentPageSize,
                             showSizeChanger: true,
                             pageSizeOptions: ["10", "20", "50", "100", "200"],
                         }}
