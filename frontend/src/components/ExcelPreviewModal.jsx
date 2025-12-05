@@ -124,18 +124,41 @@ const ExcelPreviewModal = ({
         const generateColumn = (key) => {
             const currentWidth = columnWidths[key] || 250;
             return {
-                title: key.replace(/_/g, " ").toUpperCase(),
+                title: (
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <span>{key.replace(/_/g, " ").toUpperCase()}</span>
+                        <div
+                            onMouseDown={handleMouseDown(key, currentWidth)}
+                            style={{
+                                position: 'absolute',
+                                right: -8,
+                                top: 0,
+                                bottom: 0,
+                                width: '16px',
+                                cursor: 'col-resize',
+                                zIndex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div
+                                style={{
+                                    width: '2px',
+                                    height: '60%',
+                                    backgroundColor: '#d9d9d9',
+                                    transition: 'background-color 0.2s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1890ff'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#d9d9d9'}
+                            />
+                        </div>
+                    </div>
+                ),
                 dataIndex: key,
                 key,
                 width: currentWidth,
-                onHeaderCell: () => ({
-                    style: {
-                        cursor: 'col-resize',
-                        userSelect: 'none',
-                        position: 'relative'
-                    },
-                    onMouseDown: handleMouseDown(key, currentWidth),
-                }),
                 sorter: (a, b) => String(a[key] || "").localeCompare(String(b[key] || "")),
                 sortOrder: sortedInfo.columnKey === key ? sortedInfo.order : null,
                 filters: getColumnFilters(key),
