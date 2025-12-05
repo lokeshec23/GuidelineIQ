@@ -283,10 +283,16 @@ const ExcelPreviewModal = ({
             <Modal
                 open={visible}
                 footer={null}
-                width="95vw"
+                width="90vw"
                 centered
                 closable={false}
-                style={{ top: "20px", height: "90dvh" }}
+                style={{ top: 0, paddingBottom: 0, maxWidth: 'calc(100vw - 40px)' }}
+                bodyStyle={{
+                    height: '90vh',
+                    padding: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}
                 onCancel={onClose}
             >
                 {/* Header */}
@@ -347,7 +353,7 @@ const ExcelPreviewModal = ({
                 </div>
 
                 {/* Table */}
-                <div className="p-4 bg-gray-50 relative">
+                <div className="p-4 bg-gray-50 relative" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <Table
                         dataSource={searchFilteredData}
                         columns={tableColumns}
@@ -363,7 +369,7 @@ const ExcelPreviewModal = ({
                             showSizeChanger: true,
                             pageSizeOptions: ["10", "20", "50", "100", "200"],
                         }}
-                        scroll={{ y: "calc(90dvh - 280px)", x: "max-content" }}
+                        scroll={{ y: "calc(85vh - 220px)", x: "max-content" }}
                         bordered
                         size="middle"
 
