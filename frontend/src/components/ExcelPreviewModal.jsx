@@ -1,6 +1,6 @@
 // src/components/ExcelPreviewModal.jsx
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { Modal, Table, Button, Space, Tag, Input, Tooltip, Spin } from "antd";
 import {
     FileExcelOutlined,
@@ -39,6 +39,10 @@ const ExcelPreviewModal = ({
     const [chatVisible, setChatVisible] = useState(false);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
     const [currentPageSize, setCurrentPageSize] = useState(pageSize);
+    const [columnWidths, setColumnWidths] = useState({});
+    const resizingColumn = useRef(null);
+    const startX = useRef(0);
+    const startWidth = useRef(0);
 
     const convertToTableData = (data) =>
         data?.map((item, idx) => ({ key: idx, ...item })) || [];
@@ -81,104 +85,150 @@ const ExcelPreviewModal = ({
             }));
     };
 
+    // Handle mouse down on column header to start resizing
+    const handleMouseDown = (key, currentWidth) => (e) => {
+        e.preventDefault();
+        resizingColumn.current = key;
+        startX.current = e.clientX;
+        startWidth.current = currentWidth;
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    };
+
+    // Handle mouse move while resizing
+    const handleMouseMove = (e) => {
+        if (!resizingColumn.current) return;
+
+        const diff = e.clientX - startX.current;
+        const newWidth = Math.max(50, startWidth.current + diff); // Minimum width of 50px
+
+        setColumnWidths((prev) => ({
+            ...prev,
+            [resizingColumn.current]: newWidth,
+        }));
+    };
+
+    // Handle mouse up to stop resizing
+    const handleMouseUp = () => {
+        resizingColumn.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    };
+
     const getColumns = () => {
-        const generateColumn = (key) => ({
-            title: key.replace(/_/g, " ").toUpperCase(),
-            dataIndex: key,
-            key,
-            width: 250,
-            sorter: (a, b) => String(a[key] || "").localeCompare(String(b[key] || "")),
-            sortOrder: sortedInfo.columnKey === key ? sortedInfo.order : null,
-            filters: getColumnFilters(key),
-            filteredValue: filteredInfo[key] || null,
-            onFilter: (value, record) => String(record[key]) === String(value),
-            filterIcon: (filtered) => (
-                filterLoading ? (
-                    <LoadingOutlined style={{ color: "#1890ff" }} />
-                ) : (
-                    <FilterOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
-                )
-            ),
-            filterDropdownOpen: undefined,
-            onFilterDropdownOpenChange: (visible) => {
-                if (visible) {
-                    setFilterLoading(true);
-                    // Use setTimeout to allow the loading state to render before computing filters
-                    setTimeout(() => {
-                        setFilterLoading(false);
-                    }, 100);
-                }
-            },
-            filterDropdown: (props) => {
-                const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
-                const filterOptions = getColumnFilters(key);
+        const generateColumn = (key) => {
+            const currentWidth = columnWidths[key] || 250;
+            return {
+                title: key.replace(/_/g, " ").toUpperCase(),
+                dataIndex: key,
+                key,
+                width: currentWidth,
+                onHeaderCell: () => ({
+                    style: {
+                        cursor: 'col-resize',
+                        userSelect: 'none',
+                        position: 'relative'
+                    },
+                    onMouseDown: handleMouseDown(key, currentWidth),
+                }),
+                sorter: (a, b) => String(a[key] || "").localeCompare(String(b[key] || "")),
+                sortOrder: sortedInfo.columnKey === key ? sortedInfo.order : null,
+                filters: getColumnFilters(key),
+                filteredValue: filteredInfo[key] || null,
+                onFilter: (value, record) => String(record[key]) === String(value),
+                filterIcon: (filtered) => (
+                    filterLoading ? (
+                        <LoadingOutlined style={{ color: "#1890ff" }} />
+                    ) : (
+                        <FilterOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
+                    )
+                ),
+                filterDropdownOpen: undefined,
+                onFilterDropdownOpenChange: (visible) => {
+                    if (visible) {
+                        setFilterLoading(true);
+                        // Use setTimeout to allow the loading state to render before computing filters
+                        setTimeout(() => {
+                            setFilterLoading(false);
+                        }, 100);
+                    }
+                },
+                filterDropdown: (props) => {
+                    const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
+                    const filterOptions = getColumnFilters(key);
 
-                if (filterLoading) {
+                    if (filterLoading) {
+                        return (
+                            <div style={{ padding: 40, textAlign: 'center' }}>
+                                <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+                                <div style={{ marginTop: 8, color: '#999' }}>Loading filters...</div>
+                            </div>
+                        );
+                    }
+
                     return (
-                        <div style={{ padding: 40, textAlign: 'center' }}>
-                            <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-                            <div style={{ marginTop: 8, color: '#999' }}>Loading filters...</div>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div style={{ padding: 8 }}>
-                        <div style={{ marginBottom: 8, maxHeight: 300, overflow: 'auto' }}>
-                            {filterOptions.map((option) => (
-                                <div
-                                    key={option.value}
-                                    style={{
-                                        padding: '4px 8px',
-                                        cursor: 'pointer',
-                                        backgroundColor: selectedKeys?.includes(option.value) ? '#e6f7ff' : 'transparent',
-                                    }}
+                        <div style={{ padding: 8 }}>
+                            <div style={{ marginBottom: 8, maxHeight: 300, overflow: 'auto' }}>
+                                {filterOptions.map((option) => (
+                                    <div
+                                        key={option.value}
+                                        style={{
+                                            padding: '4px 8px',
+                                            cursor: 'pointer',
+                                            backgroundColor: selectedKeys?.includes(option.value) ? '#e6f7ff' : 'transparent',
+                                        }}
+                                        onClick={() => {
+                                            const keys = selectedKeys || [];
+                                            if (keys.includes(option.value)) {
+                                                setSelectedKeys(keys.filter(k => k !== option.value));
+                                            } else {
+                                                setSelectedKeys([...keys, option.value]);
+                                            }
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedKeys?.includes(option.value)}
+                                            onChange={() => { }}
+                                            style={{ marginRight: 8 }}
+                                        />
+                                        {option.text}
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                                <Button
+                                    size="small"
                                     onClick={() => {
-                                        const keys = selectedKeys || [];
-                                        if (keys.includes(option.value)) {
-                                            setSelectedKeys(keys.filter(k => k !== option.value));
-                                        } else {
-                                            setSelectedKeys([...keys, option.value]);
-                                        }
+                                        clearFilters();
+                                        confirm();
                                     }}
                                 >
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedKeys?.includes(option.value)}
-                                        onChange={() => { }}
-                                        style={{ marginRight: 8 }}
-                                    />
-                                    {option.text}
-                                </div>
-                            ))}
+                                    Reset
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    onClick={() => confirm()}
+                                >
+                                    OK
+                                </Button>
+                            </div>
                         </div>
-                        <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-                            <Button
-                                size="small"
-                                onClick={() => {
-                                    clearFilters();
-                                    confirm();
-                                }}
-                            >
-                                Reset
-                            </Button>
-                            <Button
-                                type="primary"
-                                size="small"
-                                onClick={() => confirm()}
-                            >
-                                OK
-                            </Button>
-                        </div>
+                    );
+                },
+                render: (text) => (
+                    <div className="whitespace-pre-wrap break-words text-sm max-w-md">
+                        {String(text || "")}
                     </div>
-                );
-            },
-            render: (text) => (
-                <div className="whitespace-pre-wrap break-words text-sm max-w-md">
-                    {String(text || "")}
-                </div>
-            ),
-        });
+                ),
+            };
+        };
 
         if (columns) return columns.map((col) => generateColumn(col.dataIndex));
         if (data?.length > 0) return Object.keys(data[0]).map(generateColumn);
@@ -293,6 +343,7 @@ const ExcelPreviewModal = ({
                         scroll={{ y: "calc(90dvh - 280px)", x: "max-content" }}
                         bordered
                         size="middle"
+
                     />
 
                     {/* Floating AI Button (Bottom-Right) */}
