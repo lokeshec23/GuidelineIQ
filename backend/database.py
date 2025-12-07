@@ -11,6 +11,7 @@ settings_collection = None
 ingest_history_collection = None
 compare_history_collection = None
 user_prompts_collection = None
+default_prompts_collection = None
 gemini_file_cache_collection = None
 chat_sessions_collection = None
 
@@ -21,7 +22,8 @@ def get_database():
     """Get or create database connection."""
     global client, db, users_collection, settings_collection
     global ingest_history_collection, compare_history_collection
-    global user_prompts_collection, gemini_file_cache_collection
+    global user_prompts_collection, default_prompts_collection
+    global gemini_file_cache_collection
     global chat_sessions_collection, fs
     
     if client is None:
@@ -33,6 +35,7 @@ def get_database():
             ingest_history_collection = db["ingest_history"]
             compare_history_collection = db["compare_history"]
             user_prompts_collection = db["user_prompts"]
+            default_prompts_collection = db["default_prompts"]
             gemini_file_cache_collection = db["gemini_file_cache"]
             chat_sessions_collection = db["chat_sessions"]
             

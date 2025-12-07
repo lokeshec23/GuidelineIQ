@@ -1,10 +1,8 @@
-# backend/prompts/routes.py
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Dict
 from auth.middleware import get_current_user_id
-from prompts.models import get_user_prompts, save_user_prompts, reset_user_prompts
+from prompts.models import get_user_prompts, save_user_prompts, reset_user_prompts, get_default_prompts_from_db, get_default_prompts
 
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
@@ -25,6 +23,22 @@ async def get_prompts(user_id: str = Depends(get_current_user_id)):
         return prompts
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch prompts: {str(e)}")
+
+
+@router.get("/defaults")
+async def get_default_prompts_endpoint(user_id: str = Depends(get_current_user_id)):
+    """
+    Get system default prompts from database (or config fallback).
+    """
+    try:
+        db_defaults = await get_default_prompts_from_db()
+        if db_defaults:
+            return db_defaults
+        else:
+            # Fallback to config defaults
+            return get_default_prompts()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch default prompts: {str(e)}")
 
 
 @router.put("")
@@ -48,12 +62,12 @@ async def update_prompts(
 @router.post("/reset")
 async def reset_prompts(user_id: str = Depends(get_current_user_id)):
     """
-    Reset current user's prompts to defaults.
+    Reset current user's prompts to defaults (from database or config).
     """
     try:
         success = await reset_user_prompts(user_id)
         if success:
-            # Return the reset prompts
+            # Return the reset prompts (from database or config fallback)
             prompts = await get_user_prompts(user_id)
             return prompts
         else:

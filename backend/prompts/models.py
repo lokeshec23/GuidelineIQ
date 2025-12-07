@@ -13,8 +13,25 @@ from config import (
     DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
 )
 
+async def get_default_prompts_from_db() -> Optional[Dict]:
+    """Fetch default prompts from database"""
+    if database.default_prompts_collection is None:
+        return None
+    
+    try:
+        default_doc = await database.default_prompts_collection.find_one({"_id": "system_defaults"})
+        if default_doc:
+            # Remove MongoDB _id field
+            default_doc.pop("_id", None)
+            return default_doc
+    except Exception as e:
+        print(f"⚠️ Failed to fetch default prompts from database: {e}")
+    
+    return None
+
+
 def get_default_prompts() -> Dict:
-    """Return default prompts for all models"""
+    """Return default prompts - from config as fallback"""
     return {
         "ingest_prompts": {
             "openai": {
@@ -45,12 +62,14 @@ async def get_user_prompts(user_id: str) -> Dict:
     
     user_prompts = await database.user_prompts_collection.find_one({"user_id": user_id})
     
-    # If no custom prompts exist, return defaults
+    # If no custom prompts exist, return defaults from database (or config fallback)
     if not user_prompts:
-        return get_default_prompts()
+        db_defaults = await get_default_prompts_from_db()
+        return db_defaults if db_defaults else get_default_prompts()
     
     # Merge user prompts with defaults to ensure all models have prompts
-    defaults = get_default_prompts()
+    db_defaults = await get_default_prompts_from_db()
+    defaults = db_defaults if db_defaults else get_default_prompts()
     
     # Merge ingest_prompts
     if "ingest_prompts" not in user_prompts:
