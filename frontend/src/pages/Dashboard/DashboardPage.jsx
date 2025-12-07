@@ -280,9 +280,9 @@ const DashboardPage = () => {
             width: "20%",
         },
         {
-            title: "Attribute",
-            dataIndex: "attribute",
-            key: "attribute",
+            title: "Sub Category",
+            dataIndex: "sub_category",
+            key: "sub_category",
             width: "25%",
         },
         {
@@ -305,9 +305,9 @@ const DashboardPage = () => {
             width: "15%",
         },
         {
-            title: "Attribute",
-            dataIndex: "attribute",
-            key: "attribute",
+            title: "Sub Category",
+            dataIndex: "sub_category",
+            key: "sub_category",
             width: "15%",
         },
         {
