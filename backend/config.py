@@ -77,39 +77,40 @@ def get_model_config(model_name: str) -> dict:
 DEFAULT_INGEST_PROMPT_USER_OPENAI = """You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
  
 ### PRIMARY GOAL
-Convert unstructured mortgage guideline text into a structured list of self-contained rules. Each rule must be a complete JSON object.
+Convert unstructured mortgage guideline text into a structured list of self-contained rules. Each rule must be a complete JSON object with a CONCISE summary.
  
 ### OUTPUT SCHEMA (JSON ONLY)
 You MUST return a valid JSON array. Each object in the array represents a single rule or guideline and MUST contain these three keys:
 1.  "category": The high-level topic (e.g., "Borrower Eligibility", "Credit", "Property Eligibility").
 2.  "sub_category": The specific rule or policy being defined (e.g., "Minimum Credit Score", "Gift Funds Policy").
-3.  "guideline_summary": A DETAILED and COMPLETE summary of the rule.
+3.  "guideline_summary": A CONCISE summary of the rule in 2-4 lines maximum.
  
 ### CRITICAL EXTRACTION INSTRUCTIONS
-1.  **NO REFERENCES:** Your output for "guideline_summary" must NEVER reference another section (e.g., do NOT say "Refer to section 201"). You must find the referenced section in the provided text and summarize its content directly.
-2.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information. A user should understand the rule just by reading that single object.
-3.  **SUMMARIZE, DON'T COPY:** Do not copy and paste large blocks of text. Summarize the rule, requirement, or value concisely but completely.
-4.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object. Do not combine unrelated rules.
-5.  **MAINTAIN HIERARCHY:** Use the "category" key to group related sub_categories.
+1.  **ANALYZE CONTEXT:** Before writing the summary, analyze the category and sub_category to understand the context and focus of the rule.
+2.  **CONCISE SUMMARIES:** The guideline_summary MUST be 2-4 lines maximum. Think critically about what information is most important and summarize only the key points.
+3.  **NO REFERENCES:** Your output for "guideline_summary" must NEVER reference another section (e.g., do NOT say "Refer to section 201"). You must find the referenced section in the provided text and summarize its content directly.
+4.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information. A user should understand the rule just by reading that single object.
+5.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object. Do not combine unrelated rules.
+6.  **MAINTAIN HIERARCHY:** Use the "category" key to group related sub_categories.
  
-### EXAMPLE OF PERFECT, SELF-CONTAINED OUTPUT
-This is the exact format and quality you must follow. Notice how no rule refers to another section.
+### EXAMPLE OF PERFECT, CONCISE OUTPUT
+This is the exact format and quality you must follow. Notice the summaries are brief (2-4 lines) but complete.
  
 [
   {
     "category": "Borrower Eligibility",
     "sub_category": "Minimum Credit Score",
-    "guideline_summary": "A minimum FICO score of 660 is required. For Foreign Nationals without a US FICO score, alternative credit validation is necessary."
+    "guideline_summary": "Minimum FICO score of 660 required. Foreign Nationals without US FICO must provide alternative credit validation."
   },
   {
     "category": "Loan Parameters",
     "sub_category": "Maximum Loan-to-Value (LTV)",
-    "guideline_summary": "The maximum LTV for a purchase with a DSCR greater than 1.0 is 80%. For cash-out refinances, the maximum LTV is 75%."
+    "guideline_summary": "Maximum LTV is 80% for purchase transactions with DSCR >1.0. Cash-out refinances limited to 75% LTV."
   },
   {
     "category": "Property Eligibility",
     "sub_category": "Short-Term Rentals (STR)",
-    "guideline_summary": "Short-term rentals are permitted but are explicitly ineligible if located within the five boroughs of New York City."
+    "guideline_summary": "Short-term rentals permitted. Properties in NYC five boroughs are explicitly ineligible."
   }
 ]
  
@@ -117,7 +118,8 @@ This is the exact format and quality you must follow. Notice how no rule refers 
 - Your entire response MUST be a single, valid JSON array.
 - Start your response immediately with '[' and end it immediately with ']'.
 - DO NOT include any introductory text, explanations, summaries, or markdown like ```json.
-- Every object MUST have the keys: "category", "sub_category", and "guideline_summary"."""
+- Every object MUST have the keys: "category", "sub_category", and "guideline_summary".
+- Each "guideline_summary" MUST be 2-4 lines maximum - be concise and focused."""
 
 DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI ="""You are an expert Mortgage Underwriting Analyst trained to convert unstructured mortgage guideline text into structured rule objects.
 
@@ -228,7 +230,7 @@ You represent the final authority in "Gap Analysis" between lending products. Yo
 DEFAULT_INGEST_PROMPT_USER_GEMINI = """You are an AI specialist focused on extracting mortgage guideline rules from PDF documents and converting them into structured JSON format based on the Table of Contents.
 
 ### OBJECTIVE
-First, identify the Table of Contents (TOC) from the extracted PDF text. Then, extract and summarize the content for each category and subcategory listed in the TOC, creating a well-organized JSON array.
+First, identify the Table of Contents (TOC) from the extracted PDF text. Then, extract and create CONCISE summaries (2-4 lines) for each category and subcategory listed in the TOC, creating a well-organized JSON array.
 
 ### STEP 1: IDENTIFY TABLE OF CONTENTS
 Locate the Table of Contents section in the document. The TOC typically contains:
@@ -240,16 +242,17 @@ Locate the Table of Contents section in the document. The TOC typically contains
 Return a valid JSON array where each element represents one category or subcategory with exactly three fields:
 1. "category": The main category name from the TOC (e.g., "Fair lending statement", "Loan Program")
 2. "sub_category": The subcategory name if it exists, otherwise use the same value as category
-3. "guideline_summary": A concise summary of the content for this category/subcategory
+3. "guideline_summary": A CONCISE summary (2-4 lines maximum) of the content for this category/subcategory
 
 ### EXTRACTION REQUIREMENTS
 1. **TOC-Based Structure:** Extract entries based on the Table of Contents structure
 2. **Category Hierarchy:** 
    - If a TOC entry has no subcategories, create one JSON object with category = sub_category
    - If a TOC entry has subcategories, create separate JSON objects for each subcategory
-3. **Self-Contained Summaries:** Each guideline_summary must be complete and standalone
-4. **Table Data Handling:** If the content contains tables, extract and summarize the table data properly in the guideline_summary
-5. **No References:** Never use phrases like "See section 201" - include the actual content
+3. **Analyze Context:** Before writing the summary, analyze the category and sub_category to understand what information is most critical
+4. **Concise Summaries:** Each guideline_summary MUST be 2-4 lines maximum. Focus on key requirements, limits, and conditions only.
+5. **Table Data Handling:** If the content contains tables, extract only the most important values and thresholds
+6. **No References:** Never use phrases like "See section 201" - include the actual content
 
 ### REFERENCE EXAMPLE
 For a TOC like:
@@ -263,22 +266,22 @@ Expected output:
   {
     "category": "Fair lending statement",
     "sub_category": "Fair lending statement",
-    "guideline_summary": "The lender is committed to fair lending practices and compliance with all applicable federal and state fair lending laws including the Equal Credit Opportunity Act and Fair Housing Act."
+    "guideline_summary": "Lender commits to fair lending practices and compliance with federal and state laws including Equal Credit Opportunity Act and Fair Housing Act."
   },
   {
     "category": "Loan Program",
     "sub_category": "Loan Program",
-    "guideline_summary": "Overview of available loan programs including DSCR-based financing options for investment properties."
+    "guideline_summary": "DSCR-based financing options available for investment properties."
   },
   {
     "category": "Loan Program",
     "sub_category": "Flex DSCR Non-QM",
-    "guideline_summary": "Flexible DSCR program for non-qualified mortgages with minimum DSCR of 1.0, loan amounts up to $3M, and LTV up to 80% for purchase transactions."
+    "guideline_summary": "Flexible DSCR program for non-QM loans. Minimum DSCR 1.0, max loan $3M, LTV up to 80% for purchases."
   },
   {
     "category": "Borrower eligibility",
     "sub_category": "Borrower eligibility",
-    "guideline_summary": "Borrowers must be at least 18 years old, have valid identification, minimum credit score of 660, and demonstrate ability to repay through rental income analysis."
+    "guideline_summary": "Minimum age 18 with valid ID. Credit score 660+. Must demonstrate repayment ability through rental income analysis."
   }
 ]
 
@@ -286,6 +289,7 @@ Expected output:
 - Begin your response with '[' and conclude with ']'
 - Return only the JSON array - no explanatory text, markdown formatting, or code blocks
 - Ensure all three required fields (category, sub_category, guideline_summary) are present in every object
+- Each guideline_summary MUST be 2-4 lines maximum - be concise and focused on key points
 - Process ALL entries from the Table of Contents"""
 
 DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI = """You are a Mortgage Underwriting Expert specializing in extracting structured data from guideline documents based on their Table of Contents.
