@@ -182,7 +182,12 @@ async def get_preview(session_id: str):
     with progress_lock:
         session_data = progress_store.get(session_id)
         if session_data and "preview_data" in session_data:
-            return JSONResponse(content=session_data["preview_data"])
+            # Return both preview data and history_id if available
+            response_data = {
+                "data": session_data["preview_data"],
+                "history_id": session_data.get("history_id")  # May be None if not yet saved
+            }
+            return JSONResponse(content=response_data)
 
     # 2. If not found, try to get from database (historical records)
     try:
@@ -191,7 +196,12 @@ async def get_preview(session_id: str):
             if database.ingest_history_collection is not None:
                 record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
                 if record and "preview_data" in record:
-                    return JSONResponse(content=record["preview_data"])
+                    # When fetching from DB, the session_id IS the history_id
+                    response_data = {
+                        "data": record["preview_data"],
+                        "history_id": str(record["_id"])
+                    }
+                    return JSONResponse(content=response_data)
     except Exception as e:
         print(f"Error fetching preview from DB: {e}")
 

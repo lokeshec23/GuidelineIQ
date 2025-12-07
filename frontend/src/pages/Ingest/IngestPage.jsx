@@ -238,21 +238,38 @@ const IngestPage = () => {
     }
   };
 
+
   // --- LOAD PREVIEW ---
   const loadPreview = async (sid) => {
     console.log("loadPreview called with session ID:", sid);
     try {
       const res = await ingestAPI.getPreview(sid);
-      console.log("Preview data received:", res.data);
-      const data = res.data;
+      console.log("Preview response received:", res.data);
 
-      if (data?.length > 0) {
-        setPreviewData(data);
-        console.log("Opening preview modal...");
+      // Handle new response format: { data: [...], history_id: "..." }
+      const responseData = res.data;
+      let previewDataArray;
+      let historyId = null;
+
+      if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+        // New format: { data: [...], history_id: "..." }
+        previewDataArray = responseData.data;
+        historyId = responseData.history_id || sid; // Use history_id if available, fallback to sid
+      } else {
+        // Old format: directly an array (for backward compatibility)
+        previewDataArray = responseData;
+        historyId = sid;
+      }
+
+      if (previewDataArray?.length > 0) {
+        setPreviewData(previewDataArray);
+        setSessionId(historyId); // Use history_id for PDF viewing
+        console.log("Opening preview modal with history_id:", historyId);
         setPreviewModalVisible(true);
       } else {
         console.log("No data found, showing empty state");
         setPreviewData([{ key: 1, content: "No structured data found." }]);
+        setSessionId(historyId);
         setPreviewModalVisible(true);
       }
     } catch (error) {
