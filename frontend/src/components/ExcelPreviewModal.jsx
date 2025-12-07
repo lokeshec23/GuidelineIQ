@@ -496,7 +496,32 @@ const ExcelPreviewModal = ({
                     style={{ flex: 1, overflow: "hidden" }}
                 >
                     {/* Scrollable table container */}
-                    <div className="flex-1 overflow-auto">
+                    <div
+                        className="flex-1"
+                        style={{
+                            overflow: "auto",
+                            scrollbarWidth: "thin", // For Firefox
+                            scrollbarColor: "#888 #f1f1f1", // For Firefox
+                        }}
+                    >
+                        <style>{`
+                            /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+                            .flex-1::-webkit-scrollbar {
+                                width: 12px;
+                                height: 12px;
+                            }
+                            .flex-1::-webkit-scrollbar-track {
+                                background: #f1f1f1;
+                                border-radius: 10px;
+                            }
+                            .flex-1::-webkit-scrollbar-thumb {
+                                background: #888;
+                                border-radius: 10px;
+                            }
+                            .flex-1::-webkit-scrollbar-thumb:hover {
+                                background: #555;
+                            }
+                        `}</style>
                         <Table
                             dataSource={paginatedData}
                             columns={tableColumns}
@@ -505,7 +530,7 @@ const ExcelPreviewModal = ({
                                 setSortedInfo(sorter);
                             }}
                             pagination={false}
-                            scroll={{ x: "max-content" }} // Only horizontal scroll handled by Table
+                            scroll={{ x: "max-content", y: "calc(90vh - 300px)" }}
                             bordered
                             size="middle"
                         />
