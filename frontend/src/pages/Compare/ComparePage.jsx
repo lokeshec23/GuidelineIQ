@@ -621,6 +621,7 @@ const ComparePage = () => {
           }
         }}
         sessionId={sessionId}
+        isComparisonMode={isComparePreview}
       />
     </div>
   );
