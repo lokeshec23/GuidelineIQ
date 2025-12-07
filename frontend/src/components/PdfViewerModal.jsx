@@ -26,7 +26,15 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
         setError(null);
 
         try {
-            const token = sessionStorage.getItem('access_token');
+            // Check sessionStorage first, then localStorage (matching AuthContext pattern)
+            let token = sessionStorage.getItem('access_token');
+            if (!token) {
+                token = localStorage.getItem('access_token');
+            }
+
+            if (!token) {
+                throw new Error('No authentication token found. Please login again.');
+            }
 
             const response = await fetch(pdfUrl, {
                 headers: {
@@ -72,7 +80,7 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
             height="90vh"
             style={{ top: 20 }}
             closable={false}
-            bodyStyle={{ padding: 0, height: 'calc(90vh - 100px)', display: 'flex', flexDirection: 'column' }}
+            bodyStyle={{ padding: 0, height: 'calc(95vh - 100px)', display: 'flex', flexDirection: 'column' }}
             zIndex={3000}
         >
             {/* Header */}

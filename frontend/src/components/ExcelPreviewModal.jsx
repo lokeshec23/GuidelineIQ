@@ -19,6 +19,7 @@ import {
     RobotOutlined,
     CloseOutlined,
     LoadingOutlined,
+    FilePdfOutlined,
 } from "@ant-design/icons";
 import ChatInterface from "./ChatInterface";
 import PdfViewerModal from "./PdfViewerModal";
@@ -441,6 +442,15 @@ const ExcelPreviewModal = ({
                         </h3>
                     </div>
                     <Space>
+                        {/* View PDF Button - Only for ingestion mode */}
+                        {sessionId && !isComparisonMode && (
+                            <Button
+                                icon={<FilePdfOutlined />}
+                                onClick={() => setPdfViewerVisible(true)}
+                            >
+                                View PDF
+                            </Button>
+                        )}
                         {onDownload && (
                             <Button
                                 type="primary"
