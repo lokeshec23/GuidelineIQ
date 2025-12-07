@@ -64,11 +64,6 @@ async def process_comparison_background(
         chunk_size = user_settings.get("comparison_chunk_size", 10)
         comparison_chunks = create_comparison_chunks(aligned_data, chunk_size)
 
-        max_chunks = user_settings.get("max_comparison_chunks", 0)
-        if max_chunks > 0:
-            comparison_chunks = comparison_chunks[:max_chunks]
-            print(f"⚠️ Limited to {max_chunks} chunks for testing")
-
         num_chunks = len(comparison_chunks)
         if num_chunks == 0:
             raise ValueError("No aligned comparison chunks found.")
@@ -243,14 +238,11 @@ Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "r
     await asyncio.gather(*(handle_chunk(i, c) for i, c in enumerate(comparison_chunks)))
 
     final = []
-    rule_id = 1
 
     for item_list in chunk_results:
         if not item_list:
             continue
         for obj in item_list:
-            obj["rule_id"] = rule_id
-            rule_id += 1
             final.append(obj)
 
     print(f"\n✅ Successfully compared: {len(final)} rules")
