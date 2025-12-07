@@ -354,20 +354,45 @@ const ExcelPreviewModal = ({
             };
         };
 
-        if (columns) return columns.map((col) => generateColumn(col.dataIndex));
-        if (data?.length > 0) return Object.keys(data[0]).map(generateColumn);
-
-        return [
-            {
-                title: "Result",
-                dataIndex: "content",
-                render: (text) => (
-                    <div className="whitespace-pre-wrap break-words text-sm">
-                        {String(text || "")}
+        // Serial number column
+        const serialNumberColumn = {
+            title: "S.NO",
+            dataIndex: "sno",
+            key: "sno",
+            width: 80,
+            fixed: "left",
+            render: (text, record, index) => {
+                // Calculate the actual row number based on current page and page size
+                const rowNumber = (currentPage - 1) * currentPageSize + index + 1;
+                return (
+                    <div className="text-center font-medium">
+                        {rowNumber}
                     </div>
-                ),
+                );
             },
-        ];
+        };
+
+        let dataColumns = [];
+        if (columns) {
+            dataColumns = columns.map((col) => generateColumn(col.dataIndex));
+        } else if (data?.length > 0) {
+            dataColumns = Object.keys(data[0]).map(generateColumn);
+        } else {
+            dataColumns = [
+                {
+                    title: "Result",
+                    dataIndex: "content",
+                    render: (text) => (
+                        <div className="whitespace-pre-wrap break-words text-sm">
+                            {String(text || "")}
+                        </div>
+                    ),
+                },
+            ];
+        }
+
+        // Add serial number column at the beginning
+        return [serialNumberColumn, ...dataColumns];
     };
 
     const tableColumns = getColumns();
