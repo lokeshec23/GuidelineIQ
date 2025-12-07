@@ -1,7 +1,7 @@
 // src/components/ExcelPreviewModal.jsx
 
-import React, { useState, useMemo, useRef } from "react";
-import { Modal, Table, Button, Space, Tag, Input, Tooltip, Spin } from "antd";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Modal, Table, Button, Space, Tag, Input, Tooltip, Spin, Pagination } from "antd";
 import {
     FileExcelOutlined,
     DownloadOutlined,
@@ -39,6 +39,7 @@ const ExcelPreviewModal = ({
     const [chatVisible, setChatVisible] = useState(false);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
     const [currentPageSize, setCurrentPageSize] = useState(pageSize);
+    const [currentPage, setCurrentPage] = useState(1);
     const [columnWidths, setColumnWidths] = useState({});
     const resizingColumn = useRef(null);
     const startX = useRef(0);
@@ -72,6 +73,32 @@ const ExcelPreviewModal = ({
         });
         return filtered;
     }, [searchFilteredData, filteredInfo]);
+
+    // Sort
+    const getSortedData = useMemo(() => {
+        let sorted = [...getFilteredDataForFilters];
+        if (sortedInfo.columnKey && sortedInfo.order) {
+            sorted.sort((a, b) => {
+                const valA = a[sortedInfo.columnKey] || "";
+                const valB = b[sortedInfo.columnKey] || "";
+                const sortResult = String(valA).localeCompare(String(valB));
+                return sortedInfo.order === 'ascend' ? sortResult : -sortResult;
+            });
+        }
+        return sorted;
+    }, [getFilteredDataForFilters, sortedInfo]);
+
+    // Pagination
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * currentPageSize;
+        return getSortedData.slice(startIndex, startIndex + currentPageSize);
+    }, [getSortedData, currentPage, currentPageSize]);
+
+    // Reset page on filter/sort change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchText, filteredInfo, sortedInfo]);
+
 
     const getColumnFilters = (dataIndex) => {
         const uniqueValues = [
@@ -301,10 +328,10 @@ const ExcelPreviewModal = ({
                         <div className={`${iconBgColor} p-2 rounded-full`}>
                             <IconComponent className={`${iconColor} text-xl`} />
                         </div>
-                        <h3 className="font-semibold text-lg">{title}</h3>
-                        {showRowCount && (
-                            <Tag color="blue">{getFilteredDataForFilters.length} rows</Tag>
-                        )}
+                        <h3 className="font-semibold text-lg">
+                            {title}
+                            <span className="ml-2 text-gray-500 font-normal">({data.length} rows)</span>
+                        </h3>
                     </div>
                     <Space>
                         {onDownload && (
@@ -355,29 +382,33 @@ const ExcelPreviewModal = ({
                 {/* Table */}
                 <div className="p-4 bg-gray-50 relative" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <Table
-                        dataSource={searchFilteredData}
+                        dataSource={paginatedData}
                         columns={tableColumns}
                         onChange={(pagination, filters, sorter) => {
                             setFilteredInfo(filters);
                             setSortedInfo(sorter);
-                            if (pagination.pageSize) {
-                                setCurrentPageSize(pagination.pageSize);
-                            }
                         }}
-                        pagination={{
-                            pageSize: currentPageSize,
-                            showSizeChanger: true,
-                            pageSizeOptions: ["10", "20", "50", "100", "200"],
-                            locale: { items_per_page: "" },
-                        }}
-                        scroll={{ y: "calc(85vh - 220px)", x: "max-content" }}
+                        pagination={false}
+                        scroll={{ y: "calc(85vh - 280px)", x: "max-content" }}
                         bordered
                         size="middle"
-
                     />
 
-                    {/* Floating AI Button (Bottom-Right) */}
-                    <div className="absolute bottom-4 right-0 z-10">
+                    {/* Integrated Pagination and Chatbot Button */}
+                    <div className="flex justify-end items-center mt-4 gap-4">
+                        <Pagination
+                            current={currentPage}
+                            pageSize={currentPageSize}
+                            total={getFilteredDataForFilters.length}
+                            showSizeChanger
+                            pageSizeOptions={["10", "20", "50", "100", "200"]}
+                            locale={{ items_per_page: "" }}
+                            onChange={(page, size) => {
+                                setCurrentPage(page);
+                                setCurrentPageSize(size);
+                            }}
+                        />
+
                         <Tooltip title="Ask AI about this data">
                             <Button
                                 type="primary"
