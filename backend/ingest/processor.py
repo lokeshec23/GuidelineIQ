@@ -206,7 +206,7 @@ async def run_parallel_llm_processing(
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have these keys:
 - "category" (string)
-- "attribute" OR "sub_category" (string) - either key name is acceptable
+- "sub_category" (string)
 - "guideline_summary" (string)
 
 Start with '[' and end with ']'. No markdown, no explanations."""
@@ -312,15 +312,15 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
             if not isinstance(item, dict):
                 continue
             
-            # Check if it matches old format (attribute)
-            if old_format_keys.issubset(item.keys()):
-                valid_items.append(item)
             # Check if it matches new format (sub_category)
-            elif new_format_keys.issubset(item.keys()):
-                # Normalize to old format by renaming sub_category to attribute
+            if new_format_keys.issubset(item.keys()):
+                valid_items.append(item)
+            # Check if it matches old format (attribute) - normalize to sub_category
+            elif old_format_keys.issubset(item.keys()):
+                # Normalize to new format by renaming attribute to sub_category
                 normalized_item = {
                     "category": item["category"],
-                    "attribute": item["sub_category"],
+                    "sub_category": item["attribute"],
                     "guideline_summary": item["guideline_summary"]
                 }
                 valid_items.append(normalized_item)

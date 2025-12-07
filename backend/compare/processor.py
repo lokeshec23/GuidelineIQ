@@ -204,7 +204,7 @@ async def run_parallel_comparison_with_validation(
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have exactly these keys:
 - "category" (string)
-- "attribute" (string)
+- "sub_category" (string)
 - "guideline_1" (string)
 - "guideline_2" (string)
 - "comparison_notes" (string)
@@ -277,7 +277,7 @@ def parse_and_validate_comparison_response(response: str, chunk_num: int) -> Lis
             return []
         
         valid_items = []
-        required_keys = {"category", "attribute", "guideline_1", "guideline_2", "comparison_notes"}
+        required_keys = {"category", "sub_category", "guideline_1", "guideline_2", "comparison_notes"}
         
         for item in data:
             if not isinstance(item, dict):
@@ -343,7 +343,7 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
 
     for item1 in data1:
         cat1 = normalize(item1.get("category", ""))
-        attr1 = normalize(item1.get("attribute", ""))
+        attr1 = normalize(item1.get("sub_category", ""))
         key1_str = f"{cat1} | {attr1}"
         
         best_match_idx = -1
@@ -353,7 +353,7 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
         for idx in unmatched_indices_2:
             item2 = data2[idx]
             cat2 = normalize(item2.get("category", ""))
-            attr2 = normalize(item2.get("attribute", ""))
+            attr2 = normalize(item2.get("sub_category", ""))
             
             if cat1 == cat2 and attr1 == attr2:
                 best_match_idx = idx
@@ -365,7 +365,7 @@ def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, 
             for idx in unmatched_indices_2:
                 item2 = data2[idx]
                 cat2 = normalize(item2.get("category", ""))
-                attr2 = normalize(item2.get("attribute", ""))
+                attr2 = normalize(item2.get("sub_category", ""))
                 key2_str = f"{cat2} | {attr2}"
                 
                 # Calculate similarity ratio

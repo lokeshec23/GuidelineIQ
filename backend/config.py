@@ -82,7 +82,7 @@ Convert unstructured mortgage guideline text into a structured list of self-cont
 ### OUTPUT SCHEMA (JSON ONLY)
 You MUST return a valid JSON array. Each object in the array represents a single rule or guideline and MUST contain these three keys:
 1.  "category": The high-level topic (e.g., "Borrower Eligibility", "Credit", "Property Eligibility").
-2.  "attribute": The specific rule or policy being defined (e.g., "Minimum Credit Score", "Gift Funds Policy").
+2.  "sub_category": The specific rule or policy being defined (e.g., "Minimum Credit Score", "Gift Funds Policy").
 3.  "guideline_summary": A DETAILED and COMPLETE summary of the rule.
  
 ### CRITICAL EXTRACTION INSTRUCTIONS
@@ -90,7 +90,7 @@ You MUST return a valid JSON array. Each object in the array represents a single
 2.  **BE SELF-CONTAINED:** Every JSON object must be a complete, standalone piece of information. A user should understand the rule just by reading that single object.
 3.  **SUMMARIZE, DON'T COPY:** Do not copy and paste large blocks of text. Summarize the rule, requirement, or value concisely but completely.
 4.  **ONE RULE PER OBJECT:** Each distinct rule gets its own JSON object. Do not combine unrelated rules.
-5.  **MAINTAIN HIERARCHY:** Use the "category" key to group related attributes.
+5.  **MAINTAIN HIERARCHY:** Use the "category" key to group related sub_categories.
  
 ### EXAMPLE OF PERFECT, SELF-CONTAINED OUTPUT
 This is the exact format and quality you must follow. Notice how no rule refers to another section.
@@ -98,17 +98,17 @@ This is the exact format and quality you must follow. Notice how no rule refers 
 [
   {
     "category": "Borrower Eligibility",
-    "attribute": "Minimum Credit Score",
+    "sub_category": "Minimum Credit Score",
     "guideline_summary": "A minimum FICO score of 660 is required. For Foreign Nationals without a US FICO score, alternative credit validation is necessary."
   },
   {
     "category": "Loan Parameters",
-    "attribute": "Maximum Loan-to-Value (LTV)",
+    "sub_category": "Maximum Loan-to-Value (LTV)",
     "guideline_summary": "The maximum LTV for a purchase with a DSCR greater than 1.0 is 80%. For cash-out refinances, the maximum LTV is 75%."
   },
   {
     "category": "Property Eligibility",
-    "attribute": "Short-Term Rentals (STR)",
+    "sub_category": "Short-Term Rentals (STR)",
     "guideline_summary": "Short-term rentals are permitted but are explicitly ineligible if located within the five boroughs of New York City."
   }
 ]
@@ -117,7 +117,7 @@ This is the exact format and quality you must follow. Notice how no rule refers 
 - Your entire response MUST be a single, valid JSON array.
 - Start your response immediately with '[' and end it immediately with ']'.
 - DO NOT include any introductory text, explanations, summaries, or markdown like ```json.
-- Every object MUST have the keys: "category", "attribute", and "guideline_summary"."""
+- Every object MUST have the keys: "category", "sub_category", and "guideline_summary"."""
 
 DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI ="""You are an expert Mortgage Underwriting Analyst trained to convert unstructured mortgage guideline text into structured rule objects.
 
@@ -127,14 +127,14 @@ You MUST output a **JSON array**, where each item is a single underwriting rule.
 Each JSON object MUST contain exactly these keys:
 
 1. "Category" – High-level section name such as "Credit", "Income", "Loan Terms", "Property Eligibility".
-2. "Attribute" – The specific rule name or topic (e.g., "Minimum Credit Score", "DTI Max", "Cash-Out Restrictions").
+2. "Sub Category" – The specific rule name or topic (e.g., "Minimum Credit Score", "DTI Max", "Cash-Out Restrictions").
 3. "Guideline Summary" – A clear, complete, self-contained summary.
 
 ### HARD RULES
 - You must NEVER return "undefined", "none", "not provided", or empty strings.
-- EVERY rule MUST have meaningful values for Category, Attribute, and Guideline Summary.
+- EVERY rule MUST have meaningful values for Category, Sub Category, and Guideline Summary.
 - If the text contains header sections, treat headers as Categories.
-- If the text contains bullet points inside a category, treat each bullet as a unique Attribute + Summary.
+- If the text contains bullet points inside a category, treat each bullet as a unique Sub Category + Summary.
 - You must split rules into multiple JSON objects if they represent separate policies.
 - You must rewrite missing references such as "See matrix below" into full meaningful statements using local context.
 - You cannot copy giant paragraphs; summarize accurately and concisely.
@@ -158,14 +158,14 @@ You will receive a JSON array. Each object in the array contains two keys: "guid
 ### OUTPUT SCHEMA (JSON ONLY)
 You MUST return a valid JSON array. Each object in the array MUST contain these five keys:
 1.  "category": The 'category' from the source data.
-2.  "attribute": The 'attribute' from the source data.
+2.  "sub_category": The 'sub_category' from the source data.
 3.  "guideline_1": The 'guideline_summary' from the first guideline. If guideline_1 is not present, this value MUST be "Not present".
 4.  "guideline_2": The 'guideline_summary' from the second guideline. If guideline_2 is not present, this value MUST be "Not present".
 5.  "comparison_notes": Your expert analysis of the difference or similarity. This is the most important field. Be concise, insightful, and clear.
 
 ### DETAILED ANALYSIS INSTRUCTIONS
 1.  **Iterate:** Process each object in the input array. For each object, you will produce one object in the output array.
-2.  **Identify Key Information:** From the 'guideline_1' and 'guideline_2' objects, extract the values for 'category' and 'attribute'.
+2.  **Identify Key Information:** From the 'guideline_1' and 'guideline_2' objects, extract the values for 'category' and 'sub_category'.
 3.  **Extract Guideline Text:** The main rule text is in the 'guideline_summary' field of each guideline object.
 4.  **Analyze and Summarize:** Compare the extracted guideline texts. In "comparison_notes", do not just state they are different. Explain *how*. For example: "Guideline 2 has a more lenient credit score requirement (640 vs 660), but stricter LTV limits for loans over $1.5M (75% vs 80%)."
 5.  **Handle Missing Data:** 
@@ -177,15 +177,15 @@ You MUST return a valid JSON array. Each object in the array MUST contain these 
 If you are given an input pair like this:
 
 {
-  "guideline_1": {"category": "Borrower Eligibility", "attribute": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
-  "guideline_2": {"category": "Borrower Eligibility", "attribute": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
+  "guideline_1": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
+  "guideline_2": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
 }
 
 Your corresponding output object MUST be:
 
 {
   "category": "Borrower Eligibility",
-  "attribute": "Minimum Credit Score",
+  "sub_category": "Minimum Credit Score",
   "guideline_1": "660 for standard DSCR program. 720 for DSCR Supreme.",
   "guideline_2": "660 for standard DSCR. No US FICO required for Foreign Nationals.",
   "comparison_notes": "Both guidelines require 660 for standard DSCR. Guideline 1 has a higher tier (Supreme) requiring 720. Guideline 2 provides explicit allowance for Foreign Nationals without US FICO."
@@ -335,14 +335,14 @@ You'll receive a JSON array where each element contains:
 ### OUTPUT FORMAT
 Return a JSON array where each object contains these five fields:
 1. "category": The category from the source data
-2. "attribute": The attribute from the source data
+2. "sub_category": The sub_category from the source data
 3. "guideline_1": The guideline_summary from the first guideline (use "Not present" if missing)
 4. "guideline_2": The guideline_summary from the second guideline (use "Not present" if missing)
 5. "comparison_notes": Your expert analysis highlighting differences, similarities, or changes
 
 ### ANALYSIS GUIDELINES
 1. **Process Each Pair:** Generate one output object for each input pair
-2. **Extract Key Data:** Identify category and attribute from the source objects
+2. **Extract Key Data:** Identify category and sub_category from the source objects
 3. **Locate Rule Text:** Find the guideline_summary field in each object
 4. **Provide Insight:** In comparison_notes, explain HOW the rules differ, not just THAT they differ
    - Example: "Guideline 2 requires a lower credit score (640 vs 660) but imposes stricter LTV limits for loans exceeding $1.5M (75% vs 80%)"
@@ -354,14 +354,14 @@ Return a JSON array where each object contains these five fields:
 ### SAMPLE OUTPUT
 Input:
 {
-  "guideline_1": {"category": "Borrower Eligibility", "attribute": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
-  "guideline_2": {"category": "Borrower Eligibility", "attribute": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
+  "guideline_1": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
+  "guideline_2": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
 }
 
 Output:
 {
   "category": "Borrower Eligibility",
-  "attribute": "Minimum Credit Score",
+  "sub_category": "Minimum Credit Score",
   "guideline_1": "660 for standard DSCR program. 720 for DSCR Supreme.",
   "guideline_2": "660 for standard DSCR. No US FICO required for Foreign Nationals.",
   "comparison_notes": "Both guidelines require 660 for standard DSCR. Guideline 1 has a higher tier (Supreme) requiring 720. Guideline 2 provides explicit allowance for Foreign Nationals without US FICO."
