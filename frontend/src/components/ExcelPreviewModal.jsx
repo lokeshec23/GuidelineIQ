@@ -368,6 +368,7 @@ const ExcelPreviewModal = ({
                             pageSize: currentPageSize,
                             showSizeChanger: true,
                             pageSizeOptions: ["10", "20", "50", "100", "200"],
+                            locale: { items_per_page: "" },
                         }}
                         scroll={{ y: "calc(85vh - 220px)", x: "max-content" }}
                         bordered

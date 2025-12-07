@@ -83,3 +83,8 @@ code {
   justify-content: center;
   padding: 1rem;
 }
+
+/* Ensure pagination dropdown has pointer cursor */
+.ant-pagination-options .ant-select-selector {
+  cursor: pointer !important;
+}
