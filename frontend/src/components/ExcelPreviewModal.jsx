@@ -1,7 +1,16 @@
 // src/components/ExcelPreviewModal.jsx
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Modal, Table, Button, Space, Tag, Input, Tooltip, Spin, Pagination } from "antd";
+import {
+    Modal,
+    Table,
+    Button,
+    Space,
+    Input,
+    Tooltip,
+    Spin,
+    Pagination,
+} from "antd";
 import {
     FileExcelOutlined,
     DownloadOutlined,
@@ -28,8 +37,8 @@ const ExcelPreviewModal = ({
     icon: IconComponent = FileExcelOutlined,
     iconColor = "text-green-600",
     iconBgColor = "bg-green-100",
-    sessionId = null, // ✅ Add sessionId prop
-    isComparisonMode = false, // ✅ Add isComparisonMode prop
+    sessionId = null,
+    isComparisonMode = false,
 }) => {
     const [searchText, setSearchText] = useState("");
     const [searchExpanded, setSearchExpanded] = useState(false);
@@ -82,7 +91,7 @@ const ExcelPreviewModal = ({
                 const valA = a[sortedInfo.columnKey] || "";
                 const valB = b[sortedInfo.columnKey] || "";
                 const sortResult = String(valA).localeCompare(String(valB));
-                return sortedInfo.order === 'ascend' ? sortResult : -sortResult;
+                return sortedInfo.order === "ascend" ? sortResult : -sortResult;
             });
         }
         return sorted;
@@ -99,7 +108,6 @@ const ExcelPreviewModal = ({
         setCurrentPage(1);
     }, [searchText, filteredInfo, sortedInfo]);
 
-
     const getColumnFilters = (dataIndex) => {
         const uniqueValues = [
             ...new Set(getFilteredDataForFilters.map((item) => item[dataIndex])),
@@ -107,30 +115,31 @@ const ExcelPreviewModal = ({
         return uniqueValues
             .filter((val) => val !== null && val !== undefined && val !== "")
             .map((val) => ({
-                text: String(val).substring(0, 50) + (String(val).length > 50 ? "..." : ""),
+                text:
+                    String(val).substring(0, 50) +
+                    (String(val).length > 50 ? "..." : ""),
                 value: val,
             }));
     };
 
-    // Handle mouse down on column header to start resizing
+    // Column resize handlers
     const handleMouseDown = (key, currentWidth) => (e) => {
         e.preventDefault();
         resizingColumn.current = key;
         startX.current = e.clientX;
         startWidth.current = currentWidth;
 
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
+        document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
     };
 
-    // Handle mouse move while resizing
     const handleMouseMove = (e) => {
         if (!resizingColumn.current) return;
 
         const diff = e.clientX - startX.current;
-        const newWidth = Math.max(50, startWidth.current + diff); // Minimum width of 50px
+        const newWidth = Math.max(50, startWidth.current + diff);
 
         setColumnWidths((prev) => ({
             ...prev,
@@ -138,13 +147,12 @@ const ExcelPreviewModal = ({
         }));
     };
 
-    // Handle mouse up to stop resizing
     const handleMouseUp = () => {
         resizingColumn.current = null;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
     };
 
     const getColumns = () => {
@@ -152,33 +160,45 @@ const ExcelPreviewModal = ({
             const currentWidth = columnWidths[key] || 250;
             return {
                 title: (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <div
+                        style={{
+                            position: "relative",
+                            display: "flex",
+                            alignItems: "center",
+                        }}
+                    >
                         <span>{key.replace(/_/g, " ").toUpperCase()}</span>
                         <div
                             onMouseDown={handleMouseDown(key, currentWidth)}
                             style={{
-                                position: 'absolute',
+                                position: "absolute",
                                 right: -8,
                                 top: 0,
                                 bottom: 0,
-                                width: '16px',
-                                cursor: 'col-resize',
+                                width: "16px",
+                                cursor: "col-resize",
                                 zIndex: 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div
                                 style={{
-                                    width: '2px',
-                                    height: '60%',
-                                    backgroundColor: '#d9d9d9',
-                                    transition: 'background-color 0.2s',
+                                    width: "2px",
+                                    height: "60%",
+                                    backgroundColor: "#d9d9d9",
+                                    transition: "background-color 0.2s",
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1890ff'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#d9d9d9'}
+                                onMouseEnter={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    "#1890ff")
+                                }
+                                onMouseLeave={(e) =>
+                                (e.currentTarget.style.backgroundColor =
+                                    "#d9d9d9")
+                                }
                             />
                         </div>
                     </div>
@@ -186,64 +206,111 @@ const ExcelPreviewModal = ({
                 dataIndex: key,
                 key,
                 width: currentWidth,
-                sorter: (a, b) => String(a[key] || "").localeCompare(String(b[key] || "")),
-                sortOrder: sortedInfo.columnKey === key ? sortedInfo.order : null,
+                sorter: (a, b) =>
+                    String(a[key] || "").localeCompare(String(b[key] || "")),
+                sortOrder:
+                    sortedInfo.columnKey === key ? sortedInfo.order : null,
                 filters: getColumnFilters(key),
                 filteredValue: filteredInfo[key] || null,
-                onFilter: (value, record) => String(record[key]) === String(value),
-                filterIcon: (filtered) => (
+                onFilter: (value, record) =>
+                    String(record[key]) === String(value),
+                filterIcon: (filtered) =>
                     filterLoading ? (
                         <LoadingOutlined style={{ color: "#1890ff" }} />
                     ) : (
-                        <FilterOutlined style={{ color: filtered ? "#1890ff" : undefined }} />
-                    )
-                ),
-                filterDropdownOpen: undefined,
+                        <FilterOutlined
+                            style={{ color: filtered ? "#1890ff" : undefined }}
+                        />
+                    ),
                 onFilterDropdownOpenChange: (visible) => {
                     if (visible) {
                         setFilterLoading(true);
-                        // Use setTimeout to allow the loading state to render before computing filters
                         setTimeout(() => {
                             setFilterLoading(false);
                         }, 100);
                     }
                 },
                 filterDropdown: (props) => {
-                    const { setSelectedKeys, selectedKeys, confirm, clearFilters } = props;
+                    const {
+                        setSelectedKeys,
+                        selectedKeys,
+                        confirm,
+                        clearFilters,
+                    } = props;
                     const filterOptions = getColumnFilters(key);
 
                     if (filterLoading) {
                         return (
-                            <div style={{ padding: 40, textAlign: 'center' }}>
-                                <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
-                                <div style={{ marginTop: 8, color: '#999' }}>Loading filters...</div>
+                            <div
+                                style={{
+                                    padding: 40,
+                                    textAlign: "center",
+                                }}
+                            >
+                                <Spin
+                                    indicator={
+                                        <LoadingOutlined
+                                            style={{ fontSize: 24 }}
+                                            spin
+                                        />
+                                    }
+                                />
+                                <div
+                                    style={{
+                                        marginTop: 8,
+                                        color: "#999",
+                                    }}
+                                >
+                                    Loading filters...
+                                </div>
                             </div>
                         );
                     }
 
                     return (
                         <div style={{ padding: 8 }}>
-                            <div style={{ marginBottom: 8, maxHeight: 300, overflow: 'auto' }}>
+                            <div
+                                style={{
+                                    marginBottom: 8,
+                                    maxHeight: 300,
+                                    overflow: "auto",
+                                }}
+                            >
                                 {filterOptions.map((option) => (
                                     <div
                                         key={option.value}
                                         style={{
-                                            padding: '4px 8px',
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedKeys?.includes(option.value) ? '#e6f7ff' : 'transparent',
+                                            padding: "4px 8px",
+                                            cursor: "pointer",
+                                            backgroundColor:
+                                                selectedKeys?.includes(
+                                                    option.value
+                                                )
+                                                    ? "#e6f7ff"
+                                                    : "transparent",
                                         }}
                                         onClick={() => {
                                             const keys = selectedKeys || [];
                                             if (keys.includes(option.value)) {
-                                                setSelectedKeys(keys.filter(k => k !== option.value));
+                                                setSelectedKeys(
+                                                    keys.filter(
+                                                        (k) =>
+                                                            k !== option.value
+                                                    )
+                                                );
                                             } else {
-                                                setSelectedKeys([...keys, option.value]);
+                                                setSelectedKeys([
+                                                    ...keys,
+                                                    option.value,
+                                                ]);
                                             }
                                         }}
                                     >
                                         <input
                                             type="checkbox"
-                                            checked={selectedKeys?.includes(option.value)}
+                                            checked={selectedKeys?.includes(
+                                                option.value
+                                            )}
                                             onChange={() => { }}
                                             style={{ marginRight: 8 }}
                                         />
@@ -251,7 +318,14 @@ const ExcelPreviewModal = ({
                                     </div>
                                 ))}
                             </div>
-                            <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                            <div
+                                style={{
+                                    borderTop: "1px solid #f0f0f0",
+                                    paddingTop: 8,
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                }}
+                            >
                                 <Button
                                     size="small"
                                     onClick={() => {
@@ -313,16 +387,20 @@ const ExcelPreviewModal = ({
                 width="90vw"
                 centered
                 closable={false}
-                style={{ top: 0, paddingBottom: 0, maxWidth: 'calc(100vw - 40px)' }}
+                style={{
+                    top: 0,
+                    paddingBottom: 0,
+                    maxWidth: "calc(100vw - 40px)",
+                }}
                 bodyStyle={{
-                    height: '90vh',
+                    height: "90vh",
                     padding: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
+                    display: "flex",
+                    flexDirection: "column",
                 }}
                 onCancel={onClose}
             >
-                {/* Header */}
+                {/* Header - fixed */}
                 <div className="flex justify-between items-center px-6 py-4 border-b bg-white relative">
                     <div className="flex items-center gap-3">
                         <div className={`${iconBgColor} p-2 rounded-full`}>
@@ -330,7 +408,11 @@ const ExcelPreviewModal = ({
                         </div>
                         <h3 className="font-semibold text-lg">
                             {title}
-                            <span className="ml-2 text-gray-500 font-normal">({data.length} rows)</span>
+                            {showRowCount && (
+                                <span className="ml-2 text-gray-500 font-normal">
+                                    ({data.length} rows)
+                                </span>
+                            )}
                         </h3>
                     </div>
                     <Space>
@@ -349,7 +431,7 @@ const ExcelPreviewModal = ({
                     </Space>
                 </div>
 
-                {/* Search & Clear */}
+                {/* Search bar - fixed below header */}
                 <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
                     {!searchExpanded ? (
                         <Button
@@ -364,7 +446,9 @@ const ExcelPreviewModal = ({
                             prefix={<SearchOutlined />}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
-                            onBlur={() => !searchText && setSearchExpanded(false)}
+                            onBlur={() =>
+                                !searchText && setSearchExpanded(false)
+                            }
                             allowClear
                             autoFocus
                             style={{ width: 300 }}
@@ -374,27 +458,35 @@ const ExcelPreviewModal = ({
                         Clear Filters
                     </Button>
                     <span className="text-sm text-gray-500">
-                        {(getFilteredDataForFilters.length !== tableData.length || searchText) &&
+                        {(getFilteredDataForFilters.length !==
+                            tableData.length ||
+                            searchText) &&
                             `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`}
                     </span>
                 </div>
 
-                {/* Table */}
-                <div className="p-4 bg-gray-50 relative" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <Table
-                        dataSource={paginatedData}
-                        columns={tableColumns}
-                        onChange={(pagination, filters, sorter) => {
-                            setFilteredInfo(filters);
-                            setSortedInfo(sorter);
-                        }}
-                        pagination={false}
-                        scroll={{ y: "calc(85vh - 280px)", x: "max-content" }}
-                        bordered
-                        size="middle"
-                    />
+                {/* Content area - table scrolls, footer fixed */}
+                <div
+                    className="p-4 bg-gray-50 relative flex flex-col"
+                    style={{ flex: 1, overflow: "hidden" }}
+                >
+                    {/* Scrollable table container */}
+                    <div className="flex-1 overflow-auto">
+                        <Table
+                            dataSource={paginatedData}
+                            columns={tableColumns}
+                            onChange={(pagination, filters, sorter) => {
+                                setFilteredInfo(filters);
+                                setSortedInfo(sorter);
+                            }}
+                            pagination={false}
+                            scroll={{ x: "max-content" }} // Only horizontal scroll handled by Table
+                            bordered
+                            size="middle"
+                        />
+                    </div>
 
-                    {/* Integrated Pagination and Chatbot Button */}
+                    {/* Footer - fixed inside modal */}
                     <div className="flex justify-end items-center mt-4 gap-4">
                         <Pagination
                             current={currentPage}
@@ -417,7 +509,10 @@ const ExcelPreviewModal = ({
                                 size="large"
                                 onClick={() => setChatVisible(true)}
                                 className="shadow-lg"
-                                style={{ backgroundColor: "#0EA5E9", borderColor: "#0EA5E9" }}
+                                style={{
+                                    backgroundColor: "#0EA5E9",
+                                    borderColor: "#0EA5E9",
+                                }}
                             />
                         </Tooltip>
                     </div>
@@ -444,7 +539,7 @@ const ExcelPreviewModal = ({
                 />
             )}
 
-            {/* PDF Viewer Modal - Outside chatbot for higher z-index */}
+            {/* PDF Viewer Modal */}
             {sessionId && (
                 <PdfViewerModal
                     visible={pdfViewerVisible}
