@@ -17,18 +17,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
             role: 'assistant',
             content: isComparisonMode
                 ? 'Hello 👋\nHow can I help you analyze this comparison data today?'
-                : 'Hello 👋\nHow can I help you analyze this data today?',
-            suggestions: isComparisonMode
-                ? [
-                    'Summarize the key differences',
-                    'Highlight major changes',
-                    'Explain the comparison results'
-                ]
-                : [
-                    'Summarize this data',
-                    'Find key insights',
-                    'Identify any anomalies'
-                ]
+                : 'Hello 👋\nHow can I help you analyze this data today?'
         }
     ]);
     const [inputValue, setInputValue] = useState('');
