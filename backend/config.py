@@ -163,41 +163,61 @@ You MUST return a valid JSON array. Each object in the array MUST contain these 
 2.  "sub_category": The 'sub_category' from the source data.
 3.  "guideline_1": The 'guideline_summary' from the first guideline. If guideline_1 is not present, this value MUST be "Not present".
 4.  "guideline_2": The 'guideline_summary' from the second guideline. If guideline_2 is not present, this value MUST be "Not present".
-5.  "comparison_notes": Your expert analysis of the difference or similarity. This is the most important field. Be concise, insightful, and clear.
+5.  "comparison_notes": Your expert analysis summarizing the differences, updates, or modifications. This is the most important field.
 
-### DETAILED ANALYSIS INSTRUCTIONS
-1.  **Iterate:** Process each object in the input array. For each object, you will produce one object in the output array.
-2.  **Identify Key Information:** From the 'guideline_1' and 'guideline_2' objects, extract the values for 'category' and 'sub_category'.
-3.  **Extract Guideline Text:** The main rule text is in the 'guideline_summary' field of each guideline object.
-4.  **Analyze and Summarize:** Compare the extracted guideline texts. In "comparison_notes", do not just state they are different. Explain *how*. For example: "Guideline 2 has a more lenient credit score requirement (640 vs 660), but stricter LTV limits for loans over $1.5M (75% vs 80%)."
-5.  **Handle Missing Data:** 
-    - If 'guideline_1' is not present, state "New rule added in Guideline 2" in comparison_notes. 
-    - If 'guideline_2' is not present, state "Rule removed from Guideline 2" in comparison_notes.
-    - If both are present but one is empty or null, note that as well.
+### DETAILED ANALYSIS INSTRUCTIONS FOR COMPARISON_NOTES
+1.  **Process Each Pair:** For each input object, produce one output object.
+2.  **Extract Information:** From 'guideline_1' and 'guideline_2' objects, extract 'category', 'sub_category', and 'guideline_summary'.
+3.  **Write Detailed Comparison Notes:** The comparison_notes field must provide a comprehensive summary that:
+    - **Identifies what changed:** Explain specific differences between the two guidelines (e.g., "Guideline 2 lowered minimum credit score from 660 to 640")
+    - **Highlights updates/modifications:** Point out what was updated, modified, added, or removed (e.g., "LTV limit updated from 80% to 75% for cash-out refinances")
+    - **Explains the impact:** Describe whether changes make requirements stricter, more lenient, or add new conditions
+    - **Compares key values:** When numerical values differ, explicitly state both values (e.g., "DSCR requirement changed from 1.25 to 1.0")
+    - **Notes similarities:** If guidelines are identical or very similar, state "No significant changes" or "Requirements remain identical"
+
+4.  **Handle Missing Data:**
+    - If guideline_1 is missing: Set guideline_1 to "Not present" and comparison_notes to "Not present in Guideline 1. This is a new category/rule added in Guideline 2: [brief summary of what was added]"
+    - If guideline_2 is missing: Set guideline_2 to "Not present" and comparison_notes to "Not present in Guideline 2. This category/rule was removed or is no longer applicable."
+    - If both are present but one is empty/null, note this in comparison_notes
 
 ### EXAMPLE OF PERFECT OUTPUT
-If you are given an input pair like this:
 
+Example 1 - Both guidelines present with differences:
 {
-  "guideline_1": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
-  "guideline_2": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
+  "guideline_1": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "SCR: No US FICO required for Foreign Nationals. TLS has a lower minimum score. NQM Funding's minimum score varies significantly by loan amount."},
+  "guideline_2": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "Ratios from 0.75 - 0.99 require a formal exception. NQM has a dedicated product for DSCR < 1.00, while TLS treats it as an exception to their standard investor DSCR program."}
 }
 
-Your corresponding output object MUST be:
-
+Output:
 {
   "category": "Borrower Eligibility",
   "sub_category": "Minimum Credit Score",
-  "guideline_1": "660 for standard DSCR program. 720 for DSCR Supreme.",
-  "guideline_2": "660 for standard DSCR. No US FICO required for Foreign Nationals.",
-  "comparison_notes": "Both guidelines require 660 for standard DSCR. Guideline 1 has a higher tier (Supreme) requiring 720. Guideline 2 provides explicit allowance for Foreign Nationals without US FICO."
+  "guideline_1": "SCR: No US FICO required for Foreign Nationals. TLS has a lower minimum score. NQM Funding's minimum score varies significantly by loan amount.",
+  "guideline_2": "Ratios from 0.75 - 0.99 require a formal exception. NQM has a dedicated product for DSCR < 1.00, while TLS treats it as an exception to their standard investor DSCR program.",
+  "comparison_notes": "Both lenders have similar LTV limits for cash-out refinances in this scenario (75%). The key difference is the waiting period: TLS requires only a 2-year waiting period after a major Housing Event, while NQM requires a longer waiting period."
+}
+
+Example 2 - Guideline not present in one file:
+{
+  "guideline_1": {"status": "Not present in Guideline 1"},
+  "guideline_2": {"category": "Property Eligibility", "sub_category": "Condotels (DSCR)", "guideline_summary": "Condotels are an ineligible property type."}
+}
+
+Output:
+{
+  "category": "Property Eligibility",
+  "sub_category": "Condotels (DSCR)",
+  "guideline_1": "Not present",
+  "guideline_2": "Condotels are an ineligible property type.",
+  "comparison_notes": "Not present in Guideline 1. New restriction added in Guideline 2 explicitly marking Condotels as ineligible property type for DSCR programs."
 }
 
 ### FINAL COMMANDS
 - Your entire response MUST be a single, valid JSON array.
 - The number of objects in your output must match the number of pairs in the input.
 - DO NOT add any text or markdown outside of the JSON array. Start with '[' and end with ']'.
-- DO NOT include "rule_id" in your output - it will be added automatically."""
+- DO NOT include "rule_id" in your output - it will be added automatically.
+- comparison_notes must be detailed and explain WHAT is different, WHAT was updated/modified, and the IMPACT of changes."""
 
 DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI = """You are a Senior Mortgage Compliance Officer and a high-precision Data Reconciliation Engine.
 
@@ -329,7 +349,7 @@ Return the JSON array only. No additional commentary or markdown formatting.
 DEFAULT_COMPARISON_PROMPT_USER_GEMINI = """You are an expert mortgage analyst performing detailed comparisons between two sets of guideline rules.
 
 ### TASK
-Analyze pairs of JSON objects representing rules from two different guidelines and create a consolidated comparison output.
+Analyze pairs of JSON objects representing rules from two different guidelines and create a consolidated comparison output with detailed comparison notes.
 
 ### INPUT FORMAT
 You'll receive a JSON array where each element contains:
@@ -342,40 +362,63 @@ Return a JSON array where each object contains these five fields:
 2. "sub_category": The sub_category from the source data
 3. "guideline_1": The guideline_summary from the first guideline (use "Not present" if missing)
 4. "guideline_2": The guideline_summary from the second guideline (use "Not present" if missing)
-5. "comparison_notes": Your expert analysis highlighting differences, similarities, or changes
+5. "comparison_notes": Your expert analysis summarizing differences, updates, and modifications
 
-### ANALYSIS GUIDELINES
+### DETAILED ANALYSIS GUIDELINES FOR COMPARISON_NOTES
 1. **Process Each Pair:** Generate one output object for each input pair
-2. **Extract Key Data:** Identify category and sub_category from the source objects
-3. **Locate Rule Text:** Find the guideline_summary field in each object
-4. **Provide Insight:** In comparison_notes, explain HOW the rules differ, not just THAT they differ
-   - Example: "Guideline 2 requires a lower credit score (640 vs 660) but imposes stricter LTV limits for loans exceeding $1.5M (75% vs 80%)"
-5. **Handle Gaps:** 
-   - If guideline_1 is missing: Note "New rule introduced in Guideline 2"
-   - If guideline_2 is missing: Note "Rule discontinued in Guideline 2"
-   - If both are present but one is empty, note that as well.
+2. **Extract Key Data:** Identify category, sub_category, and guideline_summary from both objects
+3. **Write Comprehensive Comparison Notes:** The comparison_notes field must:
+   - **Identify specific changes:** Explain exactly what changed between the two guidelines (e.g., "Minimum credit score reduced from 660 to 640")
+   - **Highlight updates/modifications:** Point out what was updated, modified, added, or removed with specific details
+   - **Explain the impact:** Describe whether changes make requirements stricter, more lenient, or introduce new conditions
+   - **Compare numerical values:** When values differ, state both explicitly (e.g., "Maximum LTV changed from 80% to 75%")
+   - **Note similarities:** If identical or very similar, state "No significant changes" or "Requirements remain identical"
 
-### SAMPLE OUTPUT
+4. **Handle Missing Data:**
+   - If guideline_1 is missing: Set guideline_1 to "Not present" and comparison_notes to "Not present in Guideline 1. New category/rule added in Guideline 2: [brief summary of what was added]"
+   - If guideline_2 is missing: Set guideline_2 to "Not present" and comparison_notes to "Not present in Guideline 2. This category/rule was removed or is no longer applicable."
+   - If both present but one is empty/null, note this in comparison_notes
+
+### SAMPLE OUTPUT EXAMPLES
+
+Example 1 - Both guidelines present with differences:
 Input:
 {
-  "guideline_1": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR program. 720 for DSCR Supreme."},
-  "guideline_2": {"category": "Borrower Eligibility", "sub_category": "Minimum Credit Score", "guideline_summary": "660 for standard DSCR. No US FICO required for Foreign Nationals."}
+  "guideline_1": {"category": "Loan Parameters", "sub_category": "Max LTV (Purchase, DSCR > 1.0)", "guideline_summary": "Maximum LTV is 80% for purchase transactions with DSCR >1.0. Cash-out refinances limited to 75% LTV."},
+  "guideline_2": {"category": "Loan Parameters", "sub_category": "Max LTV (Purchase, DSCR > 1.0)", "guideline_summary": "Maximum LTV is 85% for purchase transactions with DSCR >1.0. Cash-out refinances limited to 70% LTV."}
 }
 
 Output:
 {
-  "category": "Borrower Eligibility",
-  "sub_category": "Minimum Credit Score",
-  "guideline_1": "660 for standard DSCR program. 720 for DSCR Supreme.",
-  "guideline_2": "660 for standard DSCR. No US FICO required for Foreign Nationals.",
-  "comparison_notes": "Both guidelines require 660 for standard DSCR. Guideline 1 has a higher tier (Supreme) requiring 720. Guideline 2 provides explicit allowance for Foreign Nationals without US FICO."
+  "category": "Loan Parameters",
+  "sub_category": "Max LTV (Purchase, DSCR > 1.0)",
+  "guideline_1": "Maximum LTV is 80% for purchase transactions with DSCR >1.0. Cash-out refinances limited to 75% LTV.",
+  "guideline_2": "Maximum LTV is 85% for purchase transactions with DSCR >1.0. Cash-out refinances limited to 70% LTV.",
+  "comparison_notes": "Guideline 2 increased the maximum LTV for purchases from 80% to 85%, making it more lenient. However, cash-out refinance LTV became stricter, decreasing from 75% to 70%."
+}
+
+Example 2 - Guideline not present:
+Input:
+{
+  "guideline_1": {"status": "Not present in Guideline 1"},
+  "guideline_2": {"category": "Property Eligibility", "sub_category": "Short-Term Rentals (STR)", "guideline_summary": "Short-term rentals permitted. Properties in NYC five boroughs are explicitly ineligible."}
+}
+
+Output:
+{
+  "category": "Property Eligibility",
+  "sub_category": "Short-Term Rentals (STR)",
+  "guideline_1": "Not present",
+  "guideline_2": "Short-term rentals permitted. Properties in NYC five boroughs are explicitly ineligible.",
+  "comparison_notes": "Not present in Guideline 1. New policy added in Guideline 2 allowing short-term rentals but excluding NYC five boroughs."
 }
 
 ### RESPONSE REQUIREMENTS
 - Return only a JSON array starting with '[' and ending with ']'
 - Output count must match input pair count
 - No markdown, explanatory text, or code blocks
-- Do not include "rule_id" - it will be added automatically"""
+- Do not include "rule_id" - it will be added automatically
+- comparison_notes must explain WHAT changed, WHAT was updated/modified, and the IMPACT"""
 
 DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI = """You are a Senior Mortgage Compliance Analyst and Data Reconciliation Specialist.
 
