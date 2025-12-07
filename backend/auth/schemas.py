@@ -20,7 +20,7 @@ class UserLogin(BaseModel):
 # Schema for returning user info
 class UserOut(BaseModel):
     id: str
-    username: str
+    username: Optional[str] = None
     email: EmailStr
     role: Optional[str] = None
 

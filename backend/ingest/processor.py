@@ -204,9 +204,9 @@ async def run_parallel_llm_processing(
 {chunk_text}
 
 ### REMINDER: OUTPUT FORMAT
-You MUST respond with a valid JSON array only. Each object must have exactly these keys:
+You MUST respond with a valid JSON array only. Each object must have these keys:
 - "category" (string)
-- "attribute" (string)  
+- "attribute" OR "sub_category" (string) - either key name is acceptable
 - "guideline_summary" (string)
 
 Start with '[' and end with ']'. No markdown, no explanations."""
@@ -217,6 +217,13 @@ Start with '[' and end with ']'. No markdown, no explanations."""
                 system_prompt,
                 user_msg
             )
+
+            # ✅ Log LLM response for verification
+            print(f"\n{'='*60}")
+            print(f"📝 LLM RESPONSE - Chunk {idx + 1}/{total_chunks}")
+            print(f"{'='*60}")
+            print(response)
+            print(f"{'='*60}\n")
 
             parsed = parse_and_clean_llm_response(response, idx + 1)
 
@@ -285,25 +292,42 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
     end = cleaned.rfind("]")
 
     if start == -1 or end == -1:
+        print(f"⚠️ Chunk {chunk_num}: No JSON array found in response")
         return []
 
     try:
         data = json.loads(cleaned[start:end + 1])
 
         if not isinstance(data, list):
+            print(f"⚠️ Chunk {chunk_num}: Response is not a JSON array")
             return []
         
         valid_items = []
-        required_keys = {"category", "attribute", "guideline_summary"}
+        
+        # ✅ Support both old format (attribute) and new format (sub_category)
+        old_format_keys = {"category", "attribute", "guideline_summary"}
+        new_format_keys = {"category", "sub_category", "guideline_summary"}
         
         for item in data:
             if not isinstance(item, dict):
                 continue
             
-            if required_keys.issubset(item.keys()):
+            # Check if it matches old format (attribute)
+            if old_format_keys.issubset(item.keys()):
                 valid_items.append(item)
+            # Check if it matches new format (sub_category)
+            elif new_format_keys.issubset(item.keys()):
+                # Normalize to old format by renaming sub_category to attribute
+                normalized_item = {
+                    "category": item["category"],
+                    "attribute": item["sub_category"],
+                    "guideline_summary": item["guideline_summary"]
+                }
+                valid_items.append(normalized_item)
         
+        print(f"✅ Chunk {chunk_num}: Parsed {len(valid_items)} valid items from {len(data)} total items")
         return valid_items
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"❌ Chunk {chunk_num}: JSON decode error - {str(e)}")
         return []

@@ -225,70 +225,98 @@ You represent the final authority in "Gap Analysis" between lending products. Yo
 -   **Tone:** Concise, comparative, and decisive."""
 
 # --- Default Prompts for Gemini ---
-DEFAULT_INGEST_PROMPT_USER_GEMINI = """You are an AI specialist focused on extracting mortgage guideline rules and converting them into structured JSON format.
+DEFAULT_INGEST_PROMPT_USER_GEMINI = """You are an AI specialist focused on extracting mortgage guideline rules from PDF documents and converting them into structured JSON format based on the Table of Contents.
 
 ### OBJECTIVE
-Transform unstructured mortgage guideline documents into a well-organized JSON array where each rule is self-contained and complete.
+First, identify the Table of Contents (TOC) from the extracted PDF text. Then, extract and summarize the content for each category and subcategory listed in the TOC, creating a well-organized JSON array.
 
-### JSON OUTPUT FORMAT
-Return a valid JSON array where each element represents one guideline rule with exactly three fields:
-1. "category": Broad classification (examples: "Borrower Eligibility", "Credit Requirements", "Property Standards")
-2. "attribute": Specific policy name (examples: "Minimum Credit Score", "Gift Funds Policy")
-3. "guideline_summary": Comprehensive description of the rule
+### STEP 1: IDENTIFY TABLE OF CONTENTS
+Locate the Table of Contents section in the document. The TOC typically contains:
+- Main categories with section numbers (e.g., "100. Fair lending statement")
+- Subcategories indented under main categories (e.g., "201. Flex DSCR Non-QM")
+- Page numbers (which you can ignore)
+
+### STEP 2: JSON OUTPUT FORMAT
+Return a valid JSON array where each element represents one category or subcategory with exactly three fields:
+1. "category": The main category name from the TOC (e.g., "Fair lending statement", "Loan Program")
+2. "sub_category": The subcategory name if it exists, otherwise use the same value as category
+3. "guideline_summary": A concise summary of the content for this category/subcategory
 
 ### EXTRACTION REQUIREMENTS
-1. **Self-Contained Rules:** Each JSON object must stand alone - never reference other sections (avoid phrases like "See section 201")
-2. **Complete Information:** Find and include all relevant details from the source document
-3. **Concise Summaries:** Condense information without losing critical details
-4. **Single Rule Focus:** One distinct rule per JSON object
-5. **Logical Grouping:** Use categories to organize related rules
+1. **TOC-Based Structure:** Extract entries based on the Table of Contents structure
+2. **Category Hierarchy:** 
+   - If a TOC entry has no subcategories, create one JSON object with category = sub_category
+   - If a TOC entry has subcategories, create separate JSON objects for each subcategory
+3. **Self-Contained Summaries:** Each guideline_summary must be complete and standalone
+4. **Table Data Handling:** If the content contains tables, extract and summarize the table data properly in the guideline_summary
+5. **No References:** Never use phrases like "See section 201" - include the actual content
 
 ### REFERENCE EXAMPLE
-Here's the expected output quality and format:
+For a TOC like:
+100. Fair lending statement   .................................... 2
+200. Loan Program               ...................................... 3
+   201. Flex DSCR Non-QM  ......................................   4
+300. Borrower eligibility         ......................................     5
 
+Expected output:
 [
   {
-    "category": "Borrower Eligibility",
-    "attribute": "Minimum Credit Score",
-    "guideline_summary": "A minimum FICO score of 660 is required. For Foreign Nationals without a US FICO score, alternative credit validation is necessary."
+    "category": "Fair lending statement",
+    "sub_category": "Fair lending statement",
+    "guideline_summary": "The lender is committed to fair lending practices and compliance with all applicable federal and state fair lending laws including the Equal Credit Opportunity Act and Fair Housing Act."
   },
   {
-    "category": "Loan Parameters",
-    "attribute": "Maximum Loan-to-Value (LTV)",
-    "guideline_summary": "The maximum LTV for a purchase with a DSCR greater than 1.0 is 80%. For cash-out refinances, the maximum LTV is 75%."
+    "category": "Loan Program",
+    "sub_category": "Loan Program",
+    "guideline_summary": "Overview of available loan programs including DSCR-based financing options for investment properties."
   },
   {
-    "category": "Property Eligibility",
-    "attribute": "Short-Term Rentals (STR)",
-    "guideline_summary": "Short-term rentals are permitted but are explicitly ineligible if located within the five boroughs of New York City."
+    "category": "Loan Program",
+    "sub_category": "Flex DSCR Non-QM",
+    "guideline_summary": "Flexible DSCR program for non-qualified mortgages with minimum DSCR of 1.0, loan amounts up to $3M, and LTV up to 80% for purchase transactions."
+  },
+  {
+    "category": "Borrower eligibility",
+    "sub_category": "Borrower eligibility",
+    "guideline_summary": "Borrowers must be at least 18 years old, have valid identification, minimum credit score of 660, and demonstrate ability to repay through rental income analysis."
   }
 ]
 
 ### OUTPUT REQUIREMENTS
 - Begin your response with '[' and conclude with ']'
 - Return only the JSON array - no explanatory text, markdown formatting, or code blocks
-- Ensure all three required fields are present in every object"""
+- Ensure all three required fields (category, sub_category, guideline_summary) are present in every object
+- Process ALL entries from the Table of Contents"""
 
-DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI = """You are a Mortgage Underwriting Expert specializing in converting unstructured guideline documents into structured data.
+DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI = """You are a Mortgage Underwriting Expert specializing in extracting structured data from guideline documents based on their Table of Contents.
 
 ### OUTPUT SPECIFICATION
-Generate a **JSON array** containing individual underwriting rules.
+Generate a **JSON array** where each element represents a category or subcategory from the document's Table of Contents.
 
-Each rule must include these three fields:
+Each JSON object must include these three fields:
 
-1. "Category" – Top-level classification like "Credit", "Income", "Loan Terms", "Property Eligibility"
-2. "Attribute" – Specific policy identifier (e.g., "Minimum Credit Score", "DTI Max", "Cash-Out Restrictions")
-3. "Guideline Summary" – Complete, self-explanatory description
+1. "category" – Main section name from the TOC (e.g., "Fair lending statement", "Loan Program", "Borrower eligibility")
+2. "sub_category" – Subcategory name if it exists in the TOC, otherwise use the same value as category
+3. "guideline_summary" – A concise but comprehensive summary of the content for that category/subcategory
 
 ### MANDATORY RULES
+- First locate and parse the Table of Contents in the document
+- Create one JSON object for each TOC entry (main categories and their subcategories)
+- If a category has no subcategories, set sub_category equal to category
+- If a category has subcategories, create separate objects for each subcategory
 - Never use placeholder values like "undefined", "none", "not provided", or empty strings
 - All three fields must contain meaningful information
-- Treat document headers as Categories
-- Convert bullet points within sections into separate Attribute + Summary pairs
-- Split compound policies into multiple JSON objects
-- Replace vague references (e.g., "See matrix below" into full meaningful statements using local context.
-- Summarize lengthy paragraphs into clear, concise statements
+- Extract and summarize table data properly when present in the content
+- Replace vague references (e.g., "See matrix below") with actual content from the document
+- Summarize content concisely but completely - capture key requirements, limits, and conditions
 - No field can be left empty
+- Maintain the hierarchical structure from the TOC
+
+### TABLE DATA HANDLING
+When the content includes tables:
+- Extract key information from table rows and columns
+- Summarize table data in a readable format within guideline_summary
+- Include important values, thresholds, and conditions from tables
 
 ### RESPONSE FORMAT
 Return the JSON array only. No additional commentary or markdown formatting.

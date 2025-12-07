@@ -408,11 +408,11 @@ const ExcelPreviewModal = ({
                         </div>
                         <h3 className="font-semibold text-lg">
                             {title}
-                            {showRowCount && (
+                            {/* {showRowCount && (
                                 <span className="ml-2 text-gray-500 font-normal">
                                     ({data.length} rows)
                                 </span>
-                            )}
+                            )} */}
                         </h3>
                     </div>
                     <Space>
