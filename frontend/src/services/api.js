@@ -17,7 +17,8 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem("access_token");
+    // Check sessionStorage first, then localStorage
+    const token = sessionStorage.getItem("access_token") || localStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -39,14 +40,21 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshToken = sessionStorage.getItem("refresh_token");
+        let refreshToken = sessionStorage.getItem("refresh_token");
+        let storage = sessionStorage;
+
+        if (!refreshToken) {
+          refreshToken = localStorage.getItem("refresh_token");
+          storage = localStorage;
+        }
+
         if (refreshToken) {
           const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refresh_token: refreshToken,
           });
 
           const { access_token } = response.data;
-          sessionStorage.setItem("access_token", access_token);
+          storage.setItem("access_token", access_token);
 
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return api(originalRequest);
@@ -56,6 +64,11 @@ api.interceptors.response.use(
         sessionStorage.removeItem("access_token");
         sessionStorage.removeItem("refresh_token");
         sessionStorage.removeItem("user");
+
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+
         showToast.error("Session expired. Please login again.");
         window.location.href = "/login";
         return Promise.reject(refreshError);

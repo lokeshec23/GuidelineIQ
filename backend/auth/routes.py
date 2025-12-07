@@ -39,7 +39,7 @@ async def login_user(credentials: UserLogin):
     if not user or not verify_password(credentials.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    access_token, refresh_token = create_tokens(str(user["_id"]))
+    access_token, refresh_token = create_tokens(str(user["_id"]), credentials.remember_me)
 
     user_data = UserOut(id=str(user["_id"]), username=user["username"], email=user["email"], role=user["role"])
     return TokenResponse(

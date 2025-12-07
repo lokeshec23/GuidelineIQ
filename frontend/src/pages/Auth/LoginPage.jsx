@@ -27,7 +27,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (values) => {
     setLoading(true);
-    const success = await login(values.username, values.password); // Using a generic username field
+    const success = await login(values.username, values.password, values.remember); // Pass remember value
     setLoading(false);
 
     if (success) {
@@ -81,7 +81,9 @@ const LoginPage = () => {
 
           <Form.Item>
             <div className="flex justify-between items-center">
-              <Checkbox>Remember me</Checkbox>
+              <Form.Item name="remember" valuePropName="checked" noStyle>
+                <Checkbox>Remember me</Checkbox>
+              </Form.Item>
               <a className="text-blue-600 hover:text-blue-700 text-sm" href="#">
                 Forgot password?
               </a>

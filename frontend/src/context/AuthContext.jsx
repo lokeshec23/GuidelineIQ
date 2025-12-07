@@ -19,8 +19,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is logged in
-    const storedUser = sessionStorage.getItem("user");
-    const token = sessionStorage.getItem("access_token");
+    // Check sessionStorage first (current session), then localStorage (remembered session)
+    let storedUser = sessionStorage.getItem("user");
+    let token = sessionStorage.getItem("access_token");
+
+    if (!storedUser || !token) {
+      storedUser = localStorage.getItem("user");
+      token = localStorage.getItem("access_token");
+    }
 
     if (storedUser && token) {
       const parsedUser = JSON.parse(storedUser);
@@ -30,14 +36,16 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = false) => {
     try {
-      const response = await authAPI.login({ email, password });
+      const response = await authAPI.login({ email, password, remember_me: rememberMe });
       const { access_token, refresh_token, user } = response.data;
 
-      sessionStorage.setItem("access_token", access_token);
-      sessionStorage.setItem("refresh_token", refresh_token);
-      sessionStorage.setItem("user", JSON.stringify(user));
+      const storage = rememberMe ? localStorage : sessionStorage;
+
+      storage.setItem("access_token", access_token);
+      storage.setItem("refresh_token", refresh_token);
+      storage.setItem("user", JSON.stringify(user));
 
       setUser(user);
       setIsAdmin(user?.role === "admin");
@@ -64,6 +72,10 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("refresh_token");
     sessionStorage.removeItem("user");
+
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("user");
     setUser(null);
     setIsAdmin(false);
     showToast.info("Logged out successfully");
