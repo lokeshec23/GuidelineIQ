@@ -95,26 +95,35 @@ class AzureOCR:
             print(f"❌ OCR analysis failed for chunk {os.path.basename(chunk_path)}: {e}")
             return "" # Return empty string on failure to not break the whole process
 
-    def analyze_doc_page_by_page(self, pdf_path: str, pages_per_chunk: int = 1) -> List[str]:
+    def analyze_doc_page_by_page(self, pdf_path: str, pages_per_chunk: int = 1) -> List[tuple]:
         """
         High-level method to orchestrate the OCR process.
-        It splits the PDF, processes chunks in parallel, and returns a list of text contents.
+        It splits the PDF, processes chunks in parallel, and returns a list of text contents with page numbers.
         
         Args:
             pdf_path: The path to the source PDF file.
             pages_per_chunk: The number of pages to group into a single text chunk for the LLM.
         
         Returns:
-            A list of strings, where each string is the text content of one or more pages.
+            A list of tuples, where each tuple is (text_content, page_numbers_string).
+            Example: [("Text from page 1", "1"), ("Text from pages 2-3", "2-3")]
         """
         print(f"\n🚀 Starting OCR pipeline with {pages_per_chunk} page(s) per chunk...")
+        
+        # Get total page count first
+        reader = PdfReader(pdf_path)
+        total_pages = len(reader.pages)
+        print(f"📄 Total pages in PDF: {total_pages}")
         
         # Use larger physical chunks for OCR efficiency, e.g., 30 pages
         # This reduces the number of separate API calls to Azure OCR
         physical_chunk_paths = self._split_pdf_into_physical_chunks(pdf_path, pages_per_chunk=30)
         
-        # This will hold the final text chunks, grouped by the user's setting
+        # This will hold the final text chunks with page numbers, grouped by the user's setting
         final_text_chunks = []
+        
+        # Track the current absolute page number across all physical chunks
+        current_absolute_page = 1
         
         # Process each physical 30-page chunk
         for physical_chunk_path in physical_chunk_paths:
@@ -127,18 +136,32 @@ class AzureOCR:
                 writer = PdfWriter()
                 end_page = min(i + pages_per_chunk, total_pages_in_chunk)
                 
+                # Calculate the absolute page numbers for this chunk
+                start_page_num = current_absolute_page + i
+                end_page_num = current_absolute_page + end_page - 1
+                
+                # Format page numbers as string
+                if start_page_num == end_page_num:
+                    page_numbers = str(start_page_num)
+                else:
+                    page_numbers = f"{start_page_num}-{end_page_num}"
+                
                 current_logical_chunk_text = ""
                 for j in range(i, end_page):
                     page = reader.pages[j]
                     current_logical_chunk_text += page.extract_text() + "\n\n"
                 
                 if current_logical_chunk_text.strip():
-                    final_text_chunks.append(current_logical_chunk_text.strip())
+                    # Append as tuple: (text, page_numbers)
+                    final_text_chunks.append((current_logical_chunk_text.strip(), page_numbers))
+            
+            # Update the absolute page counter for the next physical chunk
+            current_absolute_page += total_pages_in_chunk
 
         # Cleanup the temporary physical PDF chunks
         for path in physical_chunk_paths:
             if os.path.exists(path):
                 os.remove(path)
                 
-        print(f"✅ OCR complete. Extracted {len(final_text_chunks)} text chunks for LLM processing.")
+        print(f"✅ OCR complete. Extracted {len(final_text_chunks)} text chunks with page numbers for LLM processing.")
         return final_text_chunks

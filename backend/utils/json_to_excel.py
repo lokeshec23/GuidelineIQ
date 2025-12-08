@@ -38,9 +38,23 @@ def dynamic_json_to_excel(
 
     # Infer original headers from the keys of the first valid object
     try:
-        original_headers = list(json_data[0].keys())
+        original_headers_raw = list(json_data[0].keys())
     except (IndexError, AttributeError):
         return dynamic_json_to_excel([], output_path) # Handle empty/invalid data
+
+    # ✅ Define preferred column order for ingestion results
+    preferred_order = ["category", "sub_category", "page_number", "guideline_summary"]
+    
+    # Order columns: preferred fields first, then any additional fields
+    original_headers = []
+    for field in preferred_order:
+        if field in original_headers_raw:
+            original_headers.append(field)
+    
+    # Add any remaining fields not in the preferred order
+    for field in original_headers_raw:
+        if field not in original_headers:
+            original_headers.append(field)
 
     # Create final headers, renaming if a map is provided
     header_map = header_map or {}
@@ -91,9 +105,13 @@ def dynamic_json_to_excel(
             cell.alignment = Alignment(wrap_text=True, vertical='top')
 
     # --- Auto-fit Column Widths ---
-    for col_num, _ in enumerate(final_headers, 1):
+    for col_num, header_key in enumerate(original_headers, 1):
         column_letter = get_column_letter(col_num)
-        ws.column_dimensions[column_letter].width = 40 # Set a generous default width
+        # Set narrower width for page_number column
+        if header_key == "page_number":
+            ws.column_dimensions[column_letter].width = 15
+        else:
+            ws.column_dimensions[column_letter].width = 40 # Set a generous default width
 
     # Freeze the header row
     ws.freeze_panes = 'A2'

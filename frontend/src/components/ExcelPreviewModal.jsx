@@ -158,7 +158,15 @@ const ExcelPreviewModal = ({
 
     const getColumns = () => {
         const generateColumn = (key) => {
-            const currentWidth = columnWidths[key] || 250;
+            // ✅ Set appropriate default width based on column type
+            let defaultWidth = 250;
+            if (key === "page_number") {
+                defaultWidth = 120; // Narrower for page numbers
+            } else if (key === "category" || key === "sub_category") {
+                defaultWidth = 200; // Medium width for category fields
+            }
+
+            const currentWidth = columnWidths[key] || defaultWidth;
             return {
                 title: (
                     <div

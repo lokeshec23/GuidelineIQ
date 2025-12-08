@@ -178,7 +178,7 @@ async def process_guideline_background(
 
 async def run_parallel_llm_processing(
     llm: LLMProvider,
-    text_chunks: List[str],
+    text_chunks: List[tuple],  # ✅ Now expects list of tuples (text, page_numbers)
     system_prompt: str,
     user_prompt: str,
     investor: str,
@@ -191,14 +191,18 @@ async def run_parallel_llm_processing(
     completed = 0
     lock = asyncio.Lock()
 
-    async def handle_chunk(idx: int, chunk_text: str):
+    async def handle_chunk(idx: int, chunk_data: tuple):
         nonlocal results, failed_count, completed
+        
+        # Unpack the tuple: (text, page_numbers)
+        chunk_text, page_numbers = chunk_data
 
         user_msg = f"""{user_prompt}
 
 ### METADATA
 - Investor: {investor}
 - Version: {version}
+- Page Numbers: {page_numbers}
 
 ### TEXT TO PROCESS
 {chunk_text}
@@ -208,6 +212,7 @@ You MUST respond with a valid JSON array only. Each object must have these keys:
 - "category" (string)
 - "sub_category" (string)
 - "guideline_summary" (string)
+- "page_number" (string) - Use the page number(s) provided in metadata: {page_numbers}
 
 Start with '[' and end with ']'. No markdown, no explanations."""
 
@@ -304,16 +309,22 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
         
         valid_items = []
         
-        # ✅ Support both old format (attribute) and new format (sub_category)
+        # ✅ Support multiple formats for backward compatibility
         old_format_keys = {"category", "attribute", "guideline_summary"}
         new_format_keys = {"category", "sub_category", "guideline_summary"}
+        new_format_with_page = {"category", "sub_category", "guideline_summary", "page_number"}
         
         for item in data:
             if not isinstance(item, dict):
                 continue
             
-            # Check if it matches new format (sub_category)
-            if new_format_keys.issubset(item.keys()):
+            # Check if it matches new format with page_number (preferred)
+            if new_format_with_page.issubset(item.keys()):
+                valid_items.append(item)
+            # Check if it matches new format without page_number (accept but warn)
+            elif new_format_keys.issubset(item.keys()):
+                print(f"⚠️ Chunk {chunk_num}: Item missing page_number field, adding placeholder")
+                item["page_number"] = "N/A"
                 valid_items.append(item)
             # Check if it matches old format (attribute) - normalize to sub_category
             elif old_format_keys.issubset(item.keys()):
@@ -321,7 +332,8 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
                 normalized_item = {
                     "category": item["category"],
                     "sub_category": item["attribute"],
-                    "guideline_summary": item["guideline_summary"]
+                    "guideline_summary": item["guideline_summary"],
+                    "page_number": item.get("page_number", "N/A")
                 }
                 valid_items.append(normalized_item)
         
