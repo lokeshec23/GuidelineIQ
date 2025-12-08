@@ -9,7 +9,12 @@ from settings.models import get_user_settings
 from auth.middleware import get_admin_user
 import database
 from chat.service import chat_with_gemini, upload_pdf_with_cache
-from chat.models import save_chat_message, get_chat_history
+from chat.models import (
+    save_chat_message, get_chat_history,
+    create_conversation, get_conversations, update_conversation_metadata,
+    delete_conversation, get_conversation_messages, generate_conversation_title,
+    save_chat_message_with_conversation
+)
 from utils.gridfs_helper import get_pdf_from_gridfs
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -20,6 +25,7 @@ async def chat_with_session(
     message: str = Body(...),
     mode: str = Body(default="excel"),  # "pdf" or "excel"
     instructions: Optional[str] = Body(default=None),
+    conversation_id: Optional[str] = Body(default=None),
 ):
     """
     Chat with a specific ingestion session.
@@ -31,6 +37,7 @@ async def chat_with_session(
         session_id: Ingestion session ID or history ID
         message: User's chat message
         mode: Chat mode ("pdf" or "excel")
+        conversation_id: Optional conversation ID. If None, creates a new conversation
     
     Returns:
         Assistant's reply and updated chat history
@@ -50,7 +57,6 @@ async def chat_with_session(
     api_key = settings["gemini_api_key"]
     
     # 2. Get session data from database
-    # Try to find by session_id (could be in progress_store or history)
     record = None
     
     # Check if it's a valid ObjectId (history record)
@@ -68,10 +74,18 @@ async def chat_with_session(
     if not record:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # 3. Get chat history
-    history = await get_chat_history(session_id, limit=20)
+    # 3. Handle conversation creation
+    is_new_conversation = False
+    if not conversation_id:
+        # Create a new conversation
+        conversation_id = await create_conversation(session_id, title="New Conversation")
+        is_new_conversation = True
+        print(f"✅ Created new conversation: {conversation_id}")
     
-    # 4. Prepare context based on mode
+    # 4. Get chat history for this conversation
+    history = await get_conversation_messages(conversation_id, limit=20)
+    
+    # 5. Prepare context based on mode
     file_uris = []
     text_context = ""
     
@@ -130,7 +144,7 @@ Extracted Guidelines:
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
     
-    # 5. Call Gemini
+    # 6. Call Gemini
     try:
         reply = chat_with_gemini(
             api_key=api_key,
@@ -143,17 +157,23 @@ Extracted Guidelines:
             instructions=instructions
         )
         
-        # 6. Save chat messages to history
-        await save_chat_message(session_id, "user", message)
-        await save_chat_message(session_id, "assistant", reply)
+        # 7. Save chat messages to conversation
+        await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
+        await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
         
-        # 7. Return reply with updated history
-        updated_history = await get_chat_history(session_id, limit=20)
+        # 8. If this is the first message, auto-generate title
+        if is_new_conversation:
+            title = generate_conversation_title(message)
+            await update_conversation_metadata(conversation_id, message, title=title)
+        
+        # 9. Return reply with conversation ID
+        updated_history = await get_conversation_messages(conversation_id, limit=20)
         
         return {
             "reply": reply,
             "history": updated_history,
-            "mode": mode
+            "mode": mode,
+            "conversation_id": conversation_id
         }
         
     except Exception as e:
@@ -202,3 +222,90 @@ async def clear_session_history(session_id: str):
     except Exception as e:
         print(f"❌ Error clearing history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== CONVERSATION MANAGEMENT ENDPOINTS ====================
+
+@router.post("/session/{session_id}/conversations")
+async def create_new_conversation(session_id: str, title: Optional[str] = Body(default=None, embed=True)):
+    """
+    Create a new conversation for a session.
+    
+    Args:
+        session_id: Ingestion session ID or history ID
+        title: Optional conversation title
+    
+    Returns:
+        Conversation ID and metadata
+    """
+    try:
+        conversation_id = await create_conversation(session_id, title)
+        return {
+            "conversation_id": conversation_id,
+            "message": "Conversation created successfully"
+        }
+    except Exception as e:
+        print(f"❌ Error creating conversation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/session/{session_id}/conversations")
+async def list_conversations(session_id: str):
+    """
+    Get all conversations for a session.
+    
+    Args:
+        session_id: Ingestion session ID or history ID
+    
+    Returns:
+        List of conversations with metadata
+    """
+    try:
+        conversations = await get_conversations(session_id)
+        return {"conversations": conversations}
+    except Exception as e:
+        print(f"❌ Error listing conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/conversation/{conversation_id}")
+async def remove_conversation(conversation_id: str):
+    """
+    Delete a conversation and all its messages.
+    
+    Args:
+        conversation_id: The conversation ID
+    
+    Returns:
+        Success message with count of deleted messages
+    """
+    try:
+        deleted_count = await delete_conversation(conversation_id)
+        return {
+            "message": "Conversation deleted successfully",
+            "deleted_messages": deleted_count
+        }
+    except Exception as e:
+        print(f"❌ Error deleting conversation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversation/{conversation_id}/messages")
+async def get_messages(conversation_id: str, limit: int = 100):
+    """
+    Get all messages for a conversation.
+    
+    Args:
+        conversation_id: The conversation ID
+        limit: Maximum number of messages to retrieve
+    
+    Returns:
+        List of messages with role, content, and timestamp
+    """
+    try:
+        messages = await get_conversation_messages(conversation_id, limit)
+        return {"messages": messages}
+    except Exception as e:
+        print(f"❌ Error fetching messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -14,6 +14,7 @@ user_prompts_collection = None
 default_prompts_collection = None
 gemini_file_cache_collection = None
 chat_sessions_collection = None
+chat_conversations_collection = None
 
 # GridFS for PDF storage
 fs = None
@@ -24,7 +25,7 @@ def get_database():
     global ingest_history_collection, compare_history_collection
     global user_prompts_collection, default_prompts_collection
     global gemini_file_cache_collection
-    global chat_sessions_collection, fs
+    global chat_sessions_collection, chat_conversations_collection, fs
     
     if client is None:
         try:
@@ -38,6 +39,7 @@ def get_database():
             default_prompts_collection = db["default_prompts"]
             gemini_file_cache_collection = db["gemini_file_cache"]
             chat_sessions_collection = db["chat_sessions"]
+            chat_conversations_collection = db["chat_conversations"]
             
             # Initialize GridFS bucket for PDF storage
             fs = AsyncIOMotorGridFSBucket(db)

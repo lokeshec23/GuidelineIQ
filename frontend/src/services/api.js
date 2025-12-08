@@ -181,14 +181,27 @@ export const historyAPI = {
 
 // ==================== CHAT APIs ====================
 export const chatAPI = {
-  sendMessage: ({ session_id, message, mode = "excel", instructions = null }) =>
-    api.post(`/chat/session/${session_id}/message`, { message, mode, instructions }),
+  sendMessage: ({ session_id, conversation_id, message, mode = "excel", instructions = null }) =>
+    api.post(`/chat/session/${session_id}/message`, { conversation_id, message, mode, instructions }),
 
   getChatHistory: (session_id) =>
     api.get(`/chat/session/${session_id}/history`),
 
   clearChatHistory: (session_id) =>
     api.delete(`/chat/session/${session_id}/history`),
+
+  // Conversation management
+  createConversation: (session_id, title = null) =>
+    api.post(`/chat/session/${session_id}/conversations`, { title }),
+
+  getConversations: (session_id) =>
+    api.get(`/chat/session/${session_id}/conversations`),
+
+  deleteConversation: (conversation_id) =>
+    api.delete(`/chat/conversation/${conversation_id}`),
+
+  getConversationMessages: (conversation_id, limit = 100) =>
+    api.get(`/chat/conversation/${conversation_id}/messages`, { params: { limit } }),
 };
 
 // Prompts API
