@@ -283,13 +283,19 @@ const DashboardPage = () => {
             title: "Sub Category",
             dataIndex: "sub_category",
             key: "sub_category",
-            width: "25%",
+            width: "20%",
         },
         {
             title: "Guideline Summary",
             dataIndex: "guideline_summary",
             key: "guideline_summary",
-            width: "55%",
+            width: "50%",
+        },
+        {
+            title: "Page Number",
+            dataIndex: "page_number",
+            key: "page_number",
+            width: "10%",
         },
     ] : [
         {
