@@ -3,13 +3,15 @@ import { Modal, Button, Input, Space, Spin } from 'antd';
 import { CloseOutlined, SearchOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
 import { showToast } from "../utils/toast";
 
-const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
+const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initialPage = null }) => {
     const [loading, setLoading] = useState(true);
     const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
     const [error, setError] = useState(null);
+    const [targetPage, setTargetPage] = useState(initialPage);
 
     useEffect(() => {
         if (visible && pdfUrl) {
+            setTargetPage(initialPage);
             fetchPdfWithAuth();
         }
 
@@ -19,7 +21,7 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
                 URL.revokeObjectURL(pdfBlobUrl);
             }
         };
-    }, [visible, pdfUrl]);
+    }, [visible, pdfUrl, initialPage]);
 
     const fetchPdfWithAuth = async () => {
         setLoading(true);
@@ -117,7 +119,7 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer" }) => {
                 {pdfBlobUrl && !loading && !error && (
                     <iframe
                         id="pdf-iframe"
-                        src={pdfBlobUrl}
+                        src={targetPage ? `${pdfBlobUrl}#page=${targetPage}` : pdfBlobUrl}
                         className="w-full h-full border-0"
                         title="PDF Viewer"
                     />

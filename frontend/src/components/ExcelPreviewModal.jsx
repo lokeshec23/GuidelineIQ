@@ -48,6 +48,7 @@ const ExcelPreviewModal = ({
     const [filterLoading, setFilterLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
+    const [pdfTargetPage, setPdfTargetPage] = useState(null);
     const [currentPageSize, setCurrentPageSize] = useState(pageSize);
     const [currentPage, setCurrentPage] = useState(1);
     const [columnWidths, setColumnWidths] = useState({});
@@ -355,11 +356,48 @@ const ExcelPreviewModal = ({
                         </div>
                     );
                 },
-                render: (text) => (
-                    <div className="whitespace-pre-wrap break-words text-sm max-w-md">
-                        {String(text || "")}
-                    </div>
-                ),
+                render: (text, record, index, key) => {
+                    // Special rendering for page_number - make it clickable
+                    if (key === "page_number" && sessionId && !isComparisonMode) {
+                        return (
+                            <div className="whitespace-pre-wrap break-words text-sm max-w-md">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Parse page number (handle ranges like "5-7" by taking first page)
+                                        const pageStr = String(text || "");
+                                        let pageNum = null;
+
+                                        if (pageStr && pageStr !== "N/A") {
+                                            // Handle page ranges (e.g., "5-7" -> 5)
+                                            if (pageStr.includes("-")) {
+                                                pageNum = parseInt(pageStr.split("-")[0]);
+                                            } else {
+                                                pageNum = parseInt(pageStr);
+                                            }
+                                        }
+
+                                        if (pageNum && !isNaN(pageNum)) {
+                                            setPdfTargetPage(pageNum);
+                                            setPdfViewerVisible(true);
+                                        }
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium bg-transparent border-0 p-0"
+                                    title="Click to view this page in PDF"
+                                >
+                                    {String(text || "")}
+                                </button>
+                            </div>
+                        );
+                    }
+
+                    // Default rendering for other columns
+                    return (
+                        <div className="whitespace-pre-wrap break-words text-sm max-w-md">
+                            {String(text || "")}
+                        </div>
+                    );
+                },
             };
         };
 
@@ -383,9 +421,23 @@ const ExcelPreviewModal = ({
 
         let dataColumns = [];
         if (columns) {
-            dataColumns = columns.map((col) => generateColumn(col.dataIndex));
+            dataColumns = columns.map((col) => {
+                const generatedCol = generateColumn(col.dataIndex);
+                // Pass the key so render function knows which column it is
+                return {
+                    ...generatedCol,
+                    render: (text, record, index) => generatedCol.render(text, record, index, col.dataIndex)
+                };
+            });
         } else if (data?.length > 0) {
-            dataColumns = Object.keys(data[0]).map(generateColumn);
+            dataColumns = Object.keys(data[0]).map((key) => {
+                const generatedCol = generateColumn(key);
+                // Pass the key so render function knows which column it is
+                return {
+                    ...generatedCol,
+                    render: (text, record, index) => generatedCol.render(text, record, index, key)
+                };
+            });
         } else {
             dataColumns = [
                 {
@@ -611,9 +663,13 @@ const ExcelPreviewModal = ({
             {sessionId && (
                 <PdfViewerModal
                     visible={pdfViewerVisible}
-                    onClose={() => setPdfViewerVisible(false)}
+                    onClose={() => {
+                        setPdfViewerVisible(false);
+                        setPdfTargetPage(null);
+                    }}
                     pdfUrl={`${API_BASE_URL}/history/ingest/${sessionId}/pdf`}
                     title="PDF Document"
+                    initialPage={pdfTargetPage}
                 />
             )}
         </>
