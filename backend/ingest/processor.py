@@ -197,12 +197,12 @@ async def run_parallel_llm_processing(
         # Unpack the tuple: (text, page_numbers)
         chunk_text, page_numbers = chunk_data
 
+        # ✅ Simplified prompt - LLM doesn't need to worry about page_number anymore
         user_msg = f"""{user_prompt}
 
 ### METADATA
 - Investor: {investor}
 - Version: {version}
-- Page Numbers: {page_numbers}
 
 ### TEXT TO PROCESS
 {chunk_text}
@@ -212,7 +212,6 @@ You MUST respond with a valid JSON array only. Each object must have these keys:
 - "category" (string)
 - "sub_category" (string)
 - "guideline_summary" (string)
-- "page_number" (string) - Use the page number(s) provided in metadata: {page_numbers}
 
 Start with '[' and end with ']'. No markdown, no explanations."""
 
@@ -225,12 +224,13 @@ Start with '[' and end with ']'. No markdown, no explanations."""
 
             # ✅ Log LLM response for verification
             print(f"\n{'='*60}")
-            print(f"📝 LLM RESPONSE - Chunk {idx + 1}/{total_chunks}")
+            print(f"📝 LLM RESPONSE - Chunk {idx + 1}/{total_chunks} (Pages: {page_numbers})")
             print(f"{'='*60}")
             print(response)
             print(f"{'='*60}\n")
 
-            parsed = parse_and_clean_llm_response(response, idx + 1)
+            # ✅ Parse response and automatically inject page numbers
+            parsed = parse_and_clean_llm_response(response, idx + 1, page_numbers)
 
             if parsed:
                 async with lock:
@@ -288,7 +288,18 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
     raise ValueError(f"Unsupported provider: {provider}")
 
 
-def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
+def parse_and_clean_llm_response(response: str, chunk_num: int, page_numbers: str) -> List[Dict]:
+    """
+    Parse LLM response and automatically inject page numbers from chunk metadata.
+    
+    Args:
+        response: Raw LLM response text
+        chunk_num: Chunk number (for logging)
+        page_numbers: Page number(s) for this chunk (e.g., "5" or "5-7")
+    
+    Returns:
+        List of validated dictionaries with page_number automatically injected
+    """
     import re
     
     cleaned = re.sub(r'```json\s*|\s*```', '', response.strip())
@@ -309,22 +320,18 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
         
         valid_items = []
         
-        # ✅ Support multiple formats for backward compatibility
+        # ✅ Only require the 3 core fields - we'll inject page_number automatically
+        required_keys = {"category", "sub_category", "guideline_summary"}
         old_format_keys = {"category", "attribute", "guideline_summary"}
-        new_format_keys = {"category", "sub_category", "guideline_summary"}
-        new_format_with_page = {"category", "sub_category", "guideline_summary", "page_number"}
         
         for item in data:
             if not isinstance(item, dict):
                 continue
             
-            # Check if it matches new format with page_number (preferred)
-            if new_format_with_page.issubset(item.keys()):
-                valid_items.append(item)
-            # Check if it matches new format without page_number (accept but warn)
-            elif new_format_keys.issubset(item.keys()):
-                print(f"⚠️ Chunk {chunk_num}: Item missing page_number field, adding placeholder")
-                item["page_number"] = "N/A"
+            # Check if it matches new format (category, sub_category, guideline_summary)
+            if required_keys.issubset(item.keys()):
+                # ✅ Automatically inject page number from chunk metadata
+                item["page_number"] = page_numbers
                 valid_items.append(item)
             # Check if it matches old format (attribute) - normalize to sub_category
             elif old_format_keys.issubset(item.keys()):
@@ -333,11 +340,11 @@ def parse_and_clean_llm_response(response: str, chunk_num: int) -> List[Dict]:
                     "category": item["category"],
                     "sub_category": item["attribute"],
                     "guideline_summary": item["guideline_summary"],
-                    "page_number": item.get("page_number", "N/A")
+                    "page_number": page_numbers  # ✅ Auto-inject from metadata
                 }
                 valid_items.append(normalized_item)
         
-        print(f"✅ Chunk {chunk_num}: Parsed {len(valid_items)} valid items from {len(data)} total items")
+        print(f"✅ Chunk {chunk_num}: Parsed {len(valid_items)} items and injected page_number '{page_numbers}'")
         return valid_items
 
     except json.JSONDecodeError as e:
