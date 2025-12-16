@@ -11,6 +11,8 @@ from utils.ocr import AzureOCR
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from utils.token_tracker import TokenTracker
+from utils.report_generator import generate_token_report
 
 
 async def process_guideline_background(
@@ -84,14 +86,25 @@ async def process_guideline_background(
 
         update_progress(session_id, 35, f"OCR complete. Created {num_chunks} text chunk(s).")
 
-        # === STEP 3: Initialize LLM ===
+        # === STEP 3: Initialize LLM and Token Tracker ===
         update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
         llm = initialize_llm_provider(user_settings, model_provider, model_name)
+        
+        # Initialize token tracker
+        token_tracker = TokenTracker(
+            provider=model_provider,
+            model=model_name,
+            pdf_name=filename,
+            investor=investor,
+            version=version
+        )
+        print(f"✅ Token tracker initialized for {model_provider}/{model_name}")
+        
         update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel with {model_name}...")
 
         # === STEP 4: Parallel LLM Calls ===
         results, failed = await run_parallel_llm_processing(
-            llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks
+            llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks, token_tracker
         )
 
         # Validate output
@@ -109,6 +122,23 @@ async def process_guideline_background(
 
         dynamic_json_to_excel(results, excel_path)
 
+        # === STEP 6: Generate Token Usage Report ===
+        update_progress(session_id, 95, "Generating token usage report...")
+        
+        # Finalize token tracking
+        token_tracker.finalize()
+        print(f"\n{token_tracker}")
+        
+        # Generate PDF report
+        reports_dir = os.path.join(os.path.dirname(__file__), "..", "reports")
+        report_path = generate_token_report(
+            summary=token_tracker.get_summary(),
+            output_dir=reports_dir,
+            investor=investor,
+            version=version
+        )
+        print(f"✅ Token usage report saved: {report_path}")
+        
         update_progress(session_id, 100, "Processing complete.")
         print(f"{'='*60}\nPARALLEL PROCESSING COMPLETE\n{'='*60}")
 
@@ -122,6 +152,8 @@ async def process_guideline_background(
                 "status": "completed",
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
+                "token_report_path": report_path,  # Add report path
+                "token_usage": token_tracker.get_summary()  # Add usage summary
             })
 
         # Save to history after successful completion
@@ -184,7 +216,8 @@ async def run_parallel_llm_processing(
     investor: str,
     version: str,
     session_id: str,
-    total_chunks: int
+    total_chunks: int,
+    token_tracker: TokenTracker = None  # ✅ Add token tracker parameter
 ):
     results = []
     failed_count = 0
@@ -216,15 +249,30 @@ You MUST respond with a valid JSON array only. Each object must have these keys:
 Start with '[' and end with ']'. No markdown, no explanations."""
 
         try:
-            response = await asyncio.to_thread(
+            # ✅ LLM now returns dict with response and usage
+            result = await asyncio.to_thread(
                 llm.generate,
                 system_prompt,
                 user_msg
             )
+            
+            response = result["response"]
+            usage = result["usage"]
+
+            # ✅ Track token usage
+            if token_tracker:
+                token_tracker.add_chunk_usage(
+                    chunk_num=idx + 1,
+                    prompt_tokens=usage["prompt_tokens"],
+                    completion_tokens=usage["completion_tokens"],
+                    total_tokens=usage["total_tokens"],
+                    page_numbers=page_numbers
+                )
 
             # ✅ Log LLM response for verification
             print(f"\n{'='*60}")
             print(f"📝 LLM RESPONSE - Chunk {idx + 1}/{total_chunks} (Pages: {page_numbers})")
+            print(f"Tokens: {usage['total_tokens']} (prompt: {usage['prompt_tokens']}, completion: {usage['completion_tokens']})")
             print(f"{'='*60}")
             print(response)
             print(f"{'='*60}\n")

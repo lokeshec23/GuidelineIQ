@@ -63,6 +63,7 @@ PyYAML
 regex
 requests
 requests-oauthlib
+reportlab
 rsa
 six
 sniffio

@@ -70,11 +70,16 @@ class LLMProvider:
     # -----------------------------------------------------------
     # Public API
     # -----------------------------------------------------------
-    def generate(self, system_prompt: str, user_content: str) -> str:
+    def generate(self, system_prompt: str, user_content: str) -> dict:
         """
         Generates text using REAL system + user roles.
         system_prompt → high-level instructions
         user_content  → chunk data + user prompt
+        
+        Returns:
+            Dictionary with:
+                - response: Generated text
+                - usage: Token usage dict with prompt_tokens, completion_tokens, total_tokens
         """
         if self.provider == "openai":
             return self._generate_azure_openai(system_prompt, user_content)
@@ -87,7 +92,7 @@ class LLMProvider:
     # -----------------------------------------------------------
     # Azure OpenAI — REAL system & user roles
     # -----------------------------------------------------------
-    def _generate_azure_openai(self, system_prompt: str, user_content: str) -> str:
+    def _generate_azure_openai(self, system_prompt: str, user_content: str) -> dict:
         for attempt in range(1, self.max_retries + 1):
             try:
                 response = self.client.chat.completions.create(
@@ -103,8 +108,16 @@ class LLMProvider:
                 )
 
                 content = response.choices[0].message.content
-                print(f"[OpenAI] Response OK ({len(content)} chars)")
-                return content
+                
+                # Extract token usage
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+                
+                print(f"[OpenAI] Response OK ({len(content)} chars, {usage['total_tokens']} tokens)")
+                return {"response": content, "usage": usage}
 
             except Exception as e:
                 print(f"[OpenAI] Attempt {attempt} failed: {e}")
@@ -126,8 +139,13 @@ class LLMProvider:
                             ],
                         )
                         content = response.choices[0].message.content
-                        print(f"[OpenAI] Fallback OK ({len(content)} chars)")
-                        return content
+                        usage = {
+                            "prompt_tokens": response.usage.prompt_tokens,
+                            "completion_tokens": response.usage.completion_tokens,
+                            "total_tokens": response.usage.total_tokens
+                        }
+                        print(f"[OpenAI] Fallback OK ({len(content)} chars, {usage['total_tokens']} tokens)")
+                        return {"response": content, "usage": usage}
                     except Exception as e2:
                         print(f"[OpenAI] Fallback failed: {e2}")
 
@@ -136,7 +154,7 @@ class LLMProvider:
     # -----------------------------------------------------------
     # Gemini — REAL system & user roles
     # -----------------------------------------------------------
-    def _generate_gemini(self, system_prompt: str, user_content: str) -> str:
+    def _generate_gemini(self, system_prompt: str, user_content: str) -> dict:
         """
         Gemini 1.5 / 2.0+ now supports system messages via "system_instruction".
         We will use recommended structure from Google PaLM → Gemini upgrade docs.
@@ -189,9 +207,17 @@ class LLMProvider:
 
                 parts = candidates[0].get("content", {}).get("parts", [])
                 text = "".join(p.get("text", "") for p in parts)
+                
+                # Extract token usage from usageMetadata
+                usage_metadata = result.get("usageMetadata", {})
+                usage = {
+                    "prompt_tokens": usage_metadata.get("promptTokenCount", 0),
+                    "completion_tokens": usage_metadata.get("candidatesTokenCount", 0),
+                    "total_tokens": usage_metadata.get("totalTokenCount", 0)
+                }
 
-                print(f"[Gemini] Response OK ({len(text)} chars)")
-                return text
+                print(f"[Gemini] Response OK ({len(text)} chars, {usage['total_tokens']} tokens)")
+                return {"response": text, "usage": usage}
 
             except Exception as e:
                 print(f"[Gemini] Attempt {attempt} failed: {e}")
@@ -207,3 +233,4 @@ class LLMProvider:
                     return self._generate_gemini(system_prompt, user_content)
 
                 raise Exception(f"Gemini failed after retries: {e}")
+
