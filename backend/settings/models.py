@@ -2,6 +2,7 @@
 
 import database
 from typing import Optional, Dict
+from datetime import datetime
 
 async def get_user_settings(user_id: str) -> Optional[Dict]:
     """Fetch settings for a specific user"""
@@ -13,6 +14,9 @@ async def create_or_update_settings(user_id: str, settings: dict):
     """Update or create settings for a user"""
     if database.settings_collection is None:
         raise ConnectionError("Database not initialized")
+    
+    # Always add the updated_at timestamp
+    settings["updated_at"] = datetime.utcnow()
         
     await database.settings_collection.update_one(
         {"user_id": user_id},

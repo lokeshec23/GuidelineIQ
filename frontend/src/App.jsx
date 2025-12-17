@@ -13,8 +13,7 @@ import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
 import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
 import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { Toaster } from 'react-hot-toast';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -151,7 +150,43 @@ function App() {
       <AuthProvider>
         <PromptProvider>
           <AppRoutes />
-          <ToastContainer />
+          <Toaster
+            position="bottom-right"
+            reverseOrder={false}
+            gutter={8}
+            containerStyle={{
+              bottom: 20,
+              right: 20,
+            }}
+            toastOptions={{
+              // Default options for all toasts
+              duration: 3000,
+              style: {
+                borderRadius: '8px',
+                background: '#333',
+                color: '#fff',
+                padding: '12px 16px',
+                fontSize: '14px',
+                maxWidth: '500px',
+              },
+              // Specific options for success toasts
+              success: {
+                duration: 3000,
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: '#fff',
+                },
+              },
+              // Specific options for error toasts
+              error: {
+                duration: 4000,
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
         </PromptProvider>
       </AuthProvider>
     </BrowserRouter>
