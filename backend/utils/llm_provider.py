@@ -210,10 +210,24 @@ class LLMProvider:
                 
                 # Extract token usage from usageMetadata
                 usage_metadata = result.get("usageMetadata", {})
+                
+                raw_prompt = usage_metadata.get("promptTokenCount", 0)
+                raw_completion = usage_metadata.get("candidatesTokenCount", 0)
+                raw_total = usage_metadata.get("totalTokenCount", 0)
+                
+                # Check for "hidden" tokens (e.g. system instructions, overhead)
+                # If Total > (Prompt + Completion), treat the difference as extra input tokens.
+                hidden_tokens = raw_total - (raw_prompt + raw_completion)
+                final_prompt_tokens = raw_prompt
+                
+                if hidden_tokens > 0:
+                    print(f"[Gemini] Found {hidden_tokens} hidden tokens. Adding to input count.")
+                    final_prompt_tokens += hidden_tokens
+
                 usage = {
-                    "prompt_tokens": usage_metadata.get("promptTokenCount", 0),
-                    "completion_tokens": usage_metadata.get("candidatesTokenCount", 0),
-                    "total_tokens": usage_metadata.get("totalTokenCount", 0)
+                    "prompt_tokens": final_prompt_tokens,
+                    "completion_tokens": raw_completion,
+                    "total_tokens": raw_total
                 }
 
                 print(f"[Gemini] Response OK ({len(text)} chars, {usage['total_tokens']} tokens)")
