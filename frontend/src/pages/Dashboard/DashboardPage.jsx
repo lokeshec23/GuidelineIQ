@@ -44,7 +44,7 @@ const DashboardPage = () => {
             setIngestHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch ingest history:", error);
-            showToast.error("Failed to load ingest history");
+            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }
@@ -57,7 +57,7 @@ const DashboardPage = () => {
             setCompareHistory(response.data);
         } catch (error) {
             console.error("Failed to fetch compare history:", error);
-            showToast.error("Failed to load compare history");
+            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }
@@ -94,7 +94,7 @@ const DashboardPage = () => {
             showToast.success("Download started");
         } catch (error) {
             console.error("Download failed:", error);
-            showToast.error("Failed to start download");
+            // Toast is handled by API interceptor
         }
     };
 
@@ -131,7 +131,7 @@ const DashboardPage = () => {
             setRecordToDelete(null);
         } catch (error) {
             console.error("Failed to delete record:", error);
-            showToast.error("Failed to delete record");
+            // Toast is handled by API interceptor
         } finally {
             setDeleteLoading(false);
         }

@@ -141,7 +141,7 @@ const ComparePage = () => {
       const res = await historyAPI.getIngestHistory();
       setHistoryData(res.data);
     } catch (error) {
-      showToast.error("Failed to fetch history");
+      // Toast is handled by API interceptor
     } finally {
       setLoadingHistory(false);
     }
@@ -284,7 +284,7 @@ const ComparePage = () => {
       console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
-      showToast.error(err.response?.data?.detail || "Failed to start comparison");
+      // Toast is handled by API interceptor
     }
   };
 
@@ -306,7 +306,7 @@ const ComparePage = () => {
         setPreviewModalVisible(true);
       }
     } catch (error) {
-      showToast.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
+      // Toast is handled by API interceptor
     }
   };
 
@@ -325,7 +325,7 @@ const ComparePage = () => {
       }
     } catch (error) {
       console.error("Failed to load details:", error);
-      showToast.error("Failed to load details: " + (error.response?.data?.detail || error.message));
+      // Toast is handled by API interceptor
     }
   };
 

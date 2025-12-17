@@ -31,7 +31,7 @@ const PromptsPage = () => {
             });
         } catch (error) {
             console.error("Failed to fetch prompts:", error);
-            showToast.error("Failed to load prompts");
+            // Toast is handled by API interceptor
         } finally {
             setFetching(false);
         }
@@ -57,7 +57,7 @@ const PromptsPage = () => {
             showToast.success("Prompts saved successfully!");
         } catch (error) {
             console.error("Failed to save prompts:", error);
-            showToast.error("Failed to save prompts");
+            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }
@@ -78,7 +78,7 @@ const PromptsPage = () => {
             showToast.success("Prompts reset to defaults!");
         } catch (error) {
             console.error("Failed to reset prompts:", error);
-            showToast.error("Failed to reset prompts");
+            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }

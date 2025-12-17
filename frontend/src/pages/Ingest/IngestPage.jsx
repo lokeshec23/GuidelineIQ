@@ -274,7 +274,7 @@ const IngestPage = () => {
       }
     } catch (error) {
       console.error("Failed to load preview:", error);
-      showToast.error("Failed to load preview: " + (error.response?.data?.detail || error.message));
+      // Toast is handled by API interceptor
     }
   };
 

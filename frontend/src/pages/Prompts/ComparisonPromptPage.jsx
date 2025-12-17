@@ -48,7 +48,7 @@ const ComparisonPromptPage = () => {
       console.log("Form values set successfully");
     } catch (error) {
       console.error("Failed to fetch prompts:", error);
-      showToast.error("Failed to load prompts");
+      // Toast is handled by API interceptor
     } finally {
       setFetching(false);
     }
@@ -86,7 +86,7 @@ const ComparisonPromptPage = () => {
       showToast.success(`Comparison prompts for ${selectedModel.toUpperCase()} saved successfully!`);
     } catch (error) {
       console.error("Failed to save prompts:", error);
-      showToast.error("Failed to save prompts");
+      // Toast is handled by API interceptor
     } finally {
       setLoading(false);
     }
@@ -106,7 +106,7 @@ const ComparisonPromptPage = () => {
       showToast.success(`Prompts reset to defaults for ${selectedModel.toUpperCase()}!`);
     } catch (error) {
       console.error("Failed to reset prompts:", error);
-      showToast.error("Failed to reset prompts");
+      // Toast is handled by API interceptor
     } finally {
       setLoading(false);
     }

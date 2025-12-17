@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
  * Uses react-hot-toast for better UX and smaller bundle size
  */
 
+// Track active toasts to prevent duplicates
+const activeToasts = new Map();
+
 // Default toast configuration
 const toastConfig = {
     duration: 3000,
@@ -63,11 +66,25 @@ export const showToast = {
      * @param {object} options - Additional options to override defaults
      */
     success: (message, options = {}) => {
-        return toast.success(message, {
+        // Prevent duplicate toasts with same message
+        if (activeToasts.has(message)) {
+            return activeToasts.get(message);
+        }
+
+        const toastId = toast.success(message, {
             ...toastConfig,
             ...variantStyles.success,
             ...options,
         });
+
+        activeToasts.set(message, toastId);
+
+        // Remove from active toasts when dismissed
+        setTimeout(() => {
+            activeToasts.delete(message);
+        }, options.duration || toastConfig.duration);
+
+        return toastId;
     },
 
     /**
@@ -76,11 +93,25 @@ export const showToast = {
      * @param {object} options - Additional options to override defaults
      */
     error: (message, options = {}) => {
-        return toast.error(message, {
+        // Prevent duplicate toasts with same message
+        if (activeToasts.has(message)) {
+            return activeToasts.get(message);
+        }
+
+        const toastId = toast.error(message, {
             ...toastConfig,
             ...variantStyles.error,
             ...options,
         });
+
+        activeToasts.set(message, toastId);
+
+        // Remove from active toasts when dismissed (errors last longer)
+        setTimeout(() => {
+            activeToasts.delete(message);
+        }, options.duration || 4000);
+
+        return toastId;
     },
 
     /**
@@ -89,11 +120,24 @@ export const showToast = {
      * @param {object} options - Additional options to override defaults
      */
     info: (message, options = {}) => {
-        return toast(message, {
+        // Prevent duplicate toasts with same message
+        if (activeToasts.has(message)) {
+            return activeToasts.get(message);
+        }
+
+        const toastId = toast(message, {
             ...toastConfig,
             ...variantStyles.info,
             ...options,
         });
+
+        activeToasts.set(message, toastId);
+
+        setTimeout(() => {
+            activeToasts.delete(message);
+        }, options.duration || toastConfig.duration);
+
+        return toastId;
     },
 
     /**
@@ -102,11 +146,24 @@ export const showToast = {
      * @param {object} options - Additional options to override defaults
      */
     warning: (message, options = {}) => {
-        return toast(message, {
+        // Prevent duplicate toasts with same message
+        if (activeToasts.has(message)) {
+            return activeToasts.get(message);
+        }
+
+        const toastId = toast(message, {
             ...toastConfig,
             ...variantStyles.warning,
             ...options,
         });
+
+        activeToasts.set(message, toastId);
+
+        setTimeout(() => {
+            activeToasts.delete(message);
+        }, options.duration || toastConfig.duration);
+
+        return toastId;
     },
 
     /**
@@ -149,8 +206,16 @@ export const showToast = {
     dismiss: (toastId) => {
         if (toastId) {
             toast.dismiss(toastId);
+            // Clean up from active toasts map
+            for (const [message, id] of activeToasts.entries()) {
+                if (id === toastId) {
+                    activeToasts.delete(message);
+                    break;
+                }
+            }
         } else {
             toast.dismiss();
+            activeToasts.clear();
         }
     },
 };
