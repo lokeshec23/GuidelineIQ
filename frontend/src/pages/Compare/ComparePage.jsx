@@ -256,6 +256,11 @@ const ComparePage = () => {
             setProcessing(false);
             setProcessingModalVisible(false);
 
+            // Clear form, files, and DB selections for next comparison
+            form.resetFields();
+            setFiles([]);
+            setSelectedDbRecords([]);
+
             setTimeout(() => {
               loadPreview(session_id);
             }, 500);
@@ -313,14 +318,29 @@ const ComparePage = () => {
   const handleViewDetails = async (record) => {
     try {
       setIsComparePreview(false);
-      setSessionId(record.id);
 
       const res = await ingestAPI.getPreview(record.id);
 
-      setPreviewData(res.data || []);
+      // Handle new response format: { data: [...], history_id: "..." }
+      const responseData = res.data;
+      let previewDataArray;
+      let historyId = null;
+
+      if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+        // New format: { data: [...], history_id: "..." }
+        previewDataArray = responseData.data;
+        historyId = responseData.history_id || record.id;
+      } else {
+        // Old format: directly an array (for backward compatibility)
+        previewDataArray = responseData;
+        historyId = record.id;
+      }
+
+      setSessionId(historyId); // Use history_id for PDF viewing
+      setPreviewData(previewDataArray || []);
       setPreviewModalVisible(true);
 
-      if (!res.data || res.data.length === 0) {
+      if (!previewDataArray || previewDataArray.length === 0) {
         showToast.info("No structured preview data found for this file");
       }
     } catch (error) {

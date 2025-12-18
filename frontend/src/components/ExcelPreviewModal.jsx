@@ -56,8 +56,10 @@ const ExcelPreviewModal = ({
     const startX = useRef(0);
     const startWidth = useRef(0);
 
-    const convertToTableData = (data) =>
-        data?.map((item, idx) => ({ key: idx, ...item })) || [];
+    const convertToTableData = (data) => {
+        if (!Array.isArray(data)) return [];
+        return data.map((item, idx) => ({ key: idx, ...item }));
+    };
 
     const tableData = convertToTableData(data);
 

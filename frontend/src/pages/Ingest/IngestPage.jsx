@@ -187,6 +187,22 @@ const IngestPage = () => {
             setProcessing(false);
             setProcessingModalVisible(false);
 
+            // Store current model selection before clearing
+            const currentModelProvider = form.getFieldValue('model_provider');
+            const currentModelName = form.getFieldValue('model_name');
+
+            // Clear form and file for next ingestion
+            form.resetFields();
+            setFile(null);
+
+            // Restore model selection
+            if (currentModelProvider && currentModelName) {
+              form.setFieldsValue({
+                model_provider: currentModelProvider,
+                model_name: currentModelName,
+              });
+            }
+
             // Load preview
             setTimeout(() => {
               console.log("Loading preview for session:", session_id);
