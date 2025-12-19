@@ -36,7 +36,6 @@ const RegisterPage = () => {
     setLoading(false);
 
     if (success) {
-      showToast.success("Registration successful! Please log in.");
       navigate("/login");
     }
   };

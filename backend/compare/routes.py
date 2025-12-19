@@ -10,7 +10,6 @@ from compare.schemas import CompareResponse, ComparisonStatus, CompareFromDBRequ
 from compare.processor import process_comparison_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
-# from auth.middleware import get_admin_user
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
 from config import SUPPORTED_MODELS
 import asyncio

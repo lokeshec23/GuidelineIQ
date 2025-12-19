@@ -71,30 +71,37 @@ const ComparePage = () => {
 
   const fetchModelsAndSettings = async () => {
     try {
-      const [modelsRes, settingsRes] = await Promise.all([
-        settingsAPI.getSupportedModels(),
-        settingsAPI.getSettings(),
-      ]);
-
+      // Fetch supported models (available to all users)
+      const modelsRes = await settingsAPI.getSupportedModels();
       setSupportedModels(modelsRes.data);
 
-      const settings = settingsRes.data;
-      if (settings.default_model_provider && settings.default_model_name) {
-        form.setFieldsValue({
-          model_provider: settings.default_model_provider,
-          model_name: settings.default_model_name,
-        });
-        setSelectedProvider(settings.default_model_provider);
-      } else {
-        // Fallback defaults
-        form.setFieldsValue({
-          model_provider: "openai",
-          model_name: "gpt-4o",
-        });
-        setSelectedProvider("openai");
+      // Only fetch settings if user is admin
+      if (isAdmin) {
+        try {
+          const settingsRes = await settingsAPI.getSettings();
+          const settings = settingsRes.data;
+
+          if (settings.default_model_provider && settings.default_model_name) {
+            form.setFieldsValue({
+              model_provider: settings.default_model_provider,
+              model_name: settings.default_model_name,
+            });
+            setSelectedProvider(settings.default_model_provider);
+            return;
+          }
+        } catch (settingsError) {
+          console.warn("Failed to fetch settings:", settingsError);
+        }
       }
+
+      // Fallback defaults for non-admin or if settings fetch fails
+      form.setFieldsValue({
+        model_provider: "openai",
+        model_name: "gpt-4o",
+      });
+      setSelectedProvider("openai");
     } catch (error) {
-      console.error("Failed to fetch models or settings:", error);
+      console.error("Failed to fetch models:", error);
       // Fallback if API fails
       setSupportedModels({
         openai: ["gpt-4o"],
@@ -192,7 +199,7 @@ const ComparePage = () => {
 
       // Ensure model values are present (default to OpenAI if not set/admin)
       const modelProvider = values.model_provider || selectedProvider || "openai";
-      const modelName = values.model_name || "gpt-4o";
+      const modelName = values.model_name || form.getFieldValue("model_name") || "gpt-4o";
 
       try {
         const promptsRes = await promptsAPI.getUserPrompts();

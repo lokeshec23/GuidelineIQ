@@ -87,7 +87,7 @@ async def process_guideline_background(
         # === STEP 3: Initialize LLM ===
         update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
         llm = initialize_llm_provider(user_settings, model_provider, model_name)
-        update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel with {model_name}...")
+        update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel...")
 
         # === STEP 4: Parallel LLM Calls ===
         results, failed = await run_parallel_llm_processing(

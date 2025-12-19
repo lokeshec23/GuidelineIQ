@@ -59,30 +59,37 @@ const IngestPage = () => {
 
   const fetchModelsAndSettings = async () => {
     try {
-      const [modelsRes, settingsRes] = await Promise.all([
-        settingsAPI.getSupportedModels(),
-        settingsAPI.getSettings(),
-      ]);
-
+      // Fetch supported models (available to all users)
+      const modelsRes = await settingsAPI.getSupportedModels();
       setSupportedModels(modelsRes.data);
 
-      const settings = settingsRes.data;
-      if (settings.default_model_provider && settings.default_model_name) {
-        form.setFieldsValue({
-          model_provider: settings.default_model_provider,
-          model_name: settings.default_model_name,
-        });
-        setSelectedProvider(settings.default_model_provider);
-      } else {
-        // Fallback defaults
-        form.setFieldsValue({
-          model_provider: "openai",
-          model_name: "gpt-4o",
-        });
-        setSelectedProvider("openai");
+      // Only fetch settings if user is admin
+      if (isAdmin) {
+        try {
+          const settingsRes = await settingsAPI.getSettings();
+          const settings = settingsRes.data;
+
+          if (settings.default_model_provider && settings.default_model_name) {
+            form.setFieldsValue({
+              model_provider: settings.default_model_provider,
+              model_name: settings.default_model_name,
+            });
+            setSelectedProvider(settings.default_model_provider);
+            return;
+          }
+        } catch (settingsError) {
+          console.warn("Failed to fetch settings:", settingsError);
+        }
       }
+
+      // Fallback defaults for non-admin or if settings fetch fails
+      form.setFieldsValue({
+        model_provider: "openai",
+        model_name: "gpt-4o",
+      });
+      setSelectedProvider("openai");
     } catch (error) {
-      console.error("Failed to fetch models or settings:", error);
+      console.error("Failed to fetch models:", error);
       // Fallback if API fails
       setSupportedModels({
         openai: ["gpt-4o"],
@@ -129,18 +136,19 @@ const IngestPage = () => {
       let systemPrompt = "";
       let userPrompt = "";
 
+      // Determine provider and model (values might be missing if not admin)
+      const modelProvider = values.model_provider || selectedProvider || "openai";
+      const modelName = values.model_name || form.getFieldValue("model_name") || "gpt-4o";
+
       try {
         const promptsRes = await promptsAPI.getUserPrompts();
 
-        // Determine provider (values.model_provider might be missing if not admin)
-        const provider = values.model_provider || selectedProvider || "openai";
-
         // Get prompts for the specific model
-        const modelPrompts = promptsRes.data.ingest_prompts[provider] || promptsRes.data.ingest_prompts.openai || {};
+        const modelPrompts = promptsRes.data.ingest_prompts[modelProvider] || promptsRes.data.ingest_prompts.openai || {};
 
         systemPrompt = modelPrompts.system_prompt || "";
         userPrompt = modelPrompts.user_prompt || "";
-        console.log(`✅ Fetched ingest prompts for ${provider}`);
+        console.log(`✅ Fetched ingest prompts for ${modelProvider}`);
       } catch (err) {
         console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
       }
@@ -149,8 +157,8 @@ const IngestPage = () => {
       formData.append("file", file);
       formData.append("investor", values.investor);
       formData.append("version", values.version);
-      formData.append("model_provider", values.model_provider);
-      formData.append("model_name", values.model_name);
+      formData.append("model_provider", modelProvider);
+      formData.append("model_name", modelName);
 
       // Attach dates
       formData.append("effective_date", values.effective_date.toISOString());
