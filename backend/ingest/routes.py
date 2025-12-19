@@ -19,6 +19,7 @@ from utils.progress import update_progress, get_progress, delete_progress, progr
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 from utils.json_to_excel import dynamic_json_to_excel
+from utils.logger import log_ingest_start, log_activity, LogOperation, LogLevel
 
 router = APIRouter(prefix="/ingest", tags=["Ingest Guideline"])
 
@@ -126,6 +127,18 @@ async def ingest_guideline(
 
     update_progress(session_id, 0, "Initializing...")
     
+    # Log ingestion start
+    await log_ingest_start(
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+        session_id=session_id,
+        filename=file.filename,
+        investor=investor,
+        version=version,
+        model_provider=model_provider,
+        model_name=model_name
+    )
+    
     background_tasks.add_task(
         process_guideline_background,
         session_id=session_id,
@@ -208,8 +221,26 @@ async def get_preview(session_id: str):
 
 
 @router.get("/download/{session_id}")
-async def download_result(session_id: str, background_tasks: BackgroundTasks):
+async def download_result(session_id: str, background_tasks: BackgroundTasks, authorization: str = Header(None)):
     """Endpoint to download the final Excel file and trigger cleanup."""
+    
+    # Get user info for logging
+    user_id = "unknown"
+    username = "Unknown"
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            from auth.utils import verify_token
+            token = authorization.split(" ")[1]
+            payload = verify_token(token)
+            if payload:
+                user_id = payload.get("sub", "unknown")
+                import database
+                if database.users_collection:
+                    user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+                    if user:
+                        username = user.get("email", "Unknown")
+        except:
+            pass
     
     # 1. Try to get from in-memory store (active/recent jobs)
     with progress_lock:
@@ -219,6 +250,15 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
             filename = session_data.get("filename", "extraction.xlsx")
 
             if os.path.exists(excel_path):
+                # Log download
+                await log_activity(
+                    user_id=user_id,
+                    username=username,
+                    operation=LogOperation.INGEST_DOWNLOAD,
+                    level=LogLevel.INFO,
+                    details={"session_id": session_id, "filename": filename}
+                )
+                
                 # Prevent re-downloads by removing session from store immediately
                 del progress_store[session_id]
                 background_tasks.add_task(cleanup_file, path=excel_path)
@@ -241,6 +281,15 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                     dynamic_json_to_excel(record["preview_data"], tmp.name)
                     
                     filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
+                    
+                    # Log download
+                    await log_activity(
+                        user_id=user_id,
+                        username=username,
+                        operation=LogOperation.INGEST_DOWNLOAD,
+                        level=LogLevel.INFO,
+                        details={"session_id": session_id, "filename": filename, "from_history": True}
+                    )
                     
                     background_tasks.add_task(cleanup_file, path=tmp.name)
                     

@@ -6,6 +6,7 @@ from settings.schemas import SettingsUpdate, SettingsResponse
 from auth.middleware import require_admin
 from config import SUPPORTED_MODELS, DEFAULT_PAGES_PER_CHUNK
 from datetime import datetime
+from utils.logger import log_settings_update, log_activity, LogOperation, LogLevel
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -50,6 +51,14 @@ async def update_settings_route(
     # ✅ CORRECTED: Convert datetime to ISO string before validation
     if 'updated_at' in updated_settings and isinstance(updated_settings['updated_at'], datetime):
         updated_settings['updated_at'] = updated_settings['updated_at'].isoformat()
+    
+    # Log settings update
+    updated_fields = list(settings_dict.keys())
+    await log_settings_update(
+        user_id=user_id,
+        username=admin_user.get("email", "Admin"),
+        updated_fields=updated_fields
+    )
 
     return SettingsResponse.model_validate(updated_settings)
 
@@ -66,5 +75,13 @@ async def remove_settings_route(admin_user: dict = Depends(require_admin)):
     
     if not deleted:
         raise HTTPException(status_code=404, detail="No settings found to delete.")
+    
+    # Log settings deletion
+    await log_activity(
+        user_id=user_id,
+        username=admin_user.get("email", "Admin"),
+        operation=LogOperation.SETTINGS_DELETE,
+        level=LogLevel.INFO
+    )
     
     return {"message": "Settings deleted successfully"}

@@ -11,6 +11,8 @@ from utils.ocr import AzureOCR
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from utils.logger import log_ingest_complete, log_ingest_failed
+import time
 
 
 async def process_guideline_background(
@@ -31,6 +33,7 @@ async def process_guideline_background(
 ):
     excel_path = None
     temp_pdf_path = None  # ✅ Track temporary PDF file
+    start_time = time.time()  # Track processing time
     
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
@@ -150,6 +153,19 @@ async def process_guideline_background(
                         
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
+        
+        # Log successful completion
+        processing_time = time.time() - start_time
+        await log_ingest_complete(
+            user_id=user_id,
+            username=username,
+            session_id=session_id,
+            investor=investor,
+            version=version,
+            total_chunks=num_chunks,
+            failed_chunks=failed,
+            processing_time=processing_time
+        )
 
     except Exception as e:
         error_msg = str(e)
@@ -161,6 +177,15 @@ async def process_guideline_background(
         with progress_lock:
             if session_id in progress_store:
                 progress_store[session_id].update({"status": "failed", "error": error_msg})
+        
+        # Log failure
+        await log_ingest_failed(
+            user_id=user_id or "unknown",
+            username=username,
+            session_id=session_id,
+            error=error_msg,
+            stack_trace=traceback.format_exc()
+        )
         
         # Cleanup Excel if failed
         if excel_path and os.path.exists(excel_path):

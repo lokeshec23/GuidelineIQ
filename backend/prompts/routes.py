@@ -3,6 +3,9 @@ from pydantic import BaseModel
 from typing import Dict
 from auth.middleware import get_current_user_id
 from prompts.models import get_user_prompts, save_user_prompts, reset_user_prompts, get_default_prompts_from_db, get_default_prompts
+from utils.logger import log_activity, LogOperation, LogLevel
+import database
+from bson import ObjectId
 
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
@@ -52,6 +55,15 @@ async def update_prompts(
     try:
         success = await save_user_prompts(user_id, prompts.dict())
         if success:
+            # Log prompt update
+            user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+            username = user.get("email", "Unknown") if user else "Unknown"
+            await log_activity(
+                user_id=user_id,
+                username=username,
+                operation=LogOperation.PROMPT_UPDATE,
+                level=LogLevel.INFO
+            )
             return {"message": "Prompts updated successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to update prompts")

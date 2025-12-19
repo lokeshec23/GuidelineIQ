@@ -21,6 +21,7 @@ from compare.routes import router as compare_router
 from history.routes import router as history_router
 from prompts.routes import router as prompts_router
 from chat.routes import router as chat_router
+from logs.routes import router as logs_router
 
 # Initialize FastAPI
 app = FastAPI(
@@ -46,6 +47,7 @@ app.include_router(compare_router)
 app.include_router(history_router)
 app.include_router(prompts_router)
 app.include_router(chat_router)
+app.include_router(logs_router)
 
 # Startup event to initialize database
 @app.on_event("startup")
@@ -69,6 +71,7 @@ def root():
             "history": "/history",
             "prompts": "/prompts",
             "chat": "/chat",
+            "logs": "/logs",
             "docs": "/docs"
         }
     }

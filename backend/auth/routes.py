@@ -6,6 +6,7 @@ from auth.models import find_user_by_email, create_user
 from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh
 from auth.utils import hash_password, verify_password, create_tokens, verify_token
 import database
+from utils.logger import log_auth_register, log_auth_login, log_auth_login_failed, log_token_refresh
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -28,6 +29,9 @@ async def register_user(user: UserCreate):
         print(f"✅ Initialized default prompts for user: {user.email}")
     except Exception as e:
         print(f"⚠️ Failed to initialize prompts for user {user.email}: {e}")
+    
+    # Log user registration
+    await log_auth_register(user_id, user.email, user.email)
 
     return UserOut(id=str(new_user["_id"]), username=new_user["username"], email=new_user["email"], role=new_user["role"])
 
@@ -37,9 +41,14 @@ async def register_user(user: UserCreate):
 async def login_user(credentials: UserLogin):
     user = await find_user_by_email(credentials.email)
     if not user or not verify_password(credentials.password, user["password"]):
+        # Log failed login attempt
+        await log_auth_login_failed(credentials.email, "Invalid email or password")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     access_token, refresh_token = create_tokens(str(user["_id"]), credentials.remember_me)
+    
+    # Log successful login
+    await log_auth_login(str(user["_id"]), user["email"], credentials.remember_me)
 
     user_data = UserOut(id=str(user["_id"]), username=user["username"], email=user["email"], role=user["role"])
     return TokenResponse(
@@ -81,5 +90,11 @@ async def refresh_token(data: TokenRefresh):
 
     user_id = payload.get("sub")
     new_access_token, _ = create_tokens(user_id)
+    
+    # Get user info for logging
+    if database.users_collection is not None:
+        user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+        if user:
+            await log_token_refresh(user_id, user.get("email", "Unknown"))
 
     return JSONResponse({"access_token": new_access_token})

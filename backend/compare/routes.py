@@ -15,6 +15,7 @@ from config import SUPPORTED_MODELS
 import asyncio
 from typing import AsyncGenerator
 from utils.json_to_excel import dynamic_json_to_excel
+from utils.logger import log_compare_start, log_activity, LogOperation, LogLevel
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
 
@@ -133,6 +134,17 @@ async def compare_guidelines(
         user_prompt=user_prompt,
         user_id=user_id,  # ✅ NEW: Pass user_id for history
         username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
+    )
+    
+    # Log comparison start
+    await log_compare_start(
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+        session_id=session_id,
+        file1_name=file1.filename,
+        file2_name=file2.filename,
+        model_provider=model_provider,
+        model_name=model_name
     )
     
     return CompareResponse(
@@ -315,8 +327,26 @@ async def get_preview(session_id: str):
 
 
 @router.get("/download/{session_id}")
-async def download_result(session_id: str, background_tasks: BackgroundTasks):
+async def download_result(session_id: str, background_tasks: BackgroundTasks, authorization: str = Header(None)):
     """Download the comparison Excel file and cleanup"""
+    
+    # Get user info for logging
+    user_id = "unknown"
+    username = "Unknown"
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            from auth.utils import verify_token
+            token = authorization.split(" ")[1]
+            payload = verify_token(token)
+            if payload:
+                user_id = payload.get("sub", "unknown")
+                import database
+                if database.users_collection:
+                    user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+                    if user:
+                        username = user.get("email", "Unknown")
+        except:
+            pass
     
     # 1. Try to get from in-memory store
     with progress_lock:
@@ -326,6 +356,15 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
             filename = session_data.get("filename", f"comparison_{session_id[:8]}.xlsx")
             
             if os.path.exists(excel_path):
+                # Log download
+                await log_activity(
+                    user_id=user_id,
+                    username=username,
+                    operation=LogOperation.COMPARE_DOWNLOAD,
+                    level=LogLevel.INFO,
+                    details={"session_id": session_id, "filename": filename}
+                )
+                
                 del progress_store[session_id]
                 background_tasks.add_task(cleanup_file, path=excel_path)
                 return FileResponse(

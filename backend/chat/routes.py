@@ -16,6 +16,7 @@ from chat.models import (
     save_chat_message_with_conversation
 )
 from utils.gridfs_helper import get_pdf_from_gridfs
+from utils.logger import log_activity, LogOperation, LogLevel
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 

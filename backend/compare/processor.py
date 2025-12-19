@@ -10,6 +10,8 @@ from utils.excel_reader import read_excel_to_json
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from utils.logger import log_compare_complete, log_compare_failed
+import time
 
 
 async def process_comparison_background(
@@ -30,6 +32,7 @@ async def process_comparison_background(
     Background async task to compare two guideline Excel files.
     """
     excel_path = None
+    start_time = time.time()  # Track processing time
 
     try:
         print(f"\n{'='*60}")
@@ -139,6 +142,15 @@ async def process_comparison_background(
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
+        
+        # Log successful completion
+        processing_time = time.time() - start_time
+        await log_compare_complete(
+            user_id=user_id,
+            username=username,
+            session_id=session_id,
+            processing_time=processing_time
+        )
 
     except Exception as e:
         error_msg = str(e)
@@ -154,6 +166,15 @@ async def process_comparison_background(
                     "status": "failed",
                     "error": error_msg
                 })
+        
+        # Log failure
+        await log_compare_failed(
+            user_id=user_id or "unknown",
+            username=username,
+            session_id=session_id,
+            error=error_msg,
+            stack_trace=traceback.format_exc()
+        )
 
     finally:
         for path in [file1_path, file2_path]:

@@ -11,6 +11,7 @@ import SettingsPage from "./pages/Settings/SettingsPage";
 import PromptsPage from "./pages/Prompts/PromptsPage";
 import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
 import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
+import LogsPage from "./pages/Logs/LogsPage";
 import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
 import { Toaster } from 'react-hot-toast';
@@ -29,6 +30,29 @@ const ProtectedRoute = ({ children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <MainLayout>{children}</MainLayout>;
+};
+
+// Admin-only Route Component
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spin size="large" tip="Loading..." />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <MainLayout>{children}</MainLayout>;
@@ -132,6 +156,15 @@ function AppRoutes() {
           <ProtectedRoute>
             <ComparisonPromptPage />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/logs"
+        element={
+          <AdminRoute>
+            <LogsPage />
+          </AdminRoute>
         }
       />
 
