@@ -14,6 +14,7 @@ import {
   LikeOutlined,
   ArrowRightOutlined,
   EditOutlined,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -96,21 +97,30 @@ const MainLayout = ({ children }) => {
         key: "/ingestion-prompt",
         icon: <EditOutlined />,
         label: "Ingestion Prompt",
+        adminOnly: true,
       },
       {
         key: "/comparison-prompt",
         icon: <EditOutlined />,
         label: "Comparison Prompt",
+        adminOnly: true,
       },
       {
         key: "/settings",
         icon: <SettingOutlined />,
         label: "Settings",
+        adminOnly: true,
+      },
+      {
+        key: "/logs",
+        icon: <BarChartOutlined />,
+        label: "Logs",
+        adminOnly: true,
       },
     ];
 
     const accessibleItems = baseItems.filter(
-      (item) => item.key !== "/settings" && item.key !== "/ingestion-prompt" && item.key !== "/comparison-prompt" || isAdmin
+      (item) => !item.adminOnly || isAdmin
     );
 
     return accessibleItems.map((item) => {
