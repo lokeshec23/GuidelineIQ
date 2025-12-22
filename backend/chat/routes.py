@@ -9,6 +9,9 @@ from settings.models import get_user_settings
 from auth.middleware import get_admin_user
 import database
 from chat.service import chat_with_gemini, upload_pdf_with_cache
+from chat.rag_service import RAGService  # ✅ RAG Support
+rag_service = RAGService()
+
 from chat.models import (
     save_chat_message, get_chat_history,
     create_conversation, get_conversations, update_conversation_metadata,
@@ -36,7 +39,7 @@ async def chat_with_session(
     Args:
         session_id: Ingestion session ID or history ID
         message: User's chat message
-        mode: Chat mode ("pdf" or "excel")
+        mode: Chat mode ("pdf", "excel", or "rag")
         conversation_id: Optional conversation ID. If None, creates a new conversation
     
     Returns:
@@ -141,8 +144,42 @@ Source File: {filename}
 Extracted Guidelines:
 {json.dumps(preview_data, indent=2)}
 """
+    elif mode == "rag":
+        # RAG Mode: Search vector DB
+        gridfs_file_id = record.get("gridfs_file_id")
+        investor = record.get("investor")
+        version = record.get("version")
+        
+        if not gridfs_file_id:
+             raise HTTPException(status_code=400, detail="No source file for RAG.")
+
+        print(f"🔍 RAG Search: '{message}' (GridFS: {gridfs_file_id})")
+        
+        # Search for relevant chunks
+        # We can filter by gridfs_file_id to be specific to this document
+        results = rag_service.search(
+            query=message,
+            provider="gemini", # Force Gemini for now as we are using Gemini API key
+            api_key=api_key,
+            n_results=5,
+            filter_metadata={"gridfs_file_id": gridfs_file_id}
+        )
+        
+        if not results:
+            text_context = "No relevant sections found in the document."
+        else:
+            context_parts = []
+            for res in results:
+                # res has 'text', 'metadata', 'distance'
+                meta = res['metadata']
+                page_info = f"Page {meta.get('page')}" if meta.get('page') else "Unknown Page"
+                context_parts.append(f"--- [From {page_info}] ---\n{res['text']}\n")
+            
+            text_context = "\n".join(context_parts)
+            print(f"✅ RAG found {len(results)} chunks.")
+
     else:
-        raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
+        raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf', 'excel', or 'rag'")
     
     # 6. Call Gemini
     try:

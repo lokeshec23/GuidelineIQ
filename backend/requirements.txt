@@ -77,3 +77,4 @@ urllib3
 uvicorn
 watchfiles
 websockets
+chromadb

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Switch, Tooltip, Modal, Popconfirm, Empty } from 'antd';
+import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Segmented, Tooltip, Modal, Popconfirm, Empty } from 'antd';
 import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, MessageOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
@@ -363,11 +363,14 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                             {!isComparisonMode && (
                                 <>
                                     <Tooltip title={mode === "pdf" ? "Chatting with PDF" : "Chatting with Excel Data"}>
-                                        <Switch
-                                            checkedChildren={<FilePdfOutlined />}
-                                            unCheckedChildren={<FileExcelOutlined />}
-                                            checked={mode === "pdf"}
-                                            onChange={(checked) => setMode(checked ? "pdf" : "excel")}
+                                        <Segmented
+                                            value={mode}
+                                            onChange={setMode}
+                                            options={[
+                                                { label: 'Excel', value: 'excel', icon: <FileExcelOutlined /> },
+                                                { label: 'PDF', value: 'pdf', icon: <FilePdfOutlined /> },
+                                                { label: 'RAG', value: 'rag', icon: <BulbOutlined /> },
+                                            ]}
                                         />
                                     </Tooltip>
                                     {mode === "pdf" && sessionId && (

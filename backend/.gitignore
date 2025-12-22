@@ -87,3 +87,5 @@ openapi.json
 *.spec
 
 uploads/
+
+chroma_db/

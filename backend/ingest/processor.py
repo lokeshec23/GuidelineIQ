@@ -11,7 +11,9 @@ from utils.ocr import AzureOCR
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from chat.rag_service import RAGService  # ✅ Import RAG Service
 
+rag_service = RAGService()  # ✅ Initialize RAG Service
 
 async def process_guideline_background(
     session_id: str,
@@ -107,6 +109,53 @@ async def process_guideline_background(
         # Validate output
         if not results:
             raise ValueError("LLM returned no valid data. Check prompts and model response.")
+
+        # === STEP 4.5: Generate Embeddings & Store in Vector DB ===
+        update_progress(session_id, 80, "Generating embeddings for RAG...")
+        try:
+            chunks_to_embed = []
+            for i, chunk_tuple in enumerate(text_chunks):
+                # chunk_tuple is (text, page_numbers)
+                text, pages = chunk_tuple
+                chunks_to_embed.append({
+                    "id": f"{gridfs_file_id}_{i}",
+                    "text": text,
+                    "metadata": {
+                        "investor": investor,
+                        "version": version,
+                        "page": pages,
+                        "filename": filename,
+                        "gridfs_file_id": gridfs_file_id
+                    },
+                    "embedding": [] # Will be filled by service if we did it sequentially, but helper does it
+                })
+            
+            # We need to generate embeddings. 
+            # Ideally RAGService should handle batching, but for now we iterate or batch in service.
+            # Let's do it here to pass to add_documents.
+            
+            # Determine provider and key
+            rag_provider = model_provider # Use same provider for embeddings
+            api_key = user_settings.get(f"{model_provider}_api_key")
+            
+            for doc in chunks_to_embed:
+                doc["embedding"] = rag_service.get_embedding(
+                    doc["text"], 
+                    rag_provider, 
+                    api_key,
+                    azure_endpoint=user_settings.get("openai_endpoint"),
+                    azure_deployment=user_settings.get("openai_deployment")
+                )
+            
+            # Filter out failed embeddings
+            valid_docs = [d for d in chunks_to_embed if d["embedding"]]
+            rag_service.add_documents(valid_docs)
+            print(f"✅ RAG: Stored {len(valid_docs)} chunks in Vector DB.")
+
+        except Exception as rag_err:
+            print(f"⚠️ RAG Embedding Failed: {rag_err}")
+            # Don't fail the whole ingestion, just log it
+
 
         # === STEP 5: Convert results to Excel ===
         update_progress(session_id, 90, "Converting results to Excel...")

@@ -72,7 +72,7 @@ def chat_with_gemini(
     if text_context:
         context_msg = f"""You are a helpful assistant analyzing mortgage guideline data. 
         
-Here is the context data from Excel:
+Here is the relevant context data:
 
 {text_context}
 
