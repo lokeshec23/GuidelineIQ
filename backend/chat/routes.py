@@ -88,109 +88,64 @@ async def chat_with_session(
     # 4. Get chat history for this conversation
     history = await get_conversation_messages(conversation_id, limit=20)
     
-    # 5. Prepare context based on mode
-    file_uris = []
-    text_context = ""
+    # 5. Prepare context using RAG (for BOTH modes)
+    gridfs_file_id = record.get("gridfs_file_id")
+    if not gridfs_file_id:
+         raise HTTPException(status_code=400, detail="No source file found for this session.")
+
+    filter_metadata = {"gridfs_file_id": gridfs_file_id}
     
-    if mode == "pdf":
-        # PDF mode: Upload PDF to Gemini with caching
-        gridfs_file_id = record.get("gridfs_file_id")
-        
-        if not gridfs_file_id:
-            raise HTTPException(
-                status_code=400, 
-                detail="No PDF file associated with this session"
-            )
-        
-        try:
-            # Get PDF from GridFS
-            pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
-            
-            # Upload to Gemini with caching
-            uploaded = await upload_pdf_with_cache(
-                api_key=api_key,
-                gridfs_file_id=gridfs_file_id,
-                pdf_content=pdf_content,
-                filename=record.get("uploaded_file", "document.pdf")
-            )
-            
-            file_uris.append(uploaded["gemini_name"])
-            
-        except Exception as e:
-            print(f"❌ Failed to upload PDF: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to prepare PDF: {str(e)}")
-            
-    elif mode == "excel":
-        # Excel mode: Use preview data as text context
-        preview_data = record.get("preview_data", [])
-        
-        if not preview_data:
-            raise HTTPException(
-                status_code=400,
-                detail="No extracted data available for this session"
-            )
-        
-        # Format preview data as structured text
-        import json
-        filename = record.get("uploaded_file", "Unknown File")
-        investor = record.get("investor", "Unknown")
-        version = record.get("version", "Unknown")
-        
-        text_context = f"""Mortgage Guidelines Data
-Investor: {investor}
-Version: {version}
-Source File: {filename}
-
-Extracted Guidelines:
-{json.dumps(preview_data, indent=2)}
-"""
-    elif mode == "rag":
-        # RAG Mode: Search vector DB
-        gridfs_file_id = record.get("gridfs_file_id")
-        investor = record.get("investor")
-        version = record.get("version")
-        
-        if not gridfs_file_id:
-             raise HTTPException(status_code=400, detail="No source file for RAG.")
-
-        print(f"🔍 RAG Search: '{message}' (GridFS: {gridfs_file_id})")
-        
-        # Search for relevant chunks
-        # We can filter by gridfs_file_id to be specific to this document
-        results = rag_service.search(
-            query=message,
-            provider="gemini", # Force Gemini for now as we are using Gemini API key
-            api_key=api_key,
-            n_results=5,
-            filter_metadata={"gridfs_file_id": gridfs_file_id}
-        )
-        
-        if not results:
-            text_context = "No relevant sections found in the document."
-        else:
-            context_parts = []
-            for res in results:
-                # res has 'text', 'metadata', 'distance'
-                meta = res['metadata']
-                page_info = f"Page {meta.get('page')}" if meta.get('page') else "Unknown Page"
-                context_parts.append(f"--- [From {page_info}] ---\n{res['text']}\n")
-            
-            text_context = "\n".join(context_parts)
-            print(f"✅ RAG found {len(results)} chunks.")
-
+    if mode == "excel":
+        # Restrict to extracted rules only
+        filter_metadata["type"] = "excel_rule"
+    elif mode == "pdf":
+        # Search everything (chunks + rules)
+        pass 
     else:
-        raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf', 'excel', or 'rag'")
+        raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
+
+    print(f"🔍 RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
     
+    # Perform Vector Search
+    results = await rag_service.search(
+        query=message,
+        provider="gemini", # Using Gemini API key
+        api_key=api_key,
+        n_results=10, # Fetch more context
+        filter_metadata=filter_metadata
+    )
+    
+    text_context = ""
+    file_uris = [] # Not used in RAG mode usually, unless we mix strategies
+    
+    if not results:
+        text_context = "No relevant info found in the document index."
+    else:
+        context_parts = []
+        for res in results:
+            # res has 'text', 'metadata', 'distance'
+            meta = res['metadata']
+            source_type = meta.get('type', 'unknown')
+            page_info = f"Page {meta.get('page')}" if meta.get('page') else "Unknown"
+            
+            if source_type == 'excel_rule':
+                context_parts.append(f"--- [Rule | {page_info}] ---\n{res['text']}\n")
+            else:
+                context_parts.append(f"--- [Text Chunk | {page_info}] ---\n{res['text']}\n")
+        
+        text_context = "\n".join(context_parts)
+        print(f"✅ RAG found {len(results)} items.")
+
     # 6. Call Gemini
     try:
         reply = chat_with_gemini(
             api_key=api_key,
-            model_name="gemini-2.5-pro",  # Use latest model with file search
+            model_name="gemini-2.5-pro",
             message=message,
             history=history,
-            file_uris=file_uris if mode == "pdf" else None,
-            text_context=text_context if mode == "excel" else None,
-            use_file_search=(mode == "pdf"),
+            file_uris=[], # No file attachment needed for RAG
+            text_context=text_context,
+            use_file_search=False, # Disable Google File Search
             instructions=instructions
         )
         

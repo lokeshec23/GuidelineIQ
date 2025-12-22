@@ -367,8 +367,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                             value={mode}
                                             onChange={setMode}
                                             options={[
-                                                { label: 'Excel', value: 'excel', icon: <FileExcelOutlined /> },
-                                                { label: 'RAG', value: 'rag', icon: <BulbOutlined /> },
+                                                { label: 'Excel (Rules)', value: 'excel', icon: <FileExcelOutlined /> },
+                                                { label: 'PDF (Full)', value: 'pdf', icon: <FilePdfOutlined /> },
                                             ]}
                                         />
                                     </Tooltip>

@@ -4,10 +4,8 @@ import os
 from typing import List, Dict, Optional
 import google.generativeai as genai
 from openai import OpenAI, AzureOpenAI
-
-# Initialize ChromaDB Client
-CHROMA_DB_PATH = os.path.join(os.getcwd(), "chroma_db")
-chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
+import asyncio
+import functools
 
 # Embedding Models
 EMBEDDING_MODEL_OPENAI = "text-embedding-3-small"
@@ -15,12 +13,19 @@ EMBEDDING_MODEL_GEMINI = "models/text-embedding-004"
 
 class RAGService:
     def __init__(self):
-        self.collection = chroma_client.get_or_create_collection(name="guideline_chunks")
+        self.chroma_path = os.path.join(os.getcwd(), "chroma_db")
+        self.client = None
+        self.collection = None
+
+    def _get_collection(self):
+        if self.collection is None:
+            if self.client is None:
+                self.client = chromadb.PersistentClient(path=self.chroma_path)
+            self.collection = self.client.get_or_create_collection(name="guideline_chunks")
+        return self.collection
 
     async def get_embedding(self, text: str, provider: str, api_key: str, **kwargs) -> List[float]:
         """Generates embedding for a single text chunk (Async)."""
-        import asyncio
-        import functools
         try:
             if provider == "openai":
                 # ... existing client setup ...
@@ -70,7 +75,8 @@ class RAGService:
         metadatas = [doc["metadata"] for doc in documents]
         documents_text = [doc["text"] for doc in documents]
 
-        self.collection.add(
+        collection = self._get_collection()
+        collection.add(
             ids=ids,
             embeddings=embeddings,
             metadatas=metadatas,
@@ -82,9 +88,6 @@ class RAGService:
         """
         Searches for relevant chunks (Async).
         """
-        import asyncio
-        import functools
-        
         query_embedding = []
         try:
             if provider == "gemini":
@@ -108,11 +111,21 @@ class RAGService:
         if not query_embedding:
             return []
 
+        # Prepare filter
+        where_clause = None
+        if filter_metadata:
+            if len(filter_metadata) > 1:
+                # Use explicit $and for multiple conditions
+                where_clause = {"$and": [{k: v} for k, v in filter_metadata.items()]}
+            else:
+                where_clause = filter_metadata
+
         # ChromaDB query is fast enough to be sync, but good to wrap if DB grows
-        results = self.collection.query(
+        collection = self._get_collection()
+        results = collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
-            where=filter_metadata
+            where=where_clause
         )
         
         # Format results (same as before)
