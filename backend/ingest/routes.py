@@ -55,6 +55,9 @@ async def ingest_guideline(
     user_prompt: str = Form(""),
     effective_date: str = Form(...),
     expiry_date: str = Form(None),
+    page_range: str = Form(None),
+    guideline_type: str = Form(None),
+    program_type: str = Form(None),
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
@@ -118,7 +121,10 @@ async def ingest_guideline(
                 "version": version,
                 "session_id": session_id,
                 "user_id": user_id,
-                "uploaded_by": current_user.get("email", "Unknown")
+                "uploaded_by": current_user.get("email", "Unknown"),
+                "page_range": page_range,
+                "guideline_type": guideline_type,
+                "program_type": program_type
             }
         )
     except Exception as e:
@@ -142,6 +148,9 @@ async def ingest_guideline(
         username=current_user.get("email", "Unknown"),
         effective_date=effective_date,
         expiry_date=expiry_date,
+        page_range=page_range,
+        guideline_type=guideline_type,
+        program_type=program_type,
     )
     
     return IngestResponse(status="processing", message="Processing started", session_id=session_id)

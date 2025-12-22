@@ -170,6 +170,11 @@ const IngestPage = () => {
       formData.append("system_prompt", systemPrompt);
       formData.append("user_prompt", userPrompt);
 
+      // Attach new metadata fields
+      if (values.page_range) formData.append("page_range", values.page_range);
+      if (values.guideline_type) formData.append("guideline_type", values.guideline_type);
+      if (values.program_type) formData.append("program_type", values.program_type);
+
       console.log("Starting ingestion...");
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id } = res.data;
@@ -407,6 +412,33 @@ const IngestPage = () => {
               className="w-full rounded-md"
               format="DD/MM/YYYY"
             />
+          </Form.Item>
+        </div>
+
+        {/* New Metadata Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Form.Item
+            name="guideline_type"
+            label={<span className="text-gray-600">Guideline Type</span>}
+            className="mb-0"
+          >
+            <Input size="large" placeholder="e.g., Agency, Jumbo" className="rounded-md" />
+          </Form.Item>
+
+          <Form.Item
+            name="program_type"
+            label={<span className="text-gray-600">Program Type</span>}
+            className="mb-0"
+          >
+            <Input size="large" placeholder="e.g., Fixed, ARM" className="rounded-md" />
+          </Form.Item>
+
+          <Form.Item
+            name="page_range"
+            label={<span className="text-gray-600">Page Range (e.g., 1-5, 8)</span>}
+            className="mb-0"
+          >
+            <Input size="large" placeholder="Optional" className="rounded-md" />
           </Form.Item>
         </div>
 

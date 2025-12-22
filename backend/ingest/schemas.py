@@ -11,6 +11,9 @@ class IngestRequest(BaseModel):
     model_provider: str
     model_name: str
     custom_prompt: str
+    page_range: Optional[str] = None
+    guideline_type: Optional[str] = None
+    program_type: Optional[str] = None
 
 class IngestResponse(BaseModel):
     """

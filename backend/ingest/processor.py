@@ -28,6 +28,9 @@ async def process_guideline_background(
     username: str = "Unknown",
     effective_date: str = None,
     expiry_date: str = None,
+    page_range: str = None,
+    guideline_type: str = None,
+    program_type: str = None,
 ):
     excel_path = None
     temp_pdf_path = None  # ✅ Track temporary PDF file
@@ -43,6 +46,9 @@ async def process_guideline_background(
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"Effective Date: {effective_date}")
         print(f"Expiry Date: {expiry_date if expiry_date else 'N/A'}")
+        print(f"Page Range: {page_range if page_range else 'All'}")
+        print(f"Guideline Type: {guideline_type if guideline_type else 'N/A'}")
+        print(f"Program Type: {program_type if program_type else 'N/A'}")
         print(f"{'='*60}\n")
 
         # Validate prompts - Use defaults if empty
@@ -77,7 +83,11 @@ async def process_guideline_background(
         # === STEP 2: OCR ===
         update_progress(session_id, 5, f"Extracting text ({pages_per_chunk} page(s) per chunk)...")
         ocr_client = AzureOCR()
-        text_chunks = ocr_client.analyze_doc_page_by_page(temp_pdf_path, pages_per_chunk=pages_per_chunk)
+        text_chunks = ocr_client.analyze_doc_page_by_page(
+            temp_pdf_path, 
+            pages_per_chunk=pages_per_chunk, 
+            page_range=page_range
+        )
         num_chunks = len(text_chunks)
         if num_chunks == 0:
             raise ValueError("OCR process failed to extract text from document.")
@@ -139,7 +149,10 @@ async def process_guideline_background(
                     "preview_data": results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
-                    "gridfs_file_id": gridfs_file_id  # ✅ Store GridFS ID instead of path
+                    "gridfs_file_id": gridfs_file_id,  # ✅ Store GridFS ID instead of path
+                    "page_range": page_range,
+                    "guideline_type": guideline_type,
+                    "program_type": program_type
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
                 
