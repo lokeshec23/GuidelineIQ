@@ -368,7 +368,6 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                             onChange={setMode}
                                             options={[
                                                 { label: 'Excel', value: 'excel', icon: <FileExcelOutlined /> },
-                                                { label: 'PDF', value: 'pdf', icon: <FilePdfOutlined /> },
                                                 { label: 'RAG', value: 'rag', icon: <BulbOutlined /> },
                                             ]}
                                         />

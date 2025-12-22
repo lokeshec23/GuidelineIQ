@@ -110,51 +110,80 @@ async def process_guideline_background(
         if not results:
             raise ValueError("LLM returned no valid data. Check prompts and model response.")
 
-        # === STEP 4.5: Generate Embeddings & Store in Vector DB ===
-        update_progress(session_id, 80, "Generating embeddings for RAG...")
+        # === STEP 4.5: Generate Embeddings (Chunks + Excel Rules) & Store in Vector DB ===
+        update_progress(session_id, 80, "Generating embeddings for RAG (PDF + Rules)...")
         try:
-            chunks_to_embed = []
+            items_to_embed = []
+            
+            # 1. Add PDF Text Chunks
             for i, chunk_tuple in enumerate(text_chunks):
-                # chunk_tuple is (text, page_numbers)
                 text, pages = chunk_tuple
-                chunks_to_embed.append({
-                    "id": f"{gridfs_file_id}_{i}",
+                items_to_embed.append({
+                    "id": f"{gridfs_file_id}_chunk_{i}",
                     "text": text,
                     "metadata": {
                         "investor": investor,
                         "version": version,
                         "page": pages,
                         "filename": filename,
-                        "gridfs_file_id": gridfs_file_id
-                    },
-                    "embedding": [] # Will be filled by service if we did it sequentially, but helper does it
+                        "gridfs_file_id": gridfs_file_id,
+                        "type": "pdf_chunk"
+                    }
+                })
+
+            # 2. Add Extracted Excel Rules
+            # results is a list of dicts: {category, sub_category, guideline_summary, page_number}
+            for i, rule in enumerate(results):
+                # Construct a rich text representation for the rule
+                rule_text = f"Category: {rule.get('category')}\nSub-Category: {rule.get('sub_category')}\nRule: {rule.get('guideline_summary')}"
+                items_to_embed.append({
+                    "id": f"{gridfs_file_id}_rule_{i}",
+                    "text": rule_text,
+                    "metadata": {
+                        "investor": investor,
+                        "version": version,
+                        "page": rule.get('page_number', 'Unknown'),
+                        "filename": filename,
+                        "gridfs_file_id": gridfs_file_id,
+                        "type": "excel_rule",
+                        "category": rule.get('category'),
+                        "sub_category": rule.get('sub_category')
+                    }
                 })
             
-            # We need to generate embeddings. 
-            # Ideally RAGService should handle batching, but for now we iterate or batch in service.
-            # Let's do it here to pass to add_documents.
-            
             # Determine provider and key
-            rag_provider = model_provider # Use same provider for embeddings
+            rag_provider = model_provider
             api_key = user_settings.get(f"{model_provider}_api_key")
             
-            for doc in chunks_to_embed:
-                doc["embedding"] = rag_service.get_embedding(
-                    doc["text"], 
+            # 3. Generate Embeddings concurrently
+            print(f"⚡ Generating embeddings for {len(items_to_embed)} items concurrently...")
+            
+            async def process_embedding(item):
+                emb = await rag_service.get_embedding(
+                    item["text"], 
                     rag_provider, 
                     api_key,
                     azure_endpoint=user_settings.get("openai_endpoint"),
                     azure_deployment=user_settings.get("openai_deployment")
                 )
+                item["embedding"] = emb
+                return item
+
+            # Run all embedding calls in parallel
+            embedded_items = await asyncio.gather(*[process_embedding(item) for item in items_to_embed])
             
             # Filter out failed embeddings
-            valid_docs = [d for d in chunks_to_embed if d["embedding"]]
-            rag_service.add_documents(valid_docs)
-            print(f"✅ RAG: Stored {len(valid_docs)} chunks in Vector DB.")
+            valid_docs = [d for d in embedded_items if d["embedding"]]
+            
+            # Store in Vector DB
+            if valid_docs:
+                rag_service.add_documents(valid_docs)
+                print(f"✅ RAG: Stored {len(valid_docs)} items (Chunks + Rules) in Vector DB.")
 
         except Exception as rag_err:
             print(f"⚠️ RAG Embedding Failed: {rag_err}")
-            # Don't fail the whole ingestion, just log it
+            traceback.print_exc()
+
 
 
         # === STEP 5: Convert results to Excel ===

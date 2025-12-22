@@ -17,32 +17,40 @@ class RAGService:
     def __init__(self):
         self.collection = chroma_client.get_or_create_collection(name="guideline_chunks")
 
-    def get_embedding(self, text: str, provider: str, api_key: str, **kwargs) -> List[float]:
-        """Generates embedding for a single text chunk."""
+    async def get_embedding(self, text: str, provider: str, api_key: str, **kwargs) -> List[float]:
+        """Generates embedding for a single text chunk (Async)."""
+        import asyncio
+        import functools
         try:
             if provider == "openai":
+                # ... existing client setup ...
                 client = None
                 if kwargs.get("azure_endpoint"):
                      client = AzureOpenAI(
                         api_key=api_key,
                         api_version="2023-05-15",
                         azure_endpoint=kwargs.get("azure_endpoint"),
-                        azure_deployment=kwargs.get("azure_deployment") # Often used for embedding model deployment name
+                        azure_deployment=kwargs.get("azure_deployment")
                     )
                 else:
                     client = OpenAI(api_key=api_key)
                 
-                response = client.embeddings.create(input=[text], model=EMBEDDING_MODEL_OPENAI)
+                # Run sync call in thread
+                func = functools.partial(client.embeddings.create, input=[text], model=EMBEDDING_MODEL_OPENAI)
+                response = await asyncio.to_thread(func)
                 return response.data[0].embedding
 
             elif provider == "gemini":
                 genai.configure(api_key=api_key)
-                result = genai.embed_content(
+                # Run sync call in thread
+                func = functools.partial(
+                    genai.embed_content,
                     model=EMBEDDING_MODEL_GEMINI,
                     content=text,
                     task_type="retrieval_document",
                     title="Guideline Chunk" 
                 )
+                result = await asyncio.to_thread(func)
                 return result['embedding']
             
             else:
@@ -52,21 +60,8 @@ class RAGService:
             return []
 
     def add_documents(self, documents: List[Dict]):
-        """
-        Adds processed chunks to Vector DB.
-        expects documents list of dicts:
-        {
-            "id": "unique_id",
-            "text": "chunk text",
-            "metadata": {
-                "investor": "Fannie Mae",
-                "version": "2024-01",
-                "page": "5",
-                "filename": "guide.pdf"
-            },
-            "embedding": [0.1, 0.2, ...]
-        }
-        """
+        # ... existing sync add_documents is fine (local DB) ...
+        # (Same implementation as before)
         if not documents:
             return
 
@@ -83,31 +78,28 @@ class RAGService:
         )
         print(f"✅ Added {len(documents)} chunks to ChromaDB.")
 
-    def search(self, query: str, provider: str, api_key: str, n_results: int = 5, filter_metadata: Optional[Dict] = None, **kwargs) -> List[Dict]:
+    async def search(self, query: str, provider: str, api_key: str, n_results: int = 5, filter_metadata: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """
-        Searches for relevant chunks.
+        Searches for relevant chunks (Async).
         """
-        # Generate query embedding
-        # For Gemini, different task type for query
+        import asyncio
+        import functools
+        
         query_embedding = []
         try:
-            if provider == "openai":
-                 # Reuse get_embedding logic or call it directly if stateless
-                 # For simplicity, re-instantiating or passing client would be better, but let's just call helper
-                 # We need to handle the specific logic for query embedding if it differs (Gemini does)
-                 pass # Logic below
-            
             if provider == "gemini":
                  genai.configure(api_key=api_key)
-                 result = genai.embed_content(
+                 func = functools.partial(
+                    genai.embed_content,
                     model=EMBEDDING_MODEL_GEMINI,
                     content=query,
                     task_type="retrieval_query"
                 )
+                 result = await asyncio.to_thread(func)
                  query_embedding = result['embedding']
+                 
             elif provider == "openai":
-                 # Same call for OpenAI
-                 query_embedding = self.get_embedding(query, provider, api_key, **kwargs)
+                 query_embedding = await self.get_embedding(query, provider, api_key, **kwargs)
             
         except Exception as e:
              print(f"❌ Query embedding failed: {e}")
@@ -116,13 +108,14 @@ class RAGService:
         if not query_embedding:
             return []
 
+        # ChromaDB query is fast enough to be sync, but good to wrap if DB grows
         results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
-            where=filter_metadata # e.g. {"investor": "Fannie Mae"}
+            where=filter_metadata
         )
         
-        # Format results
+        # Format results (same as before)
         formatted_results = []
         if results['ids']:
             for i in range(len(results['ids'][0])):
