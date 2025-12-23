@@ -5,7 +5,9 @@ from history.models import (
     get_user_ingest_history,
     delete_ingest_history,
     get_user_compare_history,
-    delete_compare_history
+    delete_compare_history,
+    delete_all_ingest_history,
+    delete_all_compare_history
 )
 from history.schemas import IngestHistoryItem, CompareHistoryItem, DeleteResponse
 from auth.middleware import get_current_user_from_token
@@ -40,6 +42,17 @@ async def delete_ingest_record(
     return DeleteResponse(message="Record deleted successfully", success=True)
 
 
+@router.delete("/ingest", response_model=DeleteResponse)
+async def delete_all_ingest_records(
+    current_user: dict = Depends(get_current_user_from_token)
+):
+    """Delete all ingest history records for the user"""
+    user_id = str(current_user["_id"])
+    count = await delete_all_ingest_history(user_id)
+    
+    return DeleteResponse(message=f"Deleted {count} records successfully", success=True)
+
+
 # ✅ NEW: Compare history routes
 @router.get("/compare", response_model=List[CompareHistoryItem])
 async def get_compare_history(current_user: dict = Depends(get_current_user_from_token)):
@@ -62,6 +75,17 @@ async def delete_compare_record(
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
     
     return DeleteResponse(message="Record deleted successfully", success=True)
+
+
+@router.delete("/compare", response_model=DeleteResponse)
+async def delete_all_compare_records(
+    current_user: dict = Depends(get_current_user_from_token)
+):
+    """Delete all compare history records for the user"""
+    user_id = str(current_user["_id"])
+    count = await delete_all_compare_history(user_id)
+    
+    return DeleteResponse(message=f"Deleted {count} records successfully", success=True)
 
 
 # ✅ NEW: PDF viewer endpoint

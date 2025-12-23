@@ -175,8 +175,10 @@ export const compareAPI = {
 export const historyAPI = {
   getIngestHistory: () => api.get("/history/ingest"),
   deleteIngestHistory: (id) => api.delete(`/history/ingest/${id}`),
+  deleteAllIngestHistory: () => api.delete("/history/ingest"),
   getCompareHistory: () => api.get("/history/compare"),
   deleteCompareHistory: (id) => api.delete(`/history/compare/${id}`),
+  deleteAllCompareHistory: () => api.delete("/history/compare"),
 };
 
 // ==================== CHAT APIs ====================

@@ -124,3 +124,26 @@ async def delete_compare_history(history_id: str, user_id: str) -> bool:
         "user_id": user_id
     })
     return result.deleted_count > 0
+
+async def delete_all_ingest_history(user_id: str) -> int:
+    """Delete all ingest history records for a user."""
+    if database.ingest_history_collection is None:
+        raise ConnectionError("Database not initialized")
+    
+    # Optional: Delete associated GridFS files if needed
+    # This example only deletes the history records
+    
+    result = await database.ingest_history_collection.delete_many({
+        "user_id": user_id
+    })
+    return result.deleted_count
+
+async def delete_all_compare_history(user_id: str) -> int:
+    """Delete all comparison history records for a user."""
+    if database.compare_history_collection is None:
+        raise ConnectionError("Database not initialized")
+        
+    result = await database.compare_history_collection.delete_many({
+        "user_id": user_id
+    })
+    return result.deleted_count

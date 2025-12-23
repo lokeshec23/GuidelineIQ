@@ -24,6 +24,7 @@ const DashboardPage = () => {
 
     // Delete confirmation modal state
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleteAllModalVisible, setDeleteAllModalVisible] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -140,6 +141,46 @@ const DashboardPage = () => {
     const handleCancelDelete = () => {
         setDeleteModalVisible(false);
         setRecordToDelete(null);
+    };
+
+    const handleDeleteAll = () => {
+        if ((activeTab === "ingest" && ingestHistory.length === 0) ||
+            (activeTab === "compare" && compareHistory.length === 0)) {
+            showToast.info("No records to delete");
+            return;
+        }
+        setDeleteAllModalVisible(true);
+    };
+
+    const handleConfirmDeleteAll = async () => {
+        const isIngest = activeTab === "ingest";
+
+        try {
+            setDeleteLoading(true);
+
+            if (isIngest) {
+                await historyAPI.deleteAllIngestHistory();
+            } else {
+                await historyAPI.deleteAllCompareHistory();
+            }
+
+            showToast.success(`All ${isIngest ? "ingest" : "compare"} history deleted successfully`);
+
+            // Refresh appropriate list
+            if (isIngest) {
+                fetchIngestHistory();
+            } else {
+                fetchCompareHistory();
+            }
+
+            // Close modal
+            setDeleteAllModalVisible(false);
+        } catch (error) {
+            console.error("Failed to delete all records:", error);
+            // Toast is handled by API interceptor
+        } finally {
+            setDeleteLoading(false);
+        }
     };
 
     const ingestColumns = [
@@ -338,10 +379,21 @@ const DashboardPage = () => {
 
     return (
         <div className="px-8 py-6">
-            {/* <div className="mb-2">
-                <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                <p className="text-gray-500 mt-1">View and manage your processing history</p>
-            </div> */}
+            <div className="flex justify-between items-center mb-4">
+                {/* <div className="mb-2">
+                    <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
+                    <p className="text-gray-500 mt-1">View and manage your processing history</p>
+                </div> */}
+                <div className="flex-1"></div>
+                <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={handleDeleteAll}
+                    disabled={activeTab === "ingest" ? ingestHistory.length === 0 : compareHistory.length === 0}
+                >
+                    Delete All
+                </Button>
+            </div>
 
             <Tabs
                 activeKey={activeTab}
@@ -416,6 +468,19 @@ const DashboardPage = () => {
                     : "this record"
                     }?`}
                 confirmText="Yes, Delete"
+                cancelText="Cancel"
+                danger={true}
+                loading={deleteLoading}
+            />
+
+            {/* Delete All Confirmation Modal */}
+            <ConfirmModal
+                visible={deleteAllModalVisible}
+                onConfirm={handleConfirmDeleteAll}
+                onCancel={() => setDeleteAllModalVisible(false)}
+                title="Delete All Records"
+                message={`Are you sure you want to permanently delete ALL ${activeTab === "ingest" ? "ingest" : "comparison"} history? This action cannot be undone.`}
+                confirmText="Yes, Delete All"
                 cancelText="Cancel"
                 danger={true}
                 loading={deleteLoading}
