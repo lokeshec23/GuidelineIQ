@@ -12,6 +12,7 @@ from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from chat.rag_service import RAGService  # ✅ Import RAG Service
+from ingest.dscr_extractor import extract_dscr_parameters_safe  # ✅ Import DSCR Extractor
 
 rag_service = RAGService()  # ✅ Initialize RAG Service
 
@@ -182,6 +183,26 @@ async def process_guideline_background(
 
         except Exception as rag_err:
             print(f"⚠️ RAG Embedding Failed: {rag_err}")
+            traceback.print_exc()
+
+        # === STEP 4.6: DSCR Parameter Extraction (Auto-Generate Excel) ===
+        update_progress(session_id, 85, "Extracting DSCR Parameters to Excel...")
+        try:
+            dscr_excel_path = await extract_dscr_parameters_safe(
+                session_id=session_id,
+                gridfs_file_id=gridfs_file_id,
+                rag_service=rag_service,
+                llm=llm,
+                investor=investor,
+                version=version,
+                user_settings=user_settings
+            )
+            print(f"✅ DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+            
+            # Optionally store this path in progress_store or history if needed
+            # For now, we just ensure it's generated as requested
+        except Exception as dscr_err:
+            print(f"⚠️ DSCR Extraction Failed: {dscr_err}")
             traceback.print_exc()
 
 

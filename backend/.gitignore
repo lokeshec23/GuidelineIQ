@@ -89,3 +89,7 @@ openapi.json
 uploads/
 
 chroma_db/
+
+reports/
+
+results/
