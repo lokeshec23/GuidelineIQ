@@ -10,6 +10,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import database
+from database import db_manager
 from auth.utils import hash_password
 from settings.models import create_or_update_settings
 
@@ -19,7 +20,7 @@ async def seed_admin():
     Reads credentials from environment variables and initializes admin settings.
     """
     # Initialize database
-    database.get_database()
+    await db_manager.connect()
     
     # Load environment variables
     load_dotenv()
@@ -33,7 +34,11 @@ async def seed_admin():
         return False
     
     # Check if admin already exists
-    existing_admin = await database.users_collection.find_one({"role": "admin"})
+    if db_manager.users is None:
+        print("❌ Error: Database connection failed (users collection is None)")
+        return False
+
+    existing_admin = await db_manager.users.find_one({"role": "admin"})
     
     if existing_admin:
         print(f"✅ Admin user already exists: {existing_admin['email']}")
@@ -48,7 +53,7 @@ async def seed_admin():
         }
         
         try:
-            result = await database.users_collection.insert_one(admin_data)
+            result = await db_manager.users.insert_one(admin_data)
             admin_id = str(result.inserted_id)
             print(f"✅ Admin user created successfully!")
             print(f"   Email: {admin_email}")

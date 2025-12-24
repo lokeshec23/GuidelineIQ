@@ -101,10 +101,12 @@ async def get_ingest_pdf(
     if not ObjectId.is_valid(record_id):
         raise HTTPException(status_code=400, detail="Invalid record ID")
     
-    if database.ingest_history_collection is None:
+    from database import db_manager
+    if db_manager.ingest_history is None:
+        # Fallback or error if DB not reachable (should ideally be connected via lifespan)
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    record = await database.ingest_history_collection.find_one({
+    record = await db_manager.ingest_history.find_one({
         "_id": ObjectId(record_id),
         "user_id": user_id
     })

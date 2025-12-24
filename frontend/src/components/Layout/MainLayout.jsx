@@ -26,13 +26,13 @@ const MainLayout = ({ children }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => {
     logout();
     navigate("/login");
-  };
+  }, [logout, navigate]);
 
-  // User Profile Dropdown
-  const userProfileCard = (
+  // User Profile Dropdown - Memoized to prevent re-renders
+  const userProfileCard = React.useMemo(() => (
     <div className="bg-white rounded-xl shadow-lg w-72 overflow-hidden border border-gray-100 font-sans mt-2">
       <div className="h-20 bg-sky-50 relative overflow-hidden">
         <div className="absolute -top-2 -right-2 w-16 h-16 bg-sky-100 rounded-full opacity-50"></div>
@@ -72,10 +72,10 @@ const MainLayout = ({ children }) => {
         </div>
       </div>
     </div>
-  );
+  ), [user, isAdmin, handleLogout]);
 
-  // Menu Items Construction
-  const getMenuItems = () => {
+  // Menu Items Construction - Memoized
+  const menuItems = React.useMemo(() => {
     const baseItems = [
       {
         key: "/dashboard",
@@ -144,7 +144,7 @@ const MainLayout = ({ children }) => {
           }`,
       };
     });
-  };
+  }, [isAdmin, location.pathname, collapsed]);
 
   return (
     <Layout className="h-screen overflow-hidden font-sans bg-white">
@@ -233,7 +233,7 @@ const MainLayout = ({ children }) => {
               <Menu
                 mode="inline"
                 selectedKeys={[location.pathname]}
-                items={getMenuItems()}
+                items={menuItems}
                 onClick={({ key }) => navigate(key)}
                 style={{ background: "transparent", borderRight: 0 }}
               />

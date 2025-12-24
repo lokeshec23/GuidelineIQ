@@ -1,16 +1,22 @@
 # backend/chat/models.py
 
-import database
+from database import db_manager
 from datetime import datetime, timedelta
 from bson import ObjectId
 from typing import List, Dict, Optional
+
+
+async def _ensure_db():
+    if not db_manager.client:
+        await db_manager.connect()
 
 
 async def save_chat_message(session_id: str, role: str, content: str) -> str:
     """
     Save a chat message to the session history.
     """
-    if database.chat_sessions_collection is None:
+    await _ensure_db()
+    if db_manager.chat_sessions is None:
         raise ConnectionError("Database not initialized")
         
     message_data = {
@@ -20,7 +26,7 @@ async def save_chat_message(session_id: str, role: str, content: str) -> str:
         "timestamp": datetime.utcnow()
     }
     
-    result = await database.chat_sessions_collection.insert_one(message_data)
+    result = await db_manager.chat_sessions.insert_one(message_data)
     return str(result.inserted_id)
 
 
@@ -28,10 +34,11 @@ async def get_chat_history(session_id: str, limit: int = 50) -> List[Dict]:
     """
     Retrieve chat history for a session.
     """
-    if database.chat_sessions_collection is None:
+    await _ensure_db()
+    if db_manager.chat_sessions is None:
         raise ConnectionError("Database not initialized")
         
-    cursor = database.chat_sessions_collection.find(
+    cursor = db_manager.chat_sessions.find(
         {"session_id": session_id}
     ).sort("timestamp", 1).limit(limit)
     
@@ -50,7 +57,8 @@ async def cache_gemini_file_uri(gridfs_file_id: str, gemini_uri: str, gemini_nam
     """
     Cache a Gemini file URI to avoid re-uploading.
     """
-    if database.gemini_file_cache_collection is None:
+    await _ensure_db()
+    if db_manager.gemini_file_cache is None:
         raise ConnectionError("Database not initialized")
         
     expiry_time = datetime.utcnow() + timedelta(hours=ttl_hours)
@@ -64,7 +72,7 @@ async def cache_gemini_file_uri(gridfs_file_id: str, gemini_uri: str, gemini_nam
     }
     
     # Upsert to avoid duplicates
-    result = await database.gemini_file_cache_collection.update_one(
+    result = await db_manager.gemini_file_cache.update_one(
         {"gridfs_file_id": gridfs_file_id},
         {"$set": cache_data},
         upsert=True
@@ -77,10 +85,11 @@ async def get_cached_file_uri(gridfs_file_id: str) -> Optional[Dict]:
     """
     Get cached Gemini file URI if still valid.
     """
-    if database.gemini_file_cache_collection is None:
+    await _ensure_db()
+    if db_manager.gemini_file_cache is None:
         return None
         
-    cache_entry = await database.gemini_file_cache_collection.find_one({
+    cache_entry = await db_manager.gemini_file_cache.find_one({
         "gridfs_file_id": gridfs_file_id,
         "expires_at": {"$gt": datetime.utcnow()}  # Not expired
     })
@@ -98,10 +107,11 @@ async def get_cached_file_uri(gridfs_file_id: str) -> Optional[Dict]:
 
 async def clear_expired_cache():
     """Remove expired cache entries."""
-    if database.gemini_file_cache_collection is None:
+    await _ensure_db()
+    if db_manager.gemini_file_cache is None:
         return 0
         
-    result = await database.gemini_file_cache_collection.delete_many({
+    result = await db_manager.gemini_file_cache.delete_many({
         "expires_at": {"$lt": datetime.utcnow()}
     })
     print(f"🧹 Cleared {result.deleted_count} expired Gemini file cache entries")
@@ -121,7 +131,8 @@ async def create_conversation(session_id: str, title: Optional[str] = None) -> s
     Returns:
         The conversation ID (as string)
     """
-    if database.chat_conversations_collection is None:
+    await _ensure_db()
+    if db_manager.chat_conversations is None:
         raise ConnectionError("Database not initialized")
     
     now = datetime.utcnow()
@@ -134,7 +145,7 @@ async def create_conversation(session_id: str, title: Optional[str] = None) -> s
         "message_count": 0
     }
     
-    result = await database.chat_conversations_collection.insert_one(conversation_data)
+    result = await db_manager.chat_conversations.insert_one(conversation_data)
     return str(result.inserted_id)
 
 
@@ -148,10 +159,11 @@ async def get_conversations(session_id: str) -> List[Dict]:
     Returns:
         List of conversation objects with metadata
     """
-    if database.chat_conversations_collection is None:
+    await _ensure_db()
+    if db_manager.chat_conversations is None:
         raise ConnectionError("Database not initialized")
     
-    cursor = database.chat_conversations_collection.find(
+    cursor = db_manager.chat_conversations.find(
         {"session_id": session_id}
     ).sort("updated_at", -1)  # Most recent first
     
@@ -187,7 +199,8 @@ async def update_conversation_metadata(
     Returns:
         True if updated successfully
     """
-    if database.chat_conversations_collection is None:
+    await _ensure_db()
+    if db_manager.chat_conversations is None:
         raise ConnectionError("Database not initialized")
     
     # Build $set fields
@@ -205,7 +218,7 @@ async def update_conversation_metadata(
         "$inc": {"message_count": 1}
     }
     
-    result = await database.chat_conversations_collection.update_one(
+    result = await db_manager.chat_conversations.update_one(
         {"_id": ObjectId(conversation_id)},
         update_query
     )
@@ -223,16 +236,17 @@ async def delete_conversation(conversation_id: str) -> int:
     Returns:
         Number of messages deleted
     """
-    if database.chat_conversations_collection is None or database.chat_sessions_collection is None:
+    await _ensure_db()
+    if not db_manager.chat_conversations or not db_manager.chat_sessions:
         raise ConnectionError("Database not initialized")
     
     # Delete all messages for this conversation
-    messages_result = await database.chat_sessions_collection.delete_many({
+    messages_result = await db_manager.chat_sessions.delete_many({
         "conversation_id": conversation_id
     })
     
     # Delete the conversation itself
-    await database.chat_conversations_collection.delete_one({
+    await db_manager.chat_conversations.delete_one({
         "_id": ObjectId(conversation_id)
     })
     
@@ -250,10 +264,11 @@ async def get_conversation_messages(conversation_id: str, limit: int = 100) -> L
     Returns:
         List of messages with role, content, and timestamp
     """
-    if database.chat_sessions_collection is None:
+    await _ensure_db()
+    if db_manager.chat_sessions is None:
         raise ConnectionError("Database not initialized")
     
-    cursor = database.chat_sessions_collection.find(
+    cursor = db_manager.chat_sessions.find(
         {"conversation_id": conversation_id}
     ).sort("timestamp", 1).limit(limit)
     
@@ -307,7 +322,8 @@ async def save_chat_message_with_conversation(
     Returns:
         The inserted message ID
     """
-    if database.chat_sessions_collection is None:
+    await _ensure_db()
+    if db_manager.chat_sessions is None:
         raise ConnectionError("Database not initialized")
     
     timestamp = datetime.utcnow()
@@ -319,7 +335,7 @@ async def save_chat_message_with_conversation(
         "timestamp": timestamp
     }
     
-    result = await database.chat_sessions_collection.insert_one(message_data)
+    result = await db_manager.chat_sessions.insert_one(message_data)
     
     # Update conversation metadata
     await update_conversation_metadata(conversation_id, content, timestamp)

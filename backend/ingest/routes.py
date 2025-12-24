@@ -73,11 +73,12 @@ async def ingest_guideline(
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
     # ✅ UPDATED: Fetch admin's settings instead of current user's
-    import database
-    if database.users_collection is None:
+    # ✅ UPDATED: Fetch admin's settings instead of current user's
+    from database import db_manager
+    if db_manager.users is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
         
-    admin_user = await database.users_collection.find_one({"role": "admin"})
+    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(
             status_code=500, 
@@ -92,7 +93,7 @@ async def ingest_guideline(
         )
 
     # ✅ NEW: Get current user's info for history tracking
-    current_user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -200,9 +201,9 @@ async def get_preview(session_id: str):
     # 2. If not found, try to get from database (historical records)
     try:
         if ObjectId.is_valid(session_id):
-            import database
-            if database.ingest_history_collection is not None:
-                record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+            from database import db_manager
+            if db_manager.ingest_history:
+                record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
                 if record and "preview_data" in record:
                     # When fetching from DB, the session_id IS the history_id
                     response_data = {
@@ -239,9 +240,9 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
     if ObjectId.is_valid(session_id):
-        import database
-        if database.ingest_history_collection is not None:
-            record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+        from database import db_manager
+        if db_manager.ingest_history:
+            record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
             
             if record and "preview_data" in record:
                 try:

@@ -1,6 +1,6 @@
 # backend/prompts/models.py
 
-import database
+from database import db_manager
 from typing import Optional, Dict
 from config import (
     DEFAULT_INGEST_PROMPT_USER_OPENAI,
@@ -13,13 +13,18 @@ from config import (
     DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
 )
 
+async def _ensure_db():
+    if not db_manager.client:
+        await db_manager.connect()
+
 async def get_default_prompts_from_db() -> Optional[Dict]:
     """Fetch default prompts from database"""
-    if database.default_prompts_collection is None:
+    await _ensure_db()
+    if db_manager.default_prompts is None:
         return None
     
     try:
-        default_doc = await database.default_prompts_collection.find_one({"_id": "system_defaults"})
+        default_doc = await db_manager.default_prompts.find_one({"_id": "system_defaults"})
         if default_doc:
             # Remove MongoDB _id field
             default_doc.pop("_id", None)
@@ -57,10 +62,12 @@ def get_default_prompts() -> Dict:
 
 async def get_user_prompts(user_id: str) -> Dict:
     """Fetch custom prompts for a specific user, or return defaults if none exist"""
-    if database.user_prompts_collection is None:
-        return get_default_prompts()
+    await _ensure_db()
     
-    user_prompts = await database.user_prompts_collection.find_one({"user_id": user_id})
+    if db_manager.user_prompts is None:
+         return get_default_prompts()
+    
+    user_prompts = await db_manager.user_prompts.find_one({"user_id": user_id})
     
     # If no custom prompts exist, return defaults from database (or config fallback)
     if not user_prompts:
@@ -95,20 +102,25 @@ async def get_user_prompts(user_id: str) -> Dict:
 
 async def save_user_prompts(user_id: str, prompts_data: dict):
     """Update or create custom prompts for a user"""
-    if database.user_prompts_collection is None:
-        raise ConnectionError("Database not initialized")
-        
-    await database.user_prompts_collection.update_one(
+    await _ensure_db()
+    
+    await db_manager.user_prompts.update_one(
         {"user_id": user_id},
         {"$set": prompts_data},
         upsert=True
     )
     return await get_user_prompts(user_id)
 
+async def initialize_user_prompts(user_id: str):
+    """Initialize default prompts for a new user"""
+    # Simply ensures the prompt document exists but empty or same as default
+    # Actually, we might want to COPY defaults to user collection if we want them decoupled later
+    # For now, let's just do nothing as get_user_prompts handles fallback.
+    pass
+
 async def reset_user_prompts(user_id: str):
     """Delete custom prompts for a user (revert to defaults)"""
-    if database.user_prompts_collection is None:
-        raise ConnectionError("Database not initialized")
+    await _ensure_db()
     
-    await database.user_prompts_collection.delete_one({"user_id": user_id})
+    await db_manager.user_prompts.delete_one({"user_id": user_id})
     return True

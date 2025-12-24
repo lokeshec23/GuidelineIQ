@@ -46,10 +46,12 @@ async def chat_with_session(
         Assistant's reply and updated chat history
     """
     # 1. Get API Key from Admin Settings
-    if database.users_collection is None:
+    # 1. Get API Key from Admin Settings
+    from database import db_manager
+    if db_manager.users is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
         
-    admin_user = await database.users_collection.find_one({"role": "admin"})
+    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(status_code=500, detail="Admin user not found")
     
@@ -64,15 +66,15 @@ async def chat_with_session(
     
     # Check if it's a valid ObjectId (history record)
     if ObjectId.is_valid(session_id):
-        if database.ingest_history_collection is None or database.compare_history_collection is None:
+        if db_manager.ingest_history is None or db_manager.compare_history is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
         
         # Try ingest history first
-        record = await database.ingest_history_collection.find_one({"_id": ObjectId(session_id)})
+        record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
         
         # If not found in ingest history, try compare history
         if not record:
-            record = await database.compare_history_collection.find_one({"_id": ObjectId(session_id)})
+            record = await db_manager.compare_history.find_one({"_id": ObjectId(session_id)})
     
     if not record:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -103,7 +105,7 @@ async def chat_with_session(
         pass 
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
-
+ 
     print(f"🔍 RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
     
     # Perform Vector Search
@@ -204,9 +206,10 @@ async def clear_session_history(session_id: str):
         Success message
     """
     try:
-        if database.chat_sessions_collection is None:
+        from database import db_manager
+        if db_manager.chat_sessions is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
-        result = await database.chat_sessions_collection.delete_many({"session_id": session_id})
+        result = await db_manager.chat_sessions.delete_many({"session_id": session_id})
         return {
             "message": f"Cleared {result.deleted_count} messages",
             "deleted_count": result.deleted_count

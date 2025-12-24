@@ -30,15 +30,7 @@ const DashboardPage = () => {
 
 
 
-    useEffect(() => {
-        if (activeTab === "ingest") {
-            fetchIngestHistory();
-        } else {
-            fetchCompareHistory();
-        }
-    }, [activeTab]);
-
-    const fetchIngestHistory = async () => {
+    const fetchIngestHistory = React.useCallback(async () => {
         try {
             setLoading(true);
             const response = await historyAPI.getIngestHistory();
@@ -49,9 +41,9 @@ const DashboardPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const fetchCompareHistory = async () => {
+    const fetchCompareHistory = React.useCallback(async () => {
         try {
             setLoading(true);
             const response = await historyAPI.getCompareHistory();
@@ -62,9 +54,17 @@ const DashboardPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const handleView = (record) => {
+    useEffect(() => {
+        if (activeTab === "ingest") {
+            fetchIngestHistory();
+        } else {
+            fetchCompareHistory();
+        }
+    }, [activeTab, fetchIngestHistory, fetchCompareHistory]);
+
+    const handleView = React.useCallback((record) => {
         console.log("View record:", record);
         if (!record.preview_data || record.preview_data.length === 0) {
             showToast.warning("No preview data available for this record");
@@ -72,7 +72,13 @@ const DashboardPage = () => {
         }
 
         // Set title based on record type
-        if (activeTab === "ingest") {
+        // Note: We use the *current* activeTab state here. 
+        // If this handler closes over stale state, it might be an issue, but since activeTab is in dependency 
+        // array (or we can derive from record structure), it should be fine.
+        // Actually, safer to derive from record properties if possible, but simplicity first with correct deps.
+        const isIngest = record.investor !== undefined; // Simple heuristic or rely on activeTab
+
+        if (isIngest) {
             setPreviewTitle(`${record.investor} - ${record.version}`);
         } else {
             setPreviewTitle(`${record.uploadedFile1} vs ${record.uploadedFile2}`);
@@ -81,9 +87,9 @@ const DashboardPage = () => {
         setPreviewData(record.preview_data);
         setPreviewRecord(record);
         setPreviewVisible(true);
-    };
+    }, []);
 
-    const handleDownload = () => {
+    const handleDownload = React.useCallback(() => {
         if (!previewRecord) return;
 
         try {
@@ -97,14 +103,14 @@ const DashboardPage = () => {
             console.error("Download failed:", error);
             // Toast is handled by API interceptor
         }
-    };
+    }, [activeTab, previewRecord]);
 
-    const handleDelete = (record) => {
+    const handleDelete = React.useCallback((record) => {
         setRecordToDelete(record);
         setDeleteModalVisible(true);
-    };
+    }, []);
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = React.useCallback(async () => {
         if (!recordToDelete) return;
 
         const isIngest = activeTab === "ingest";
@@ -136,23 +142,23 @@ const DashboardPage = () => {
         } finally {
             setDeleteLoading(false);
         }
-    };
+    }, [recordToDelete, activeTab, fetchIngestHistory, fetchCompareHistory]);
 
-    const handleCancelDelete = () => {
+    const handleCancelDelete = React.useCallback(() => {
         setDeleteModalVisible(false);
         setRecordToDelete(null);
-    };
+    }, []);
 
-    const handleDeleteAll = () => {
+    const handleDeleteAll = React.useCallback(() => {
         if ((activeTab === "ingest" && ingestHistory.length === 0) ||
             (activeTab === "compare" && compareHistory.length === 0)) {
             showToast.info("No records to delete");
             return;
         }
         setDeleteAllModalVisible(true);
-    };
+    }, [activeTab, ingestHistory.length, compareHistory.length]);
 
-    const handleConfirmDeleteAll = async () => {
+    const handleConfirmDeleteAll = React.useCallback(async () => {
         const isIngest = activeTab === "ingest";
 
         try {
@@ -181,9 +187,9 @@ const DashboardPage = () => {
         } finally {
             setDeleteLoading(false);
         }
-    };
+    }, [activeTab, fetchIngestHistory, fetchCompareHistory]);
 
-    const ingestColumns = [
+    const ingestColumns = React.useMemo(() => [
         {
             title: "S.no",
             key: "index",
@@ -288,9 +294,9 @@ const DashboardPage = () => {
                 </Space>
             ),
         },
-    ];
+    ], [handleView, handleDelete]);
 
-    const compareColumns = [
+    const compareColumns = React.useMemo(() => [
         {
             title: "S.no",
             key: "index",
@@ -333,10 +339,10 @@ const DashboardPage = () => {
                 </Space>
             ),
         },
-    ];
+    ], [handleView, handleDelete]);
 
     // Preview modal columns - dynamic based on data type
-    const previewColumns = activeTab === "ingest" ? [
+    const previewColumns = React.useMemo(() => activeTab === "ingest" ? [
         {
             title: "Category",
             dataIndex: "category",
@@ -398,7 +404,7 @@ const DashboardPage = () => {
             key: "comparison_notes",
             width: "10%",
         },
-    ];
+    ], [activeTab]);
 
     return (
         <div className="px-8 py-6">

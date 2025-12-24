@@ -62,10 +62,10 @@ async def get_current_user(authorization: str = Header(None)):
 
     user_id = payload.get("sub")
     
-    if database.users_collection is None:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-        
-    user = await database.users_collection.find_one({"_id": ObjectId(user_id)})
+    # Use helper from models instead of direct DB access
+    from auth.models import get_user_by_id
+    user = await get_user_by_id(user_id)
+    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

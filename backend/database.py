@@ -1,55 +1,86 @@
 # backend/database.py
-
+import logging
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from config import MONGO_URI, DB_NAME
 
-# Initialize MongoDB client and database
-client = None
-db = None
-users_collection = None
-settings_collection = None
-ingest_history_collection = None
-compare_history_collection = None
-user_prompts_collection = None
-default_prompts_collection = None
-gemini_file_cache_collection = None
-chat_sessions_collection = None
-chat_conversations_collection = None
+# Configure logging
+logger = logging.getLogger(__name__)
 
-# GridFS for PDF storage
-fs = None
-
-def get_database():
-    """Get or create database connection."""
-    global client, db, users_collection, settings_collection
-    global ingest_history_collection, compare_history_collection
-    global user_prompts_collection, default_prompts_collection
-    global gemini_file_cache_collection
-    global chat_sessions_collection, chat_conversations_collection, fs
+class DatabaseManager:
+    """
+    Singleton class to manage MongoDB connection.
+    Follows the Singleton pattern to ensure only one database connection exists.
+    """
+    _instance = None
+    client: AsyncIOMotorClient = None
+    db = None
+    fs = None
     
-    if client is None:
+    # Collections
+    users = None
+    settings = None
+    ingest_history = None
+    compare_history = None
+    user_prompts = None
+    default_prompts = None
+    gemini_file_cache = None
+    chat_sessions = None
+    chat_conversations = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DatabaseManager, cls).__new__(cls)
+        return cls._instance
+
+    async def connect(self):
+        """Initialize MongoDB connection."""
+        if self.client:
+            return  # Already connected
+
         try:
-            client = AsyncIOMotorClient(MONGO_URI)
-            db = client[DB_NAME]
-            users_collection = db["users"]
-            settings_collection = db["settings"]
-            ingest_history_collection = db["ingest_history"]
-            compare_history_collection = db["compare_history"]
-            user_prompts_collection = db["user_prompts"]
-            default_prompts_collection = db["default_prompts"]
-            gemini_file_cache_collection = db["gemini_file_cache"]
-            chat_sessions_collection = db["chat_sessions"]
-            chat_conversations_collection = db["chat_conversations"]
+            logger.info("Connecting to MongoDB...")
+            self.client = AsyncIOMotorClient(MONGO_URI)
+            self.db = self.client[DB_NAME]
             
-            # Initialize GridFS bucket for PDF storage
-            fs = AsyncIOMotorGridFSBucket(db)
+            # Initialize Collections
+            self.users = self.db["users"]
+            self.settings = self.db["settings"]
+            self.ingest_history = self.db["ingest_history"]
+            self.compare_history = self.db["compare_history"]
+            self.user_prompts = self.db["user_prompts"]
+            self.default_prompts = self.db["default_prompts"]
+            self.gemini_file_cache = self.db["gemini_file_cache"]
+            self.chat_sessions = self.db["chat_sessions"]
+            self.chat_conversations = self.db["chat_conversations"]
             
-            print("✅ MongoDB connection successful.")
-            print("✅ GridFS bucket initialized.")
+            # Initialize GridFS
+            self.fs = AsyncIOMotorGridFSBucket(self.db)
+            
+            logger.info("✅ MongoDB connection successful.")
+            
         except Exception as e:
-            print(f"❌ MongoDB connection failed: {e}")
-    
-    return db
+            logger.error(f"❌ MongoDB connection failed: {e}")
+            raise e
 
-# Initialize on import - REMOVED to prevent event loop mismatch
-# The database will be initialized by the startup event in main.py
+    async def close(self):
+        """Close MongoDB connection."""
+        if self.client:
+            self.client.close()
+            self.client = None
+            logger.info("MongoDB connection closed.")
+
+# Global instance
+db_manager = DatabaseManager()
+
+async def get_database():
+    """Dependency to get the database instance."""
+    if not db_manager.client:
+        await db_manager.connect()
+    return db_manager.db
+
+# Collection getters for backward compatibility / direct access if strictly needed
+# Ideally, services should use the db_manager instance or the get_database dependency
+def get_collection(collection_name: str):
+    if not db_manager.db:
+         raise RuntimeError("Database not initialized")
+    return db_manager.db[collection_name]

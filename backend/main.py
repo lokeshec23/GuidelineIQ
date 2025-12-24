@@ -22,11 +22,32 @@ from history.routes import router as history_router
 from prompts.routes import router as prompts_router
 from chat.routes import router as chat_router
 
+# Startup/Shutdown Management
+from contextlib import asynccontextmanager
+from database import db_manager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI.
+    Handles startup and shutdown events.
+    """
+    # Startup
+    await db_manager.connect()
+    print("🚀 Application started successfully")
+    
+    yield
+    
+    # Shutdown
+    await db_manager.close()
+    print("🛑 Application shut down")
+
 # Initialize FastAPI
 app = FastAPI(
     title="Guideline Extraction & Comparison System",
     description="Extract and compare mortgage guidelines using custom prompts",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # CORS
@@ -46,14 +67,6 @@ app.include_router(compare_router)
 app.include_router(history_router)
 app.include_router(prompts_router)
 app.include_router(chat_router)
-
-# Startup event to initialize database
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database connection on startup."""
-    from database import get_database
-    get_database()
-    print("🚀 Application started successfully")
 
 # Health check
 @app.get("/")

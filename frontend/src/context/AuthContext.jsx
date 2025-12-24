@@ -81,10 +81,17 @@ export const AuthProvider = ({ children }) => {
     showToast.info("Logged out successfully");
   };
 
+  const value = React.useMemo(() => ({
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    isAdmin
+  }), [user, loading, isAdmin]);
+
   return (
-    <AuthContext.Provider
-      value={{ user, loading, login, register, logout, isAdmin }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
