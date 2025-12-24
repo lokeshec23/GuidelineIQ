@@ -271,6 +271,7 @@ const DashboardPage = () => {
             title: "Action",
             key: "action",
             width: 120,
+            fixed: "right",
             render: (_, record) => (
                 <Space size="small">
                     <Button
@@ -315,6 +316,7 @@ const DashboardPage = () => {
             title: "Action",
             key: "action",
             width: 120,
+            fixed: "right",
             render: (_, record) => (
                 <Space size="small">
                     <Button
@@ -429,6 +431,7 @@ const DashboardPage = () => {
                             loading={loading}
                             rowKey="id"
                             bordered
+                            scroll={{ x: "max-content" }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
@@ -449,6 +452,7 @@ const DashboardPage = () => {
                             loading={loading}
                             rowKey="id"
                             bordered
+                            scroll={{ x: "max-content" }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
