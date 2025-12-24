@@ -1,30 +1,29 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import MainLayout from "./components/Layout/MainLayout";
-import LoginPage from "./pages/Auth/LoginPage";
-import RegisterPage from "./pages/Auth/RegisterPage";
-import DashboardPage from "./pages/Dashboard/DashboardPage";
-import IngestPage from "./pages/Ingest/IngestPage";
-import ComparePage from "./pages/Compare/ComparePage";
-import SettingsPage from "./pages/Settings/SettingsPage";
-import PromptsPage from "./pages/Prompts/PromptsPage";
-import IngestionPromptPage from "./pages/Prompts/IngestionPromptPage";
-import ComparisonPromptPage from "./pages/Prompts/ComparisonPromptPage";
 import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
 import { Toaster } from 'react-hot-toast';
+import LoadingFallback from "./components/common/LoadingFallback";
+
+// Lazy load page components
+const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/Auth/RegisterPage"));
+const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage"));
+const IngestPage = lazy(() => import("./pages/Ingest/IngestPage"));
+const ComparePage = lazy(() => import("./pages/Compare/ComparePage"));
+const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage"));
+const PromptsPage = lazy(() => import("./pages/Prompts/PromptsPage"));
+const IngestionPromptPage = lazy(() => import("./pages/Prompts/IngestionPromptPage"));
+const ComparisonPromptPage = lazy(() => import("./pages/Prompts/ComparisonPromptPage"));
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" tip="Loading..." />
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   if (!user) {
@@ -39,11 +38,7 @@ const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spin size="large" tip="Loading..." />
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   if (user) {
@@ -55,92 +50,94 @@ const PublicRoute = ({ children }) => {
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <RegisterPage />
-          </PublicRoute>
-        }
-      />
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <RegisterPage />
+            </PublicRoute>
+          }
+        />
 
-      {/* Protected Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/ingest"
-        element={
-          <ProtectedRoute>
-            <IngestPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/compare"
-        element={
-          <ProtectedRoute>
-            <ComparePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <SettingsPage />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protected Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ingest"
+          element={
+            <ProtectedRoute>
+              <IngestPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/compare"
+          element={
+            <ProtectedRoute>
+              <ComparePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/prompts"
-        element={
-          <ProtectedRoute>
-            <PromptsPage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/prompts"
+          element={
+            <ProtectedRoute>
+              <PromptsPage />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/ingestion-prompt"
-        element={
-          <ProtectedRoute>
-            <IngestionPromptPage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/ingestion-prompt"
+          element={
+            <ProtectedRoute>
+              <IngestionPromptPage />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/comparison-prompt"
-        element={
-          <ProtectedRoute>
-            <ComparisonPromptPage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/comparison-prompt"
+          element={
+            <ProtectedRoute>
+              <ComparisonPromptPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* Redirect root to dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* 404 */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* 404 */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
