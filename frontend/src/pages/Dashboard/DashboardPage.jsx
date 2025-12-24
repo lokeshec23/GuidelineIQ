@@ -201,6 +201,27 @@ const DashboardPage = () => {
             key: "version",
         },
         {
+            title: "Guideline Type",
+            dataIndex: "guideline_type",
+            key: "guideline_type",
+            width: 120,
+            render: (text) => text || "-",
+        },
+        {
+            title: "Program Type",
+            dataIndex: "program_type",
+            key: "program_type",
+            width: 120,
+            render: (text) => text || "-",
+        },
+        {
+            title: "Page Range",
+            dataIndex: "page_range",
+            key: "page_range",
+            width: 100,
+            render: (text) => text || "All",
+        },
+        {
             title: "Effective Date",
             dataIndex: "effective_date",
             key: "effective_date",

@@ -420,6 +420,7 @@ const IngestPage = () => {
           <Form.Item
             name="guideline_type"
             label={<span className="text-gray-600">Guideline Type</span>}
+            rules={[{ required: true, message: "Guideline Type is required" }]}
             className="mb-0"
           >
             <Input size="large" placeholder="e.g., Agency, Jumbo" className="rounded-md" />
@@ -428,6 +429,7 @@ const IngestPage = () => {
           <Form.Item
             name="program_type"
             label={<span className="text-gray-600">Program Type</span>}
+            rules={[{ required: true, message: "Program Type is required" }]}
             className="mb-0"
           >
             <Input size="large" placeholder="e.g., Fixed, ARM" className="rounded-md" />

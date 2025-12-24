@@ -48,6 +48,9 @@ async def get_user_ingest_history(user_id: str) -> List[Dict]:
             "effective_date": doc.get("effective_date"),
             "expiry_date": doc.get("expiry_date"),
             "gridfs_file_id": doc.get("gridfs_file_id"),  # ✅ UPDATED: Return GridFS file ID
+            "page_range": doc.get("page_range"),
+            "guideline_type": doc.get("guideline_type"),
+            "program_type": doc.get("program_type"),
             "created_at": doc["created_at"]
         })
     return history
