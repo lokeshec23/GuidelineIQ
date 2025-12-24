@@ -451,23 +451,25 @@ const IngestPage = () => {
           </h2>
 
           {!file ? (
-            <Dragger
-              {...uploadProps}
-              className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200"
-              style={{ padding: '16px' }}
-            >
-              <div className="py-6">
-                <p className="ant-upload-drag-icon mb-2">
-                  <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
-                </p>
-                <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                  Supported Format: PDF
-                </p>
-              </div>
-            </Dragger>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200">
+              <Dragger
+                {...uploadProps}
+                className="!border-none"
+                style={{ padding: '16px', background: 'transparent' }}
+              >
+                <div className="py-6">
+                  <p className="ant-upload-drag-icon mb-2">
+                    <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
+                  </p>
+                  <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
+                    Click to upload or drag and drop
+                  </p>
+                  <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
+                    Supported Format: PDF
+                  </p>
+                </div>
+              </Dragger>
+            </div>
           ) : (
             <div className="border-2 border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
               <div className="flex items-center gap-3">
