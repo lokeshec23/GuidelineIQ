@@ -7,15 +7,13 @@
 /* to load font */
 @font-face {
   font-family: "Creato Display";
-  src: url("/src/assets/fonts/creato/CreatoDisplay-Regular.ttf")
-    format("truetype");
+  src: url("/src/assets/fonts/creato/CreatoDisplay-Regular.ttf") format("truetype");
   font-weight: 400;
 }
 
 @font-face {
   font-family: "Creato Display";
-  src: url("/src/assets/fonts/creato/CreatoDisplay-SemiBold.ttf")
-    format("truetype");
+  src: url("/src/assets/fonts/creato/CreatoDisplay-SemiBold.ttf") format("truetype");
   font-weight: 600;
 }
 
@@ -36,11 +34,30 @@ body,
 }
 
 /* Custom scrollbar for main content only */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 1px;
+  height: 1px;
 }
-/* ... (rest of scrollbar styles are the same) ... */
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1890ff;
+  border-radius: 1px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #40a9ff;
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1890ff transparent;
+}
 
 /* Global styles */
 body {
@@ -48,7 +65,8 @@ body {
   font-family: "Jura", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f0f2f5; /* A slightly softer background color */
+  background-color: #f0f2f5;
+  /* A slightly softer background color */
 }
 
 /* Use Poppins for all headings for a modern look */
