@@ -90,3 +90,7 @@ DSCR_Parameters = [
     "Vesting & Ownership",
     "Permanent Resident Aliens"
 ]
+
+DSCR_Parameter_Aliases = {
+    "Age of Loan Documentation": ["AGE OF DOCUMENT REQUIREMENTS"]
+}

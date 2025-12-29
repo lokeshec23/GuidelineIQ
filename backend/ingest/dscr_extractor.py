@@ -7,7 +7,7 @@ from typing import List, Dict
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-from ingest.dscr_config import DSCR_Parameters
+from ingest.dscr_config import DSCR_Parameters, DSCR_Parameter_Aliases
 from chat.rag_service import RAGService
 from utils.llm_provider import LLMProvider
 
@@ -60,10 +60,20 @@ async def extract_dscr_parameters(
                 provider = llm.provider 
                 api_key = llm.api_key
                 
+                # Check for aliases
+                search_query = param
+                if param in DSCR_Parameter_Aliases:
+                    aliases = DSCR_Parameter_Aliases[param]
+                    # Create a combined query or just use the alias if it's more specific?
+                    # Let's try combining: "Age of Loan Documentation AGE OF DOCUMENT REQUIREMENTS"
+                    # But the RAG search works better with semantic similarity.
+                    # If the PDF says "AGE OF DOCUMENT REQUIREMENTS", searching for that is best.
+                    search_query = f"{param} {' '.join(aliases)}"
+                                
                 # Search for context
                 # "2-1 Buydown" -> Search query
                 search_results = await rag_service.search(
-                    query=param,
+                    query=search_query,
                     provider=provider,
                     api_key=api_key,
                     n_results=5,
@@ -153,8 +163,14 @@ async def extract_dscr_parameters_safe(
                 
                 filter_metadata = {"gridfs_file_id": gridfs_file_id}
                 
+                # Check for aliases
+                search_query = param
+                if param in DSCR_Parameter_Aliases:
+                    aliases = DSCR_Parameter_Aliases[param]
+                    search_query = f"{param} {' '.join(aliases)}"
+
                 search_results = await rag_service.search(
-                    query=param,
+                    query=search_query,
                     provider=provider,
                     api_key=api_key,
                     n_results=5,
