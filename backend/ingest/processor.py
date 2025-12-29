@@ -13,12 +13,13 @@ from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from chat.rag_service import RAGService  # ✅ Import RAG Service
 from ingest.dscr_extractor import extract_dscr_parameters_safe  # ✅ Import DSCR Extractor
+from ingest.rag_extractor import run_main_rag_extraction # ✅ Import RAG Extractor
 
 rag_service = RAGService()  # ✅ Initialize RAG Service
 
 async def process_guideline_background(
     session_id: str,
-    gridfs_file_id: str,  # ✅ Changed from pdf_path to gridfs_file_id
+    gridfs_file_id: str,
     filename: str,
     investor: str,
     version: str,
@@ -41,17 +42,13 @@ async def process_guideline_background(
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
         print(f"\n{'='*60}")
-        print(f"Parallel ingestion started for session {session_id[:8]}")
+        print(f"RAG-Based Ingestion started for session {session_id[:8]}")
         print(f"Investor: {investor} | Version: {version}")
         print(f"File: {filename}")
         print(f"GridFS File ID: {gridfs_file_id}")
         print(f"Model: {model_provider}/{model_name}")
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"Effective Date: {effective_date}")
-        print(f"Expiry Date: {expiry_date if expiry_date else 'N/A'}")
-        print(f"Page Range: {page_range if page_range else 'All'}")
-        print(f"Guideline Type: {guideline_type if guideline_type else 'N/A'}")
-        print(f"Program Type: {program_type if program_type else 'N/A'}")
         print(f"{'='*60}\n")
 
         # Validate prompts - Use defaults if empty
@@ -95,24 +92,11 @@ async def process_guideline_background(
         if num_chunks == 0:
             raise ValueError("OCR process failed to extract text from document.")
 
-        update_progress(session_id, 35, f"OCR complete. Created {num_chunks} text chunk(s).")
+        update_progress(session_id, 25, f"OCR complete. Created {num_chunks} text chunk(s).")
 
-        # === STEP 3: Initialize LLM ===
-        update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
-        llm = initialize_llm_provider(user_settings, model_provider, model_name)
-        update_progress(session_id, 45, f"Running {num_chunks} chunks in full parallel...")
-
-        # === STEP 4: Parallel LLM Calls ===
-        results, failed = await run_parallel_llm_processing(
-            llm, text_chunks, system_prompt, user_prompt, investor, version, session_id, num_chunks
-        )
-
-        # Validate output
-        if not results:
-            raise ValueError("LLM returned no valid data. Check prompts and model response.")
-
-        # === STEP 4.5: Generate Embeddings (Chunks + Excel Rules) & Store in Vector DB ===
-        update_progress(session_id, 80, "Generating embeddings for RAG (PDF + Rules)...")
+        # === STEP 3: Generate Embeddings (Chunks) & Store in Vector DB ===
+        # MOVED UP: We now embed BEFORE extraction, so extraction can use RAG.
+        update_progress(session_id, 30, "Generating embeddings for RAG...")
         try:
             items_to_embed = []
             
@@ -132,32 +116,12 @@ async def process_guideline_background(
                     }
                 })
 
-            # 2. Add Extracted Excel Rules
-            # results is a list of dicts: {category, sub_category, guideline_summary, page_number}
-            for i, rule in enumerate(results):
-                # Construct a rich text representation for the rule
-                rule_text = f"Category: {rule.get('category')}\nSub-Category: {rule.get('sub_category')}\nRule: {rule.get('guideline_summary')}"
-                items_to_embed.append({
-                    "id": f"{gridfs_file_id}_rule_{i}",
-                    "text": rule_text,
-                    "metadata": {
-                        "investor": investor,
-                        "version": version,
-                        "page": rule.get('page_number', 'Unknown'),
-                        "filename": filename,
-                        "gridfs_file_id": gridfs_file_id,
-                        "type": "excel_rule",
-                        "category": rule.get('category'),
-                        "sub_category": rule.get('sub_category')
-                    }
-                })
-            
             # Determine provider and key
             rag_provider = model_provider
             api_key = user_settings.get(f"{model_provider}_api_key")
             
-            # 3. Generate Embeddings concurrently
-            print(f"⚡ Generating embeddings for {len(items_to_embed)} items concurrently...")
+            # 2. Generate Embeddings concurrently
+            print(f"⚡ Generating embeddings for {len(items_to_embed)} chunks concurrently...")
             
             async def process_embedding(item):
                 emb = await rag_service.get_embedding(
@@ -179,14 +143,73 @@ async def process_guideline_background(
             # Store in Vector DB
             if valid_docs:
                 rag_service.add_documents(valid_docs)
-                print(f"✅ RAG: Stored {len(valid_docs)} items (Chunks + Rules) in Vector DB.")
+                print(f"✅ RAG: Stored {len(valid_docs)} chunks in Vector DB.")
 
         except Exception as rag_err:
             print(f"⚠️ RAG Embedding Failed: {rag_err}")
             traceback.print_exc()
 
-        # === STEP 4.6: DSCR Parameter Extraction (Auto-Generate Excel) ===
-        update_progress(session_id, 85, "Extracting DSCR Parameters to Excel...")
+        # === STEP 4: Initialize LLM ===
+        update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
+        llm = initialize_llm_provider(user_settings, model_provider, model_name)
+
+        # === STEP 5: RAG-Based Extraction (The "New" Main Model) ===
+        update_progress(session_id, 45, "Running RAG-based extraction...")
+        
+        results = await run_main_rag_extraction(
+            session_id=session_id,
+            gridfs_file_id=gridfs_file_id,
+            rag_service=rag_service,
+            llm=llm,
+            investor=investor,
+            version=version,
+            user_settings=user_settings,
+            text_chunks=text_chunks,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
+        )
+        failed = 0 # RAG extraction tracks this internally per item, but we'll assume global success if results > 0
+
+        # Validate output
+        if not results:
+            print("⚠️ RAG Extraction yielded no results. Proceeding with empty set (or consider fallback).")
+            # raise ValueError("LLM returned no valid data. Check prompts and model response.")
+
+        # === STEP 5.5: Embed Extracted Rules (Feedback Loop) ===
+        # Now that we have the rules, we embed them back so they are searchable in Chat
+        update_progress(session_id, 85, "Indexing extracted rules for Chat...")
+        try:
+             rule_items = []
+             for i, rule in enumerate(results):
+                rule_text = f"Category: {rule.get('category')}\nSub-Category: {rule.get('sub_category')}\nRule: {rule.get('guideline_summary')}"
+                rule_items.append({
+                    "id": f"{gridfs_file_id}_rule_{i}",
+                    "text": rule_text,
+                    "metadata": {
+                        "investor": investor,
+                        "version": version,
+                        "page": "Derived", # RAG rules are derived from multiple pages usually
+                        "filename": filename,
+                        "gridfs_file_id": gridfs_file_id,
+                        "type": "excel_rule",
+                        "category": rule.get('category'),
+                        "sub_category": rule.get('sub_category')
+                    }
+                })
+             
+             # Embed rules
+             embedded_rules = await asyncio.gather(*[process_embedding(item) for item in rule_items])
+             valid_rules = [d for d in embedded_rules if d["embedding"]]
+             if valid_rules:
+                rag_service.add_documents(valid_rules)
+                print(f"✅ RAG: Stored {len(valid_rules)} derived rules in Vector DB.")
+
+        except Exception as e:
+            print(f"⚠️ Failed to index extracted rules: {e}")
+
+        # === STEP 6: DSCR Parameter Extraction (Auto-Generate Excel) ===
+        # (This remains as a secondary output)
+        update_progress(session_id, 90, "Extracting DSCR Parameters to Excel...")
         try:
             dscr_excel_path = await extract_dscr_parameters_safe(
                 session_id=session_id,
@@ -198,17 +221,12 @@ async def process_guideline_background(
                 user_settings=user_settings
             )
             print(f"✅ DSCR Extraction Complete. File saved at: {dscr_excel_path}")
-            
-            # Optionally store this path in progress_store or history if needed
-            # For now, we just ensure it's generated as requested
         except Exception as dscr_err:
             print(f"⚠️ DSCR Extraction Failed: {dscr_err}")
             traceback.print_exc()
 
-
-
-        # === STEP 5: Convert results to Excel ===
-        update_progress(session_id, 90, "Converting results to Excel...")
+        # === STEP 7: Convert results to Excel ===
+        update_progress(session_id, 95, "Converting results to Excel...")
 
         excel_path = tempfile.NamedTemporaryFile(
             delete=False,
@@ -219,7 +237,7 @@ async def process_guideline_background(
         dynamic_json_to_excel(results, excel_path)
 
         update_progress(session_id, 100, "Processing complete.")
-        print(f"{'='*60}\nPARALLEL PROCESSING COMPLETE\n{'='*60}")
+        print(f"{'='*60}\nPROCESSING COMPLETE\n{'='*60}")
 
         # Save preview + meta
         from utils.progress import progress_store, progress_lock

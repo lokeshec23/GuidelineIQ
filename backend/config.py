@@ -73,6 +73,41 @@ def get_model_config(model_name: str) -> dict:
         "recommended_chunk": 1500,
     })
 
+# --- RAG Prompts ---
+
+DEFAULT_TOC_EXTRACTION_PROMPT = """You are a document structure expert.
+Your goal is to identify the Table of Contents (TOC) or the list of Sections/Categories from the start of a mortgage guideline document.
+
+### OUTPUT FORMAT
+Return a valid JSON array of objects.
+Each object MUST have:
+- "category": The section name (e.g. "Credit", "Income", "Collateral")
+- "sub_category": The specific subsection (e.g. "Credit Score", "Salaried Income", "Condos")
+
+If there are no explicit subcategories, use the same name for both.
+Do not invent sections. Only list what is present or referenced in the TOC.
+"""
+
+DEFAULT_RAG_RULE_EXTRACTION_PROMPT = """You are a Mortgage Guideline Extractor.
+You will be given a specific topic (Category/Sub-Category) and a set of retrieved text chunks (Context).
+
+### GOAL
+Summarize the specific requirements/rules for the target topic found in the Context.
+
+### OUTPUT FORMAT
+Return a valid JSON array of objects.
+Each object MUST have:
+- "category": (Use the target category)
+- "sub_category": (Use the target sub-category)
+- "guideline_summary": A concise summary (2-4 lines) of the rule.
+
+### RULES
+- Only extract information relevant to the Target Topic.
+- If the context contradicts itself, mention the specific conditions (e.g. "Min 660 for LTV < 80, else 680").
+- If NO information is found in the context for this specific topic, strictly return [].
+- Do not add conversational text.
+"""
+
 # --- Default Prompts for OpenAI ---
 DEFAULT_INGEST_PROMPT_USER_OPENAI = """You are a specialized AI data extractor for the mortgage industry. Your only function is to extract specific rules from a provided text and structure them into a clean, valid JSON array.
  
