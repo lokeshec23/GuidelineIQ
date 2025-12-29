@@ -202,7 +202,7 @@ async def get_preview(session_id: str):
     try:
         if ObjectId.is_valid(session_id):
             from database import db_manager
-            if db_manager.ingest_history:
+            if db_manager.ingest_history is not None:
                 record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
                 if record and "preview_data" in record:
                     # When fetching from DB, the session_id IS the history_id
@@ -241,7 +241,7 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
     # 2. If not found in memory, try to regenerate from DB (historical records)
     if ObjectId.is_valid(session_id):
         from database import db_manager
-        if db_manager.ingest_history:
+        if db_manager.ingest_history is not None:
             record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
             
             if record and "preview_data" in record:

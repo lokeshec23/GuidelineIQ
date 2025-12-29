@@ -66,8 +66,9 @@ async def compare_guidelines(
         )
     
     # Fetch admin's settings
-    from database import users_collection
-    admin_user = await users_collection.find_one({"role": "admin"})
+    # Fetch admin's settings
+    from database import db_manager
+    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(
             status_code=500, 
@@ -110,7 +111,7 @@ async def compare_guidelines(
         print(f"File 2 saved: {len(content2) / 1024:.2f} KB")
     
     # ✅ NEW: Get current user's info for history tracking
-    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -154,11 +155,12 @@ async def compare_from_db(
         raise HTTPException(status_code=400, detail="Exactly 2 guidelines must be selected for comparison")
 
     # Fetch history records
-    from database import ingest_history_collection, users_collection
+    # Fetch history records
+    from database import db_manager
     
     records = []
     for record_id in request.ingest_ids:
-        record = await ingest_history_collection.find_one({
+        record = await db_manager.ingest_history.find_one({
             "_id": ObjectId(record_id),
             "user_id": user_id
         })
@@ -197,8 +199,9 @@ async def compare_from_db(
         raise HTTPException(status_code=500, detail=f"Failed to prepare files: {str(e)}")
 
     # Fetch admin settings
-    from database import users_collection
-    admin_user = await users_collection.find_one({"role": "admin"})
+    # Fetch admin settings
+    from database import db_manager
+    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(status_code=500, detail="System configuration error")
         
@@ -207,7 +210,7 @@ async def compare_from_db(
         raise HTTPException(status_code=403, detail="API keys not configured")
 
     # Get current user info
-    current_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
     
     # Start processing
     session_id = str(uuid.uuid4())
@@ -339,8 +342,8 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
     if ObjectId.is_valid(session_id):
-        from database import compare_history_collection
-        record = await compare_history_collection.find_one({"_id": ObjectId(session_id)})
+        from database import db_manager
+        record = await db_manager.compare_history.find_one({"_id": ObjectId(session_id)})
         
         if record and "preview_data" in record:
             try:

@@ -3,6 +3,7 @@ from chromadb.config import Settings
 import os
 from typing import List, Dict, Optional
 import google.generativeai as genai
+import random
 from openai import OpenAI, AzureOpenAI
 import asyncio
 import functools
@@ -47,16 +48,31 @@ class RAGService:
 
             elif provider == "gemini":
                 genai.configure(api_key=api_key)
-                # Run sync call in thread
-                func = functools.partial(
-                    genai.embed_content,
-                    model=EMBEDDING_MODEL_GEMINI,
-                    content=text,
-                    task_type="retrieval_document",
-                    title="Guideline Chunk" 
-                )
-                result = await asyncio.to_thread(func)
-                return result['embedding']
+                
+                # Retry logic for Gemini embedding
+                max_retries = 5
+                base_delay = 1
+                
+                for attempt in range(max_retries):
+                    try:
+                        # Run sync call in thread
+                        func = functools.partial(
+                            genai.embed_content,
+                            model=EMBEDDING_MODEL_GEMINI,
+                            content=text,
+                            task_type="retrieval_document",
+                            title="Guideline Chunk" 
+                        )
+                        result = await asyncio.to_thread(func)
+                        return result['embedding']
+                    except Exception as e:
+                        if attempt == max_retries - 1:
+                            print(f"❌ Gemini embedding failed after {max_retries} attempts: {e}")
+                            raise e
+                        
+                        sleep_time = (base_delay * (2 ** attempt)) + (random.random() * 0.5)
+                        print(f"⚠️ Gemini embedding failed (Attempt {attempt+1}/{max_retries}). Retrying in {sleep_time:.2f}s... Error: {e}")
+                        await asyncio.sleep(sleep_time)
             
             else:
                 raise ValueError(f"Unsupported provider for embeddings: {provider}")
