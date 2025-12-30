@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-from ingest.dscr_config import DSCR_Parameters, DSCR_Parameter_Aliases
+from ingest.dscr_config import DSCR_GUIDELINES
 from chat.rag_service import RAGService
 from utils.llm_provider import LLMProvider
 
@@ -33,8 +33,14 @@ async def extract_dscr_parameters_safe(
     # Concurrency control
     semaphore = asyncio.Semaphore(10)
     
-    async def process_one(param: str) -> Dict:
+    async def process_one(guideline_config: Dict) -> Dict:
         async with semaphore:
+            param = guideline_config["parameter"]
+            # Hardcoded values
+            category = guideline_config.get("category", "General")
+            subcategory = guideline_config.get("subcategory", "General")
+            ppe_field = guideline_config.get("ppe_field", "Text")
+            
             try:
                 # Setup provider/key (reusing logic from thought process)
                 provider = llm.provider 
@@ -45,8 +51,9 @@ async def extract_dscr_parameters_safe(
                 # Check for aliases
                 base_query = f"What are the requirements for {param}?"
                 search_query = base_query
-                if param in DSCR_Parameter_Aliases:
-                    aliases = DSCR_Parameter_Aliases[param]
+                
+                aliases = guideline_config.get("aliases", [])
+                if aliases:
                     search_query = f"{param} {' '.join(aliases)}"
 
                 search_results = await rag_service.search(
@@ -66,12 +73,14 @@ async def extract_dscr_parameters_safe(
                 if not context_text:
                     return {
                         "DSCR_Parameters": param, 
-                        "NQMF Investor DSCR": "Not Found",
-                        "rag_variance": "Not Found",
-                        "rag_subcat": "Not Found"
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
+                        "NQMF Investor DSCR": "Not Found"
                     }
                 
                 # Enhanced Prompt for Detailed Extraction
+                # Note: We no longer ask for category/subcategory since they are hardcoded
                 system_prompt = "You are a Mortgage Policy Summarizer."
                 user_msg = f"""
                 Initial Request: {base_query}
@@ -80,12 +89,9 @@ async def extract_dscr_parameters_safe(
                 {context_text}
                 
                 Task:
-                1. Extract the specific "Variance Category" and "SubCategory" that this guideline belongs to based strictly on the context.
-                2. Create a bulleted list of the specific requirements, limits, and conditions for "{param}" based strictly on the context.
+                Create a bulleted list of the specific requirements, limits, and conditions for "{param}" based strictly on the context.
                 
-                Format your response as a JSON object with the following keys:
-                - "variance_category": (string)
-                - "subcategory": (string)
+                Format your response as a JSON object with the following key:
                 - "summary": (string, clean list with "• " bullets)
 
                 Be concise. If the context doesn't explicitly mention something, state "Not found in context".
@@ -108,16 +114,18 @@ async def extract_dscr_parameters_safe(
                     data_json = json.loads(json_str.strip())
                     return {
                         "DSCR_Parameters": param,
-                        "rag_variance": data_json.get("variance_category", "Not found"),
-                        "rag_subcat": data_json.get("subcategory", "Not found"),
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
                         "NQMF Investor DSCR": data_json.get("summary", "No summary provided.")
                     }
                 except Exception as json_err:
                     print(f"JSON Parse Error for {param}: {json_err}")
                     return {
                         "DSCR_Parameters": param,
-                        "rag_variance": "Error parsing",
-                        "rag_subcat": "Error parsing",
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
                         "NQMF Investor DSCR": response_text.strip()
                     }
                 
@@ -125,13 +133,14 @@ async def extract_dscr_parameters_safe(
                 print(f"Error on {param}: {e}")
                 return {
                     "DSCR_Parameters": param,
-                    "rag_variance": "Error",
-                    "rag_subcat": "Error", 
+                    "Variance_Category": category,
+                    "SubCategory": subcategory, 
+                    "PPE_Field_Type": ppe_field,
                     "NQMF Investor DSCR": "Error extraction"
                 }
 
     # Execute
-    tasks = [process_one(p) for p in DSCR_Parameters]
+    tasks = [process_one(g) for g in DSCR_GUIDELINES]
     results = await asyncio.gather(*tasks)
     
     # Generate Excel
@@ -171,10 +180,9 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
         else: # Content column
             cell.fill = header_fill_blue
 
-    # Sort results
-    # We want to preserve the order of DSCR_Parameters if possible
-    # Create a map of param -> index
-    param_order = {p: i for i, p in enumerate(DSCR_Parameters)}
+    # Sort results to match config order
+    # Create a map of param -> index from config
+    param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
     data.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
 
     thin_border = Border(left=Side(style='thin'), 
@@ -188,9 +196,9 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     for item in data:
         row = [
             item['DSCR_Parameters'],       # Column A
-            item.get('rag_variance', ''),  # Column B
-            item.get('rag_subcat', ''),    # Column C
-            item.get('rule', {}).get('policy_type', ''), # Column D - Placeholder if we had rule object
+            item.get('Variance_Category', ''),  # Column B
+            item.get('SubCategory', ''),    # Column C
+            item.get('PPE_Field_Type', ''), # Column D
             item['NQMF Investor DSCR']     # Column E
         ]
         ws.append(row)

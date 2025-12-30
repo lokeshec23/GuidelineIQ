@@ -342,69 +342,51 @@ const DashboardPage = () => {
     ], [handleView, handleDelete]);
 
     // Preview modal columns - dynamic based on data type
-    const previewColumns = React.useMemo(() => activeTab === "ingest" ? [
-        {
-            title: "Category",
-            dataIndex: "category",
-            key: "category",
-            width: "20%",
-        },
-        {
-            title: "Sub Category",
-            dataIndex: "sub_category",
-            key: "sub_category",
-            width: "20%",
-        },
-        {
-            title: "Guideline Summary",
-            dataIndex: "guideline_summary",
-            key: "guideline_summary",
-            width: "50%",
-        },
-        {
-            title: "Page Number",
-            dataIndex: "page_number",
-            key: "page_number",
-            width: "10%",
-        },
-    ] : [
-        {
-            title: "Rule ID",
-            dataIndex: "rule_id",
-            key: "rule_id",
-            width: "10%",
-        },
-        {
-            title: "Category",
-            dataIndex: "category",
-            key: "category",
-            width: "15%",
-        },
-        {
-            title: "Sub Category",
-            dataIndex: "sub_category",
-            key: "sub_category",
-            width: "15%",
-        },
-        {
-            title: "Guideline 1",
-            dataIndex: "guideline_1",
-            key: "guideline_1",
-            width: "25%",
-        },
-        {
-            title: "Guideline 2",
-            dataIndex: "guideline_2",
-            key: "guideline_2",
-            width: "25%",
-        },
-        {
-            title: "Comparison Notes",
-            dataIndex: "comparison_notes",
-            key: "comparison_notes",
-            width: "10%",
-        },
-    ], [activeTab]);
+    const previewColumns = React.useMemo(() => {
+        // For Ingest tab, we return null to let ExcelPreviewModal auto-generate columns
+        // This supports both legacy data (category/rule) and new RAG data (DSCR parameters)
+        if (activeTab === "ingest") return null;
+
+        // For Compare tab, we keep the specific columns
+        return [
+            {
+                title: "Rule ID",
+                dataIndex: "rule_id",
+                key: "rule_id",
+                width: "10%",
+            },
+            {
+                title: "Category",
+                dataIndex: "category",
+                key: "category",
+                width: "15%",
+            },
+            {
+                title: "Sub Category",
+                dataIndex: "sub_category",
+                key: "sub_category",
+                width: "15%",
+            },
+            {
+                title: "Guideline 1",
+                dataIndex: "guideline_1",
+                key: "guideline_1",
+                width: "25%",
+            },
+            {
+                title: "Guideline 2",
+                dataIndex: "guideline_2",
+                key: "guideline_2",
+                width: "25%",
+            },
+            {
+                title: "Comparison Notes",
+                dataIndex: "comparison_notes",
+                key: "comparison_notes",
+                width: "10%",
+            },
+        ];
+    }, [activeTab]);
 
     return (
         <div className="px-8 py-6">
