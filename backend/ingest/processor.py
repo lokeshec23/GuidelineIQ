@@ -211,7 +211,7 @@ async def process_guideline_background(
         # (This remains as a secondary output)
         update_progress(session_id, 90, "Extracting DSCR Parameters to Excel...")
         try:
-            dscr_excel_path = await extract_dscr_parameters_safe(
+            dscr_excel_path, dscr_results = await extract_dscr_parameters_safe(
                 session_id=session_id,
                 gridfs_file_id=gridfs_file_id,
                 rag_service=rag_service,
@@ -243,9 +243,9 @@ async def process_guideline_background(
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             progress_store[session_id].update({
-                "excel_path": excel_path,
-                "preview_data": results,
-                "filename": f"extraction_{investor}_{version}.xlsx",
+                "excel_path": dscr_excel_path, # Use DSCR excel as main download
+                "preview_data": dscr_results, # Use DSCR results for preview
+                "filename": f"DSCR_Extraction_{investor}_{version}.xlsx",
                 "status": "completed",
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
@@ -262,8 +262,8 @@ async def process_guideline_background(
                     "investor": investor,
                     "version": version,
                     "uploaded_file": filename,
-                    "extracted_file": f"extraction_{investor}_{version}.xlsx",
-                    "preview_data": results,
+                    "extracted_file": f"DSCR_Extraction_{investor}_{version}.xlsx",
+                    "preview_data": dscr_results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
                     "gridfs_file_id": gridfs_file_id,  # ✅ Store GridFS ID instead of path

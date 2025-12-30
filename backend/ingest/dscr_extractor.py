@@ -2,141 +2,15 @@
 
 import os
 import asyncio
-import tempfile
-from typing import List, Dict
+import json
+import datetime
+from typing import List, Dict, Tuple
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from ingest.dscr_config import DSCR_Parameters, DSCR_Parameter_Aliases
 from chat.rag_service import RAGService
 from utils.llm_provider import LLMProvider
-
-async def extract_dscr_parameters(
-    session_id: str,
-    gridfs_file_id: str,
-    rag_service: RAGService,
-    llm: LLMProvider,
-    investor: str,
-    version: str,
-    user_settings: dict
-) -> str:
-    """
-    Extracts DSCR parameters using RAG and LLM, and saves them to an Excel file.
-    
-    Returns:
-        The path to the generated Excel file.
-    """
-    print(f"\n{'='*60}")
-    print(f"🚀 Starting DSCR Parameter Extraction for Session: {session_id[:8]}")
-    print(f"{'='*60}\n")
-    
-    results = []
-    
-    # Concurrency control
-    semaphore = asyncio.Semaphore(10)  # Verify 10 parallel tasks
-    
-    async def process_parameter(param: str):
-        async with semaphore:
-            try:
-                # 1. RAG Search
-                # We filter by the specific file/investor/version context
-                filter_metadata = {
-                    "gridfs_file_id": gridfs_file_id
-                }
-                
-                rag_provider = user_settings.get("rag_model_provider", "gemini") # Default or from settings
-                # If rag_model_provider not explicitly set, imply from general provider or default to openai if not found?
-                # Actually processor.py uses 'model_provider' for both LLM and RAG usually, 
-                # but let's stick to what's available. 
-                # In processor.py: 
-                # rag_provider = model_provider
-                # api_key = user_settings.get(f"{model_provider}_api_key")
-                
-                # We'll use the same provider as the LLM if not specified, 
-                # but we need the API key for that provider.
-                
-                # Better approach: Use the LLM's provider as the RAG provider 
-                # since we know we have that configured.
-                provider = llm.provider 
-                api_key = llm.api_key
-                
-                # Check for aliases
-                search_query = param
-                if param in DSCR_Parameter_Aliases:
-                    aliases = DSCR_Parameter_Aliases[param]
-                    # Create a combined query or just use the alias if it's more specific?
-                    # Let's try combining: "Age of Loan Documentation AGE OF DOCUMENT REQUIREMENTS"
-                    # But the RAG search works better with semantic similarity.
-                    # If the PDF says "AGE OF DOCUMENT REQUIREMENTS", searching for that is best.
-                    search_query = f"{param} {' '.join(aliases)}"
-                                
-                # Search for context
-                # "2-1 Buydown" -> Search query
-                search_results = await rag_service.search(
-                    query=search_query,
-                    provider=provider,
-                    api_key=api_key,
-                    n_results=5,
-                    filter_metadata=filter_metadata,
-                    azure_endpoint=user_settings.get("openai_endpoint"),
-                    azure_deployment=user_settings.get("openai_deployment")
-                )
-                
-                context_text = ""
-                if search_results:
-                    context_text = "\n\n".join([f"Source (Page {r['metadata'].get('page', '?')}): {r['text']}" for r in search_results])
-                
-                if not context_text:
-                    print(f"⚠️ No context found for parameter: {param}")
-                    results.append({"DSCR_Parameters": param, "NQMF Investor DSCR": "Not Found"})
-                    return
-
-                # 2. LLM Extraction
-                system_prompt = "You are an expert mortgage underwriter. Your goal is to extract specific DSCR guidelines from the provided context."
-                
-                user_msg = f"""
-### CONTEXT
-{context_text}
-
-### INSTRUCTION
-Extract the specific guideline requirements for the parameter: "{param}".
-If the requirements are found, list them as bullet points or a concise summary.
-If no relevant information is found in the context for this specific parameter, reply with "Not Found".
-
-### OUTPUT FORMAT
-Return ONLY the extracted text (bullet points are fine). Do not include "Here is the summary" or other conversational filler.
-"""
-                
-                response = await asyncio.to_thread(
-                    llm.generate,
-                    system_prompt,
-                    user_msg
-                )
-                
-                extracted_value = response.strip()
-                
-                # Cleanup if LLM is too chatty (though prompt says return only text)
-                if extracted_value.lower().startswith("not found"):
-                    extracted_value = "Not Found"
-                
-                results.append({"DSCR_Parameters": param, "NQMF Investor DSCR": extracted_value})
-                print(f"✅ Extracted: {param}")
-                
-            except Exception as e:
-                print(f"❌ Failed to extract {param}: {e}")
-                results.append({"DSCR_Parameters": param, "NQMF Investor DSCR": "Error during extraction"})
-
-    # Run all tasks
-    tasks = [process_parameter(p) for p in DSCR_Parameters]
-    await asyncio.gather(*tasks)
-    
-    # Sort results to match original order (asyncio.gather returns in order of *completion*? No, gather returns in order of *submission* if we awaited the result of gather directly, but here we are appending to a list inside the async function, so the list order is indeterminate. We should re-sort or map results.)
-    
-    # Better: modify process_parameter to return the result, then gather will preserve order.
-    # Let's refactor slightly to be safer with order.
-    
-    # Refactored Runner Logic below
-    pass
 
 async def extract_dscr_parameters_safe(
     session_id: str,
@@ -146,12 +20,17 @@ async def extract_dscr_parameters_safe(
     investor: str,
     version: str,
     user_settings: dict
-) -> str:
+) -> Tuple[str, List[Dict]]:
     """
-    Wrapper to ensure order and error handling.
+    Extracts DSCR parameters using RAG and LLM, and saves them to an Excel file.
+    Returns:
+        Tuple[str, List[Dict]]: (The path to the generated Excel file, The data list)
     """
-    print(f"📊 Extraction started for {len(DSCR_Parameters)} parameters...")
+    print(f"\n{'='*60}")
+    print(f"🚀 Starting RAG-Based DSCR Extraction for Session: {session_id[:8]}")
+    print(f"{'='*60}\n")
     
+    # Concurrency control
     semaphore = asyncio.Semaphore(10)
     
     async def process_one(param: str) -> Dict:
@@ -164,7 +43,8 @@ async def extract_dscr_parameters_safe(
                 filter_metadata = {"gridfs_file_id": gridfs_file_id}
                 
                 # Check for aliases
-                search_query = param
+                base_query = f"What are the requirements for {param}?"
+                search_query = base_query
                 if param in DSCR_Parameter_Aliases:
                     aliases = DSCR_Parameter_Aliases[param]
                     search_query = f"{param} {' '.join(aliases)}"
@@ -179,74 +59,162 @@ async def extract_dscr_parameters_safe(
                     azure_deployment=user_settings.get("openai_deployment")
                 )
                 
-                context_text = "\n\n".join([f"- {r['text']}" for r in search_results])
+                context_text = ""
+                if search_results:
+                    context_text = "\n\n".join([f"- {r['text']}" for r in search_results])
                 
                 if not context_text:
-                    return {"DSCR_Parameters": param, "NQMF Investor DSCR": "Not Found"}
+                    return {
+                        "DSCR_Parameters": param, 
+                        "NQMF Investor DSCR": "Not Found",
+                        "rag_variance": "Not Found",
+                        "rag_subcat": "Not Found"
+                    }
                 
-                system_prompt = "You are an expert mortgage underwriter."
+                # Enhanced Prompt for Detailed Extraction
+                system_prompt = "You are a Mortgage Policy Summarizer."
                 user_msg = f"""
-Context:
-{context_text}
+                Initial Request: {base_query}
+                
+                Context from Guidelines:
+                {context_text}
+                
+                Task:
+                1. Extract the specific "Variance Category" and "SubCategory" that this guideline belongs to based strictly on the context.
+                2. Create a bulleted list of the specific requirements, limits, and conditions for "{param}" based strictly on the context.
+                
+                Format your response as a JSON object with the following keys:
+                - "variance_category": (string)
+                - "subcategory": (string)
+                - "summary": (string, clean list with "• " bullets)
 
-Task:
-Extract key requirements for "{param}" based on the context.
-Return ONLY the specific rules/limits. Formatting: Use bullet points (•).
-If not mentioned, return "Not Found".
-"""
-                response = await asyncio.to_thread(llm.generate, system_prompt, user_msg)
-                return {"DSCR_Parameters": param, "NQMF Investor DSCR": response.strip()}
+                Be concise. If the context doesn't explicitly mention something, state "Not found in context".
+                """
+                
+                response_text = await asyncio.to_thread(
+                    llm.generate,
+                    "You are a helpful mortgage expert assistant. Always return valid JSON.",
+                    user_msg
+                )
+                
+                try:
+                    # Basic JSON cleaning
+                    json_str = response_text.strip()
+                    if json_str.startswith("```json"):
+                        json_str = json_str[7:]
+                    if json_str.endswith("```"):
+                        json_str = json_str[:-3]
+                    
+                    data_json = json.loads(json_str.strip())
+                    return {
+                        "DSCR_Parameters": param,
+                        "rag_variance": data_json.get("variance_category", "Not found"),
+                        "rag_subcat": data_json.get("subcategory", "Not found"),
+                        "NQMF Investor DSCR": data_json.get("summary", "No summary provided.")
+                    }
+                except Exception as json_err:
+                    print(f"JSON Parse Error for {param}: {json_err}")
+                    return {
+                        "DSCR_Parameters": param,
+                        "rag_variance": "Error parsing",
+                        "rag_subcat": "Error parsing",
+                        "NQMF Investor DSCR": response_text.strip()
+                    }
                 
             except Exception as e:
                 print(f"Error on {param}: {e}")
-                return {"DSCR_Parameters": param, "NQMF Investor DSCR": "Error"}
+                return {
+                    "DSCR_Parameters": param,
+                    "rag_variance": "Error",
+                    "rag_subcat": "Error", 
+                    "NQMF Investor DSCR": "Error extraction"
+                }
 
     # Execute
     tasks = [process_one(p) for p in DSCR_Parameters]
     results = await asyncio.gather(*tasks)
     
     # Generate Excel
-    return create_dscr_excel(results, session_id, investor, version)
+    filepath = create_dscr_excel(results, session_id, investor, version)
+    return filepath, results
 
 def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version: str) -> str:
     wb = Workbook()
     ws = wb.active
-    ws.title = "DSCR Parameters"
-    
-    # Headers
-    headers = ["DSCR_Parameters", "NQMF Investor DSCR"]
-    
-    # Styles
-    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=12)
-    border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    alignment_wrap = Alignment(wrap_text=True, vertical='top', horizontal='left')
-    
-    # Write Headers
-    for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_num)
-        cell.value = header
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-        
-    # Write Data
-    for row_num, item in enumerate(data, 2):
-        # Column 1: Parameter Name
-        cell1 = ws.cell(row=row_num, column=1)
-        cell1.value = item["DSCR_Parameters"]
-        cell1.border = border_thin
-        cell1.alignment = alignment_wrap
-        
-        # Column 2: Value
-        cell2 = ws.cell(row=row_num, column=2)
-        cell2.value = item["NQMF Investor DSCR"]
-        cell2.border = border_thin
-        cell2.alignment = alignment_wrap
+    ws.title = "DSCR 1-4 RAG Output"
 
-    # Dimensions
-    ws.column_dimensions['A'].width = 40
-    ws.column_dimensions['B'].width = 80
+    # Exact 5 headers 
+    headers = [
+        "DSCR Parameters\n(Investor / Business Purpose Loans)", 
+        "Variance Categories", 
+        "SubCategories", 
+        "PPE Field Type", 
+        f"NQMF Investor DSCR (1-4 Units) Generated {datetime.date.today()}"
+    ]
+    
+    ws.append(headers)
+
+    # Styles
+    header_font = Font(bold=True, size=11)
+    header_fill_blue = PatternFill(start_color="DDEBF7", end_color="DDEBF7", fill_type="solid") # Light Blue
+    header_fill_orange = PatternFill(start_color="F8CBAD", end_color="F8CBAD", fill_type="solid") # Peach/Orange
+    
+    # Apply Header Styles
+    for col_num, cell in enumerate(ws[1], 1):
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        # Apply colors based on column index
+        if col_num == 1:
+            cell.fill = header_fill_blue
+        elif col_num in [2, 3, 4]:
+            cell.fill = header_fill_orange
+        else: # Content column
+            cell.fill = header_fill_blue
+
+    # Sort results
+    # We want to preserve the order of DSCR_Parameters if possible
+    # Create a map of param -> index
+    param_order = {p: i for i, p in enumerate(DSCR_Parameters)}
+    data.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
+
+    thin_border = Border(left=Side(style='thin'), 
+                         right=Side(style='thin'), 
+                         top=Side(style='thin'), 
+                         bottom=Side(style='thin'))
+    
+    fill_light_yellow = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
+    fill_light_green = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+
+    for item in data:
+        row = [
+            item['DSCR_Parameters'],       # Column A
+            item.get('rag_variance', ''),  # Column B
+            item.get('rag_subcat', ''),    # Column C
+            item.get('rule', {}).get('policy_type', ''), # Column D - Placeholder if we had rule object
+            item['NQMF Investor DSCR']     # Column E
+        ]
+        ws.append(row)
+        
+        # Apply row styles
+        current_row = ws.max_row
+        for col_idx, cell in enumerate(ws[current_row], 1):
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.border = thin_border
+            
+            # Fill colors based on column
+            if col_idx in [1, 2, 3]:
+                cell.fill = fill_light_green 
+            elif col_idx == 4:
+                pass
+            elif col_idx == 5:
+                cell.fill = fill_light_yellow 
+
+    # Column Widths
+    ws.column_dimensions['A'].width = 30
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 25
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 80
     
     # File Path
     filename = f"DSCR_Extraction_{investor}_{version}_{session_id[:8]}.xlsx"
@@ -259,6 +227,11 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
         
     filepath = os.path.join(results_dir, filename)
     
-    wb.save(filepath)
-    print(f"✅ DSCR Excel saved at: {filepath}")
-    return filepath
+    try:
+        wb.save(filepath)
+        print(f"✅ DSCR Excel saved at: {filepath}")
+        return filepath
+    except Exception as e:
+        print(f"Error saving Excel: {e}")
+        # Fallback to temp if results dir fails
+        return f"Error: {e}"
