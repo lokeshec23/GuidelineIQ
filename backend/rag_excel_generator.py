@@ -94,11 +94,15 @@ async def process_rules():
                 
                 Task:
                 1. Extract the specific "Variance Category" and "SubCategory" that this guideline belongs to based strictly on the context.
-                2. Create a bulleted list of the specific requirements, limits, and conditions for "{rule.dscr_parameter}" based strictly on the context.
+                2. Classify the "PPE Field Type" as "Hard" or "Soft" based on the following definitions:
+                   - **Hard**: Logic can be programmed, has fixed values, or involves numeric thresholds (e.g., Min DSCR >= .75, Max 80% LTV, Purchase Only, Min Score 680).
+                   - **Soft**: Cannot be programmed easily, involves manual review, textual policies, or qualitative checks (e.g., Seller Paid Buydown, Borrower qualification notes, Exception requests).
+                3. Create a bulleted list of the specific requirements, limits, and conditions for "{rule.dscr_parameter}" based strictly on the context.
                 
                 Format your response as a JSON object with the following keys:
                 - "variance_category": (string)
                 - "subcategory": (string)
+                - "ppe_field_type": (string, "Hard" or "Soft")
                 - "summary": (string, clean list with "• " bullets)
 
                 Be concise. If the context doesn't explicitly mention something, state "Not found in context".
@@ -124,6 +128,7 @@ async def process_rules():
                         "rule": rule,
                         "rag_variance": data_json.get("variance_category", "Not found"),
                         "rag_subcat": data_json.get("subcategory", "Not found"),
+                        "rag_ppe_type": data_json.get("ppe_field_type", None),
                         "content": data_json.get("summary", "No summary provided.")
                     }
                 except Exception as json_err:
@@ -132,6 +137,7 @@ async def process_rules():
                         "rule": rule,
                         "rag_variance": "Error parsing",
                         "rag_subcat": "Error parsing",
+                        "rag_ppe_type": None,
                         "content": response_text.strip()
                     }
 
@@ -141,6 +147,7 @@ async def process_rules():
                     "rule": rule,
                     "rag_variance": "Error",
                     "rag_subcat": "Error",
+                    "rag_ppe_type": None,
                     "content": "Error retrieval content."
                 }
 
@@ -210,11 +217,16 @@ def create_excel_file(data: List[dict]):
         rag_variance = item.get('rag_variance', 'Not extracted')
         rag_subcat = item.get('rag_subcat', 'Not extracted')
         
+        # Determine PPE Field Type: Prefer LLM logic, fallback to Hardcode
+        ppe_type = item.get('rag_ppe_type')
+        if not ppe_type or ppe_type not in ["Hard", "Soft"]:
+             ppe_type = rule.policy_type
+
         row = [
             rule.dscr_parameter, # Column A
             rag_variance,        # Column B (Now RAG)
             rag_subcat,          # Column C (Now RAG)
-            rule.policy_type,    # Column D
+            ppe_type,            # Column D (Now RAG/Hybrid)
             content              # Column E
         ]
         ws.append(row)

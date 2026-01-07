@@ -208,14 +208,14 @@ def get_dscr_rules() -> List[DSCRRule]:
             dscr_parameter="Assets – Eligibility, Sourcing & Verification",
             variance_category=VarianceCategory.ASSETS,
             sub_categories=[SubCategory.ASSETS_ELIGIBILITY_SOURCING_VERIFICATION],
-            policy_type="Hard",
+            policy_type="Soft",
             notes="Large deposits must be sourced."
         ),
         DSCRRule(
             dscr_parameter="Assets – Foreign Assets",
             variance_category=VarianceCategory.ASSETS,
             sub_categories=[SubCategory.ASSETS_FOREIGN_ASSETS],
-            policy_type="Hard",
+            policy_type="Soft",
             notes="Must be moved to US institution prior to closing."
         ),
         DSCRRule(
@@ -279,7 +279,7 @@ def get_dscr_rules() -> List[DSCRRule]:
             dscr_parameter="Collections, Charge-Offs and Judgments",
             variance_category=VarianceCategory.CREDIT_HOUSING,
             sub_categories=[SubCategory.COLLECTIONS_CHARGE_OFFS_JUDGMENTS],
-            policy_type="Hard",
+            policy_type="Soft",
             notes="Must be paid in full or meet repayment plan criteria."
         ),
 
@@ -323,7 +323,7 @@ def get_dscr_rules() -> List[DSCRRule]:
             # Let's map to "Escrow Impounds" or "Appraisal Requirements"?
             # Prompt Sub-Categories under Escrows/Insurance: Escrow Impounds, HPML, Flood Insurance, ACH.
             # Best fit: Escrow Impounds or implicitly covered. Let's use Escrow Impounds as grouping for Insurance.
-            policy_type="Hard",
+            policy_type="Soft",
             notes="HO6 walls-in coverage required."
         ),
 
@@ -340,7 +340,7 @@ def get_dscr_rules() -> List[DSCRRule]:
             dscr_parameter="Continuity of Obligation / Ownership Seasoning",
             variance_category=VarianceCategory.ENTITY_VESTING,
             sub_categories=[SubCategory.CONTINUITY_OF_OBLIGATION_OWNERSHIP_SEASONING],
-            policy_type="Hard",
+            policy_type="Soft",
             notes="Must establish ownership history."
         ),
 
@@ -397,7 +397,7 @@ def get_dscr_rules() -> List[DSCRRule]:
             dscr_parameter="Delayed Financing",
             variance_category=VarianceCategory.ELIGIBLE_TRANSACTIONS,
             sub_categories=[SubCategory.DELAYED_FINANCING],
-            policy_type="Hard",
+            policy_type="Soft",
             notes="Exception to cash-out seasoning for cash buyers."
         ),
 

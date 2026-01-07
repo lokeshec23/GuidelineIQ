@@ -16,7 +16,7 @@ DSCR_GUIDELINES = [
     {"parameter": "Credit Score Requirements", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
     {"parameter": "Credit Rescore", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
     {"parameter": "Credit Report", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
-    {"parameter": "Credit/Housing Event Seasoning", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
+    {"parameter": "Credit/Housing Event Seasoning", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
     {"parameter": "Collections / Charge-Offs / Judgments", "category": "Credit / Housing", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
 
     # ---------------- Borrower Eligibility ----------------
@@ -35,11 +35,11 @@ DSCR_GUIDELINES = [
     # ---------------- Collateral ----------------
     {"parameter": "Accessory Dwelling Units", "category": "Collateral", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
     {"parameter": "Property - Acreage and Land Value", "category": "Collateral", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
-    {"parameter": "Declining Markets", "category": "Collateral", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
+    {"parameter": "Declining Markets", "category": "Collateral", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
 
     # ---------------- Condos / Property Type ----------------
-    {"parameter": "Condo - Warrantable / Established Condos", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
-    {"parameter": "Condo - Limited Review", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Soft"},
+    {"parameter": "Condo - Warrantable / Established Condos", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
+    {"parameter": "Condo - Limited Review", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
     {"parameter": "Condos Non-Warrantable", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
     {"parameter": "Condotels", "category": "Condos / Property Type", "subcategory": "Feature Eligibility", "ppe_field": "Hard"},
 
