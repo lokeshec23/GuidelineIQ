@@ -23,6 +23,7 @@ const Logo = () => (
 
 const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm();
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -36,7 +37,21 @@ const RegisterPage = () => {
     setLoading(false);
 
     if (success) {
-      navigate("/login");
+      // Delay navigation to allow user to see success message
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
+    }
+  };
+
+  const handleFormError = (errorInfo) => {
+    // Show toast for first validation error
+    if (errorInfo.errorFields && errorInfo.errorFields.length > 0) {
+      const firstError = errorInfo.errorFields[0];
+      if (firstError.errors && firstError.errors.length > 0) {
+        // Don't show toast for validation errors - Ant Design shows them inline
+        // This is just for tracking if needed
+      }
     }
   };
 
@@ -51,9 +66,11 @@ const RegisterPage = () => {
         </div>
 
         <Form
+          form={form}
           name="register"
           layout="vertical"
           onFinish={onFinish}
+          onFinishFailed={handleFormError}
           autoComplete="off"
         >
           <Form.Item

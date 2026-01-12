@@ -22,6 +22,7 @@ const Logo = () => (
 
 const LoginPage = () => {
   const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm();
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -32,6 +33,17 @@ const LoginPage = () => {
 
     if (success) {
       navigate("/ingest");
+    }
+  };
+
+  const handleFormError = (errorInfo) => {
+    // Show toast for first validation error
+    if (errorInfo.errorFields && errorInfo.errorFields.length > 0) {
+      const firstError = errorInfo.errorFields[0];
+      if (firstError.errors && firstError.errors.length > 0) {
+        // Don't show toast for validation errors - Ant Design shows them inline
+        // This is just for tracking if needed
+      }
     }
   };
 
@@ -46,15 +58,17 @@ const LoginPage = () => {
         </div>
 
         <Form
+          form={form}
           name="login"
           layout="vertical"
           onFinish={handleSubmit}
+          onFinishFailed={handleFormError}
           autoComplete="off"
         >
           <Form.Item
             label="Email"
             name="username"
-            rules={[{ required: true, message: "Please enter your username!" }]}
+            rules={[{ required: true, message: "Please enter your email!" }]}
           >
             <Input
               prefix={

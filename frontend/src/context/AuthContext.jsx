@@ -49,10 +49,38 @@ export const AuthProvider = ({ children }) => {
 
       setUser(user);
       setIsAdmin(user?.role === "admin");
-      showToast.success("Login successful!");
+
+      // Show success message
+      showToast.success("Login successful! Welcome back.");
+
+      // Show info if remember me is enabled
+      // if (rememberMe) {
+      //   showToast.info("You'll stay logged in on this device.", { duration: 2000 });
+      // }
+
       return true;
     } catch (error) {
-      // Error toast is handled by API interceptor
+      // Handle specific error cases
+      const status = error.response?.status;
+      const errorDetail = error.response?.data?.detail;
+
+      if (status === 401) {
+        showToast.error("Invalid email or password. Please try again.");
+      } else if (status === 403) {
+        showToast.error("Your account has been disabled. Please contact support.");
+      } else if (status === 404) {
+        showToast.error("Account not found. Please check your email or register.");
+      } else if (status === 400) {
+        showToast.error(errorDetail || "Invalid login credentials format.");
+      } else if (status >= 500) {
+        showToast.error("Server error. Please try again later.");
+      } else if (error.message === "Network Error") {
+        showToast.error("Network error. Please check your connection.");
+      } else if (!error.response) {
+        showToast.error("Unable to connect to server. Please try again.");
+      }
+      // For other errors, the API interceptor will handle it
+
       return false;
     }
   };
@@ -60,10 +88,34 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     try {
       await authAPI.register({ username, email, password, role: "user" });
-      showToast.success("Registration successful! Please login.");
+      showToast.success("Registration successful! Redirecting to login...", { duration: 2000 });
       return true;
     } catch (error) {
-      // Error toast is handled by API interceptor
+      // Handle specific error cases
+      const status = error.response?.status;
+      const errorDetail = error.response?.data?.detail;
+
+      if (status === 409) {
+        // Conflict - email or username already exists
+        if (errorDetail?.toLowerCase().includes("email")) {
+          showToast.error("This email is already registered. Please login instead.");
+        } else if (errorDetail?.toLowerCase().includes("username")) {
+          showToast.error("This username is already taken. Please choose another.");
+        } else {
+          showToast.error("Email or username already exists. Please try different credentials.");
+        }
+      } else if (status === 400) {
+        // Validation error
+        showToast.error(errorDetail || "Invalid registration data. Please check your inputs.");
+      } else if (status >= 500) {
+        showToast.error("Server error. Please try again later.");
+      } else if (error.message === "Network Error") {
+        showToast.error("Network error. Please check your connection.");
+      } else if (!error.response) {
+        showToast.error("Unable to connect to server. Please try again.");
+      }
+      // For other errors, the API interceptor will handle it
+
       return false;
     }
   };

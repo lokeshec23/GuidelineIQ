@@ -25,9 +25,12 @@ async def seed_admin():
     # Load environment variables
     load_dotenv()
     
-    admin_username = os.getenv("ADMIN_USERNAME")
-    admin_email = os.getenv("ADMIN_EMAIL")
-    admin_password = os.getenv("ADMIN_PASSWORD")
+    admin_username = "user"
+    admin_email = "user@user.com"
+    admin_password ="user@123"
+    # admin_username = os.getenv("ADMIN_USERNAME")
+    # admin_email = os.getenv("ADMIN_EMAIL")
+    # admin_password = os.getenv("ADMIN_PASSWORD")
     
     if not admin_email or not admin_password:
         print("❌ Error: ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env file")

@@ -75,8 +75,13 @@ api.interceptors.response.use(
       }
     }
 
-    // Show error toast for all errors except 401 (handled above)
-    if (error.response?.status !== 401) {
+    // Show error toast for all errors except:
+    // - 401 (handled above for token refresh)
+    // - Auth endpoints (login/register - handled in AuthContext)
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/register');
+
+    if (error.response?.status !== 401 && !isAuthEndpoint) {
       const errorMessage = getErrorMessage(error);
       showToast.error(errorMessage);
     }
