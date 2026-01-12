@@ -3,3 +3,4 @@
 *.bat
 .vscode
 gc_pdf/
+guidelineiq_venv
