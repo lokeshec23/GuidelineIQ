@@ -25,6 +25,22 @@ const MainLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Detect mobile viewport
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setMobileDrawerOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleLogout = React.useCallback(() => {
     logout();
@@ -150,10 +166,18 @@ const MainLayout = ({ children }) => {
     <Layout className="h-screen overflow-hidden font-sans bg-white">
       {/* HEADER */}
       <Header
-        className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 h-16 border-b border-gray-200"
-        style={{ paddingInline: "24px" }}
+        className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200"
+        style={{ paddingInline: "24px", height: "10dvh", minHeight: "60px" }}
       >
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
+          {isMobile && (
+            <Button
+              type="text"
+              icon={<MenuUnfoldOutlined style={{ fontSize: "20px" }} />}
+              onClick={() => setMobileDrawerOpen(true)}
+              className="text-gray-600 hover:text-gray-900"
+            />
+          )}
           <div
             className="cursor-pointer flex items-center justify-center"
             onClick={() => navigate("/")}
@@ -194,38 +218,54 @@ const MainLayout = ({ children }) => {
         </div>
       </Header>
 
-      <Layout className="mt-16 h-[calc(100vh-64px)]">
+      <Layout style={{ marginTop: "10dvh", height: "90dvh" }}>
         {/* SIDEBAR */}
         <Sider
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
           trigger={null}
-          width={260}
+          width="20vw"
+          collapsedWidth={60}
           style={{
             position: "fixed",
-            left: 0,
-            height: "calc(100vh - 64px)",
-            zIndex: 10,
+            left: isMobile ? (mobileDrawerOpen ? 0 : "-100%") : 0,
+            top: "10dvh",
+            height: "90dvh",
+            zIndex: isMobile ? 1000 : 10,
             background: "#f9fafb",
+            minWidth: isMobile ? "280px" : (collapsed ? "60px" : "200px"),
+            maxWidth: isMobile ? "280px" : (collapsed ? "60px" : "400px"),
+            transition: "left 0.3s ease-in-out",
           }}
           className="border-r border-gray-200 h-full flex flex-col justify-between"
         >
           <div className="flex flex-col h-full bg-[#f9fafb] pb-6">
             {/* Collapse Toggle */}
             <div className="flex items-center justify-end p-4 h-14 mb-2">
-              {!collapsed && (
+              {!collapsed && !isMobile && (
                 <span className="text-gray-400 text-xs mr-2 uppercase tracking-wider font-medium">
                   Collapse
                 </span>
               )}
-              <Button
-                type="text"
-                size="small"
-                className="text-gray-400 hover:text-gray-600 border border-gray-300 bg-white shadow-sm"
-                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-                onClick={() => setCollapsed(!collapsed)}
-              />
+              {!isMobile && (
+                <Button
+                  type="text"
+                  size="small"
+                  className="text-gray-400 hover:text-gray-600 border border-gray-300 bg-white shadow-sm"
+                  icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                  onClick={() => setCollapsed(!collapsed)}
+                />
+              )}
+              {isMobile && (
+                <Button
+                  type="text"
+                  size="small"
+                  className="text-gray-400 hover:text-gray-600 border border-gray-300 bg-white shadow-sm"
+                  icon={<MenuFoldOutlined />}
+                  onClick={() => setMobileDrawerOpen(false)}
+                />
+              )}
             </div>
 
             {/* Menu Items */}
@@ -267,10 +307,22 @@ const MainLayout = ({ children }) => {
           </div>
         </Sider>
 
+        {/* Mobile Overlay */}
+        {isMobile && mobileDrawerOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-999"
+            style={{ top: "10dvh" }}
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+        )}
+
         {/* MAIN CONTENT */}
         <Layout
           className="bg-white transition-all duration-200 ease-in-out"
-          style={{ marginLeft: collapsed ? 80 : 260 }}
+          style={{
+            marginLeft: isMobile ? 0 : (collapsed ? "60px" : "20vw"),
+            width: isMobile ? "100vw" : (collapsed ? "calc(100vw - 60px)" : "80vw")
+          }}
         >
           <Content className="h-full overflow-y-auto p-8 bg-white">
             {children}
