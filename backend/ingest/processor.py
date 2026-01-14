@@ -19,8 +19,8 @@ rag_service = RAGService()  # ✅ Initialize RAG Service
 
 async def process_guideline_background(
     session_id: str,
-    gridfs_file_id: str,
-    filename: str,
+    gridfs_file_ids: List[str],  # ✅ Now accepts list of file IDs
+    filenames: List[str],  # ✅ Now accepts list of filenames
     investor: str,
     version: str,
     user_settings: dict,
@@ -37,15 +37,17 @@ async def process_guideline_background(
     program_type: str = None,
 ):
     excel_path = None
-    temp_pdf_path = None  # ✅ Track temporary PDF file
+    temp_pdf_paths = []  # ✅ Track all temporary PDF files
     
     try:
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
+        num_files = len(gridfs_file_ids)
+        
         print(f"\n{'='*60}")
-        print(f"RAG-Based Ingestion started for session {session_id[:8]}")
+        print(f"RAG-Based Multi-PDF Ingestion started for session {session_id[:8]}")
         print(f"Investor: {investor} | Version: {version}")
-        print(f"File: {filename}")
-        print(f"GridFS File ID: {gridfs_file_id}")
+        print(f"Number of PDFs: {num_files}")
+        print(f"Files: {', '.join(filenames)}")
         print(f"Model: {model_provider}/{model_name}")
         print(f"Pages per chunk: {pages_per_chunk}")
         print(f"Effective Date: {effective_date}")
@@ -62,165 +64,196 @@ async def process_guideline_background(
             system_prompt = DEFAULT_INGEST_PROMPT_SYSTEM
             print("⚠️ Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
 
-        # === STEP 1: Retrieve PDF from GridFS ===
-        update_progress(session_id, 2, "Retrieving PDF from storage...")
-        from utils.gridfs_helper import get_pdf_from_gridfs
+        # === STEP 1-3: Process Each PDF (Retrieve, OCR, Embed) ===
+        all_text_chunks = []
         
-        pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
+        for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames), 1):
+            print(f"\n{'='*60}")
+            print(f"📄 Processing PDF {idx}/{num_files}: {filename}")
+            print(f"{'='*60}")
+            
+            # Retrieve PDF from GridFS
+            update_progress(session_id, 2 + (idx-1)*20, f"Retrieving PDF {idx}/{num_files} from storage...")
+            from utils.gridfs_helper import get_pdf_from_gridfs
+            
+            pdf_content = await get_pdf_from_gridfs(file_id)
+            
+            # Create temporary file for OCR processing
+            temp_pdf_path = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".pdf",
+                prefix=f"ocr_{session_id[:8]}_{idx}_"
+            ).name
+            temp_pdf_paths.append(temp_pdf_path)
+            
+            with open(temp_pdf_path, "wb") as f:
+                f.write(pdf_content)
+            
+            print(f"✅ Created temporary PDF for OCR: {temp_pdf_path}")
+
+            # OCR Extraction
+            update_progress(session_id, 5 + (idx-1)*20, f"Extracting text from PDF {idx}/{num_files}...")
+            ocr_client = AzureOCR()
+            text_chunks = ocr_client.analyze_doc_page_by_page(
+                temp_pdf_path, 
+                pages_per_chunk=pages_per_chunk, 
+                page_range=page_range
+            )
+            num_chunks = len(text_chunks)
+            if num_chunks == 0:
+                print(f"⚠️ OCR failed for {filename}, skipping...")
+                continue
+
+            update_progress(session_id, 15 + (idx-1)*20, f"OCR complete for PDF {idx}. Created {num_chunks} chunk(s).")
+            all_text_chunks.extend(text_chunks)
+            
+            # Generate Embeddings for this PDF's chunks
+            update_progress(session_id, 20 + (idx-1)*20, f"Generating embeddings for PDF {idx}...")
+            try:
+                items_to_embed = []
+                
+                for i, chunk_tuple in enumerate(text_chunks):
+                    text, pages = chunk_tuple
+                    items_to_embed.append({
+                        "id": f"{file_id}_chunk_{i}",
+                        "text": text,
+                        "metadata": {
+                            "investor": investor,
+                            "version": version,
+                            "page": pages,
+                            "filename": filename,
+                            "gridfs_file_id": file_id,
+                            "type": "pdf_chunk",
+                            "file_index": idx
+                        }
+                    })
+
+                # Determine provider and key
+                rag_provider = model_provider
+                api_key = user_settings.get(f"{model_provider}_api_key")
+                
+                # Generate Embeddings concurrently with progress tracking
+                print(f"⚡ Generating embeddings for {len(items_to_embed)} chunks from PDF {idx}...")
+                
+                # Track completed embeddings for progress updates
+                completed_embeddings = 0
+                total_embeddings = len(items_to_embed)
+                embedding_lock = asyncio.Lock()
+                
+                async def process_embedding(item, item_idx):
+                    nonlocal completed_embeddings
+                    
+                    emb = await rag_service.get_embedding(
+                        item["text"], 
+                        rag_provider, 
+                        api_key,
+                        azure_endpoint=user_settings.get("openai_endpoint"),
+                        azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
+                    )
+                    item["embedding"] = emb
+                    
+                    # Update progress periodically (every 5 chunks or at completion)
+                    async with embedding_lock:
+                        completed_embeddings += 1
+                        if completed_embeddings % 5 == 0 or completed_embeddings == total_embeddings:
+                            progress_pct = 20 + (idx-1)*20 + int((completed_embeddings / total_embeddings) * 15)
+                            update_progress(
+                                session_id, 
+                                progress_pct, 
+                                f"Embedding PDF {idx}: {completed_embeddings}/{total_embeddings} chunks"
+                            )
+                    
+                    return item
+
+                embedded_items = await asyncio.gather(*[process_embedding(item, i) for i, item in enumerate(items_to_embed)])
+                valid_docs = [d for d in embedded_items if d["embedding"]]
+                
+                if valid_docs:
+                    rag_service.add_documents(valid_docs)
+                    print(f"✅ RAG: Stored {len(valid_docs)} chunks from PDF {idx} in Vector DB.")
+
+            except Exception as rag_err:
+                print(f"⚠️ RAG Embedding Failed for PDF {idx}: {rag_err}")
+                traceback.print_exc()
         
-        # Create temporary file for OCR processing
-        temp_pdf_path = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".pdf",
-            prefix=f"ocr_{session_id[:8]}_"
-        ).name
-        
-        with open(temp_pdf_path, "wb") as f:
-            f.write(pdf_content)
-        
-        print(f"✅ Created temporary PDF for OCR: {temp_pdf_path}")
+        if not all_text_chunks:
+            raise ValueError("OCR process failed to extract text from any document.")
 
-        # === STEP 2: OCR ===
-        update_progress(session_id, 5, f"Extracting text ({pages_per_chunk} page(s) per chunk)...")
-        ocr_client = AzureOCR()
-        text_chunks = ocr_client.analyze_doc_page_by_page(
-            temp_pdf_path, 
-            pages_per_chunk=pages_per_chunk, 
-            page_range=page_range
-        )
-        num_chunks = len(text_chunks)
-        if num_chunks == 0:
-            raise ValueError("OCR process failed to extract text from document.")
-
-        update_progress(session_id, 25, f"OCR complete. Created {num_chunks} text chunk(s).")
-
-        # === STEP 3: Generate Embeddings (Chunks) & Store in Vector DB ===
-        # MOVED UP: We now embed BEFORE extraction, so extraction can use RAG.
-        update_progress(session_id, 30, "Generating embeddings for RAG...")
-        try:
-            items_to_embed = []
-            
-            # 1. Add PDF Text Chunks
-            for i, chunk_tuple in enumerate(text_chunks):
-                text, pages = chunk_tuple
-                items_to_embed.append({
-                    "id": f"{gridfs_file_id}_chunk_{i}",
-                    "text": text,
-                    "metadata": {
-                        "investor": investor,
-                        "version": version,
-                        "page": pages,
-                        "filename": filename,
-                        "gridfs_file_id": gridfs_file_id,
-                        "type": "pdf_chunk"
-                    }
-                })
-
-            # Determine provider and key
-            rag_provider = model_provider
-            api_key = user_settings.get(f"{model_provider}_api_key")
-            
-            # 2. Generate Embeddings concurrently
-            print(f"⚡ Generating embeddings for {len(items_to_embed)} chunks concurrently...")
-            
-            async def process_embedding(item):
-                emb = await rag_service.get_embedding(
-                    item["text"], 
-                    rag_provider, 
-                    api_key,
-                    azure_endpoint=user_settings.get("openai_endpoint"),
-                    azure_deployment=user_settings.get("openai_deployment")
-                )
-                item["embedding"] = emb
-                return item
-
-            # Run all embedding calls in parallel
-            embedded_items = await asyncio.gather(*[process_embedding(item) for item in items_to_embed])
-            
-            # Filter out failed embeddings
-            valid_docs = [d for d in embedded_items if d["embedding"]]
-            
-            # Store in Vector DB
-            if valid_docs:
-                rag_service.add_documents(valid_docs)
-                print(f"✅ RAG: Stored {len(valid_docs)} chunks in Vector DB.")
-
-        except Exception as rag_err:
-            print(f"⚠️ RAG Embedding Failed: {rag_err}")
-            traceback.print_exc()
-
-        # === STEP 4: Initialize LLM ===
-        update_progress(session_id, 40, f"Initializing {model_provider} LLM...")
         llm = initialize_llm_provider(user_settings, model_provider, model_name)
 
-        # === STEP 5: RAG-Based Extraction (The "New" Main Model) ===
+        # === STEP 5: RAG-Based Extraction (Optional - Commented for Multi-PDF) ===
+        # Note: This section was designed for single PDF workflow
+        # For multi-PDF, we focus on DSCR parameter extraction which uses RAG internally
+        """
         update_progress(session_id, 45, "Running RAG-based extraction...")
         
         results = await run_main_rag_extraction(
             session_id=session_id,
-            gridfs_file_id=gridfs_file_id,
+            gridfs_file_id=gridfs_file_ids[0],  # Would need to handle multiple files
             rag_service=rag_service,
             llm=llm,
             investor=investor,
             version=version,
             user_settings=user_settings,
-            text_chunks=text_chunks,
+            text_chunks=all_text_chunks,
             system_prompt=system_prompt,
             user_prompt=user_prompt
         )
-        failed = 0 # RAG extraction tracks this internally per item, but we'll assume global success if results > 0
+        """
+        results = []  # Skip general RAG extraction for multi-PDF workflow
+        failed = 0
 
-        # Validate output
-        if not results:
-            print("⚠️ RAG Extraction yielded no results. Proceeding with empty set (or consider fallback).")
-            # raise ValueError("LLM returned no valid data. Check prompts and model response.")
-
-        # === STEP 5.5: Embed Extracted Rules (Feedback Loop) ===
-        # Now that we have the rules, we embed them back so they are searchable in Chat
+        # === STEP 5.5: Embed Extracted Rules (Optional - Skipped for Multi-PDF) ===
+        # Commented out - not needed for multi-PDF DSCR extraction workflow
+        """
         update_progress(session_id, 85, "Indexing extracted rules for Chat...")
         try:
              rule_items = []
              for i, rule in enumerate(results):
-                rule_text = f"Category: {rule.get('category')}\nSub-Category: {rule.get('sub_category')}\nRule: {rule.get('guideline_summary')}"
+                rule_text = f\"Category: {rule.get('category')}\\nSub-Category: {rule.get('sub_category')}\\nRule: {rule.get('guideline_summary')}\"
                 rule_items.append({
-                    "id": f"{gridfs_file_id}_rule_{i}",
-                    "text": rule_text,
-                    "metadata": {
-                        "investor": investor,
-                        "version": version,
-                        "page": "Derived", # RAG rules are derived from multiple pages usually
-                        "filename": filename,
-                        "gridfs_file_id": gridfs_file_id,
-                        "type": "excel_rule",
-                        "category": rule.get('category'),
-                        "sub_category": rule.get('sub_category')
+                    \"id\": f\"{gridfs_file_ids[0]}_rule_{i}\",
+                    \"text\": rule_text,
+                    \"metadata\": {
+                        \"investor\": investor,
+                        \"version\": version,
+                        \"page\": \"Derived\",
+                        \"filename\": filenames[0],
+                        \"gridfs_file_id\": gridfs_file_ids[0],
+                        \"type\": \"excel_rule\",
+                        \"category\": rule.get('category'),
+                        \"sub_category\": rule.get('sub_category')
                     }
                 })
              
              # Embed rules
              embedded_rules = await asyncio.gather(*[process_embedding(item) for item in rule_items])
-             valid_rules = [d for d in embedded_rules if d["embedding"]]
+             valid_rules = [d for d in embedded_rules if d[\"embedding\"]]
              if valid_rules:
                 rag_service.add_documents(valid_rules)
-                print(f"✅ RAG: Stored {len(valid_rules)} derived rules in Vector DB.")
+                print(f\"✅ RAG: Stored {len(valid_rules)} derived rules in Vector DB.\")
 
         except Exception as e:
-            print(f"⚠️ Failed to index extracted rules: {e}")
+            print(f\"⚠️ Failed to index extracted rules: {e}\")
+        """
 
-        # === STEP 6: DSCR Parameter Extraction (Auto-Generate Excel) ===
-        # (This remains as a secondary output)
-        update_progress(session_id, 90, "Extracting DSCR Parameters to Excel...")
+
+        # === STEP 6: DSCR Parameter Extraction (Multi-PDF Aggregation) ===
+        update_progress(session_id, 90, f"Extracting DSCR Parameters from {num_files} PDF(s)...")
         try:
-            dscr_excel_path, dscr_results = await extract_dscr_parameters_safe(
+            from ingest.dscr_extractor import extract_dscr_parameters_multi_pdf
+            
+            dscr_excel_path, dscr_results = await extract_dscr_parameters_multi_pdf(
                 session_id=session_id,
-                gridfs_file_id=gridfs_file_id,
+                gridfs_file_ids=gridfs_file_ids,
+                filenames=filenames,
                 rag_service=rag_service,
                 llm=llm,
                 investor=investor,
                 version=version,
                 user_settings=user_settings
             )
-            print(f"✅ DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+            print(f"✅ Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
         except Exception as dscr_err:
             print(f"⚠️ DSCR Extraction Failed: {dscr_err}")
             traceback.print_exc()
@@ -243,33 +276,36 @@ async def process_guideline_background(
         from utils.progress import progress_store, progress_lock
         with progress_lock:
             progress_store[session_id].update({
-                "excel_path": dscr_excel_path, # Use DSCR excel as main download
-                "preview_data": dscr_results, # Use DSCR results for preview
-                "filename": f"DSCR_Extraction_{investor}_{version}.xlsx",
+                "excel_path": dscr_excel_path,  # Use DSCR excel as main download
+                "preview_data": dscr_results,  # Use DSCR results for preview
+                "filename": f"DSCR_MultiPDF_{investor}_{version}.xlsx",
                 "status": "completed",
-                "total_chunks": num_chunks,
+                "total_chunks": len(all_text_chunks),
                 "failed_chunks": failed,
+                "total_pdfs": num_files,
             })
 
         # Save to history after successful completion
         if user_id:
             try:
                 from history.models import save_ingest_history
-                # ✅ UPDATED: Pass gridfs_file_id to history
+                # ✅ UPDATED: Store all GridFS IDs and filenames for multi-PDF
                 history_id = await save_ingest_history({
                     "user_id": user_id,
                     "username": username,
                     "investor": investor,
                     "version": version,
-                    "uploaded_file": filename,
-                    "extracted_file": f"DSCR_Extraction_{investor}_{version}.xlsx",
+                    "uploaded_file": ", ".join(filenames),  # Store all filenames
+                    "extracted_file": f"DSCR_MultiPDF_{investor}_{version}.xlsx",
                     "preview_data": dscr_results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
-                    "gridfs_file_id": gridfs_file_id,  # ✅ Store GridFS ID instead of path
+                    "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,  # Primary file ID
+                    "gridfs_file_ids": gridfs_file_ids,  # ✅ Store all file IDs
                     "page_range": page_range,
                     "guideline_type": guideline_type,
-                    "program_type": program_type
+                    "program_type": program_type,
+                    "total_pdfs": num_files
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
                 
@@ -297,13 +333,14 @@ async def process_guideline_background(
             os.remove(excel_path)
     
     finally:
-        # ✅ Clean up temporary PDF file
-        if temp_pdf_path and os.path.exists(temp_pdf_path):
-            try:
-                os.remove(temp_pdf_path)
-                print(f"🧹 Cleaned up temporary PDF: {temp_pdf_path}")
-            except Exception as e:
-                print(f"⚠️ Failed to clean up temporary PDF: {e}")
+        # ✅ Clean up all temporary PDF files
+        for temp_pdf_path in temp_pdf_paths:
+            if temp_pdf_path and os.path.exists(temp_pdf_path):
+                try:
+                    os.remove(temp_pdf_path)
+                    print(f"🧹 Cleaned up temporary PDF: {temp_pdf_path}")
+                except Exception as e:
+                    print(f"⚠️ Failed to clean up temporary PDF: {e}")
 
 
 async def run_parallel_llm_processing(

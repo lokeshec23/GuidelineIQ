@@ -39,7 +39,7 @@ const IngestPage = () => {
   const { ingestPrompts } = usePrompts();
 
   // --- STATE ---
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState("");
@@ -105,26 +105,38 @@ const IngestPage = () => {
 
   // --- FILE HANDLERS ---
   const handleFileChange = (info) => {
-    const { status } = info.file;
-    if (status !== 'uploading') {
-      const selectedFile = info.file.originFileObj || info.file;
+    // ✅ Handle multiple files
+    const { fileList } = info;
 
-      if (selectedFile.type !== "application/pdf") {
-        showToast.error("Please upload a valid PDF file");
-        return;
-      }
-      setFile(selectedFile);
+    // Validate all files are PDFs
+    const invalidFiles = fileList.filter(
+      f => (f.originFileObj || f).type !== "application/pdf"
+    );
+
+    if (invalidFiles.length > 0) {
+      showToast.error("All files must be PDF format");
+      return;
     }
+
+    // Extract actual file objects
+    const actualFiles = fileList.map(f => f.originFileObj || f);
+    setFiles(actualFiles);
   };
 
-  const handleRemoveFile = (e) => {
-    e.stopPropagation();
-    setFile(null);
+  const handleRemoveFile = (fileToRemove) => {
+    setFiles(prevFiles => prevFiles.filter(f => f !== fileToRemove));
+  };
+
+  const handleRemoveAllFiles = () => {
+    setFiles([]);
   };
 
   // --- MAIN SUBMIT ---
   const handleSubmit = async (values) => {
-    if (!file) return showToast.error("Please upload a PDF file");
+    console.log("Form submitted with values:", values);
+    console.log("Files selected:", files);
+
+    if (!files || files.length === 0) return showToast.error("Please upload at least one PDF file");
 
     try {
       setProcessing(true);
@@ -154,14 +166,19 @@ const IngestPage = () => {
       }
 
       const formData = new FormData();
-      formData.append("file", file);
+      // ✅ Append all files
+      files.forEach((file) => {
+        formData.append("files", file); // Note: 'files' matches backend List[UploadFile]
+      });
       formData.append("investor", values.investor);
       formData.append("version", values.version);
       formData.append("model_provider", modelProvider);
       formData.append("model_name", modelName);
 
-      // Attach dates
-      formData.append("effective_date", values.effective_date.toISOString());
+      // Attach dates (only if provided)
+      if (values.effective_date) {
+        formData.append("effective_date", values.effective_date.toISOString());
+      }
       if (values.expiry_date) {
         formData.append("expiry_date", values.expiry_date.toISOString());
       }
@@ -204,9 +221,9 @@ const IngestPage = () => {
             const currentModelProvider = form.getFieldValue('model_provider');
             const currentModelName = form.getFieldValue('model_name');
 
-            // Clear form and file for next ingestion
+            // Clear form and files for next ingestion
             form.resetFields();
-            setFile(null);
+            setFiles([]);
 
             // Restore model selection
             if (currentModelProvider && currentModelName) {
@@ -309,12 +326,18 @@ const IngestPage = () => {
 
 
   const uploadProps = {
-    name: 'file',
-    multiple: false,
+    name: 'files',
+    multiple: true, // ✅ Enable multiple file selection
     showUploadList: false,
     beforeUpload: () => false,
     onChange: handleFileChange,
-    accept: ".pdf"
+    accept: ".pdf",
+    fileList: files.map((f, idx) => ({
+      uid: idx,
+      name: f.name,
+      status: 'done',
+      originFileObj: f
+    }))
   };
 
   return (
@@ -370,6 +393,7 @@ const IngestPage = () => {
             name="investor"
             label={<span className="text-gray-600">Investors</span>}
             className="mb-0"
+            rules={[{ required: true, message: 'Please enter investor name' }]}
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -378,6 +402,7 @@ const IngestPage = () => {
             name="version"
             label={<span className="text-gray-600">Version</span>}
             className="mb-0"
+            rules={[{ required: true, message: 'Please enter version' }]}
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -389,6 +414,7 @@ const IngestPage = () => {
             name="effective_date"
             label={<span className="text-gray-600">Effective Date</span>}
             className="mb-0"
+            rules={[{ required: true, message: 'Please select effective date' }]}
           >
             <DatePicker
               size="large"
@@ -442,10 +468,10 @@ const IngestPage = () => {
         {/* Attach Documents Section */}
         <div className="mb-8">
           <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
-            Attach Document
+            Attach Documents
           </h2>
 
-          {!file ? (
+          {files.length === 0 ? (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200">
               <Dragger
                 {...uploadProps}
@@ -460,37 +486,77 @@ const IngestPage = () => {
                     Click to upload or drag and drop
                   </p>
                   <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    Supported Format: PDF
+                    Supported Format: PDF • Multiple files allowed
                   </p>
                 </div>
               </Dragger>
             </div>
           ) : (
-            <div className="border-2 border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-100 p-2.5 rounded-lg">
-                  <FileTextOutlined className="text-green-600 text-lg" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-800 text-sm" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    {file.name}
-                  </p>
-                  <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
+            <div className="space-y-3">
+              {/* Header with file count and remove all button */}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  {files.length} file{files.length !== 1 ? 's' : ''} selected
+                </p>
+                <Button
+                  danger
+                  type="text"
+                  size="small"
+                  onClick={handleRemoveAllFiles}
+                  className="hover:bg-red-50"
+                  style={{ fontFamily: 'Jura, sans-serif' }}
+                >
+                  Remove All
+                </Button>
               </div>
-              <Button
-                danger
-                type="text"
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={handleRemoveFile}
-                className="hover:bg-red-50"
-                style={{ fontFamily: 'Jura, sans-serif' }}
-              >
-                Remove
-              </Button>
+
+              {/* List of files */}
+              {files.map((file, index) => (
+                <div
+                  key={index}
+                  className="border-2 border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-green-100 p-2.5 rounded-lg">
+                      <FileTextOutlined className="text-green-600 text-lg" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800 text-sm" style={{ fontFamily: 'Jura, sans-serif' }}>
+                        {file.name}
+                      </p>
+                      <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    danger
+                    type="text"
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleRemoveFile(file)}
+                    className="hover:bg-red-50"
+                    style={{ fontFamily: 'Jura, sans-serif' }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+
+              {/* Add more files button */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200">
+                <Dragger
+                  {...uploadProps}
+                  className="!border-none"
+                  style={{ padding: '12px', background: 'transparent' }}
+                >
+                  <div className="py-3">
+                    <p className="text-sm font-medium text-gray-600" style={{ fontFamily: 'Jura, sans-serif' }}>
+                      + Add more PDFs
+                    </p>
+                  </div>
+                </Dragger>
+              </div>
             </div>
           )}
         </div>
@@ -503,7 +569,7 @@ const IngestPage = () => {
             size="large"
             className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
             loading={processing}
-            disabled={!file || processing}
+            disabled={files.length === 0 || processing}
           >
             {processing ? "Processing..." : "Extract Guidelines"}
           </Button>

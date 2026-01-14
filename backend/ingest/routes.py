@@ -19,6 +19,7 @@ from utils.progress import update_progress, get_progress, delete_progress, progr
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 from utils.json_to_excel import dynamic_json_to_excel
+from typing import List
 
 router = APIRouter(prefix="/ingest", tags=["Ingest Guideline"])
 
@@ -46,7 +47,7 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 @router.post("/guideline", response_model=IngestResponse)
 async def ingest_guideline(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     investor: str = Form(...),
     version: str = Form(...),
     model_provider: str = Form(...),
@@ -61,10 +62,15 @@ async def ingest_guideline(
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
-    Endpoint to upload a PDF and start the ingestion background process.
+    Endpoint to upload one or more PDFs and start the ingestion background process.
     """
-    if not file.filename.lower().endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are supported.")
+    # Validate all files are PDFs
+    for file in files:
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid file type for '{file.filename}'. Only PDF files are supported."
+            )
 
     if model_provider not in SUPPORTED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {model_provider}")
@@ -106,38 +112,49 @@ async def ingest_guideline(
 
     session_id = str(uuid.uuid4())
     
-    # ✅ UPDATED: Save PDF to GridFS instead of file system
+    # ✅ UPDATED: Save multiple PDFs to GridFS
+    gridfs_file_ids = []
+    filenames = []
+    
     try:
-        content = await file.read()
-        
         # Import GridFS helper
         from utils.gridfs_helper import save_pdf_to_gridfs
         
-        # Save to GridFS with metadata
-        gridfs_file_id = await save_pdf_to_gridfs(
-            file_content=content,
-            filename=file.filename,
-            metadata={
-                "investor": investor,
-                "version": version,
-                "session_id": session_id,
-                "user_id": user_id,
-                "uploaded_by": current_user.get("email", "Unknown"),
-                "page_range": page_range,
-                "guideline_type": guideline_type,
-                "program_type": program_type
-            }
-        )
+        for idx, file in enumerate(files):
+            content = await file.read()
+            
+            # Save to GridFS with metadata
+            gridfs_file_id = await save_pdf_to_gridfs(
+                file_content=content,
+                filename=file.filename,
+                metadata={
+                    "investor": investor,
+                    "version": version,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "uploaded_by": current_user.get("email", "Unknown"),
+                    "page_range": page_range,
+                    "guideline_type": guideline_type,
+                    "program_type": program_type,
+                    "file_index": idx,  # Track order of files
+                    "total_files": len(files)
+                }
+            )
+            gridfs_file_ids.append(gridfs_file_id)
+            filenames.append(file.filename)
+            
+        print(f"✅ Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded files: {str(e)}")
 
     update_progress(session_id, 0, "Initializing...")
     
     background_tasks.add_task(
         process_guideline_background,
         session_id=session_id,
-        gridfs_file_id=gridfs_file_id,  # ✅ Pass GridFS ID instead of path
-        filename=file.filename,
+        gridfs_file_ids=gridfs_file_ids,  # ✅ Pass list of GridFS IDs
+        filenames=filenames,  # ✅ Pass list of filenames
         investor=investor,
         version=version,  
         user_settings=admin_settings,
@@ -162,26 +179,43 @@ async def progress_stream(session_id: str):
     """Streams processing progress using Server-Sent Events (SSE)."""
     async def event_generator() -> AsyncGenerator[str, None]:
         last_progress = -1
-        while True:
-            with progress_lock:
-                progress_data = progress_store.get(session_id)
+        try:
+            while True:
+                with progress_lock:
+                    progress_data = progress_store.get(session_id)
 
-            if not progress_data:
-                break
+                if not progress_data:
+                    # Send a final message before closing
+                    yield f"data: {json.dumps({'status': 'not_found', 'message': 'Session not found'})}\n\n"
+                    break
 
-            current_progress = progress_data["progress"]
-            if current_progress != last_progress:
-                yield f"data: {json.dumps(progress_data)}\n\n"
-                last_progress = current_progress
+                current_progress = progress_data["progress"]
+                if current_progress != last_progress:
+                    yield f"data: {json.dumps(progress_data)}\n\n"
+                    last_progress = current_progress
 
-            if progress_data.get("status") in ["completed", "failed", "cancelled"]:
-                break
-            
-            await asyncio.sleep(0.5)
-        
-        print(f"🔌 SSE connection closed for session: {session_id[:8]}")
+                if progress_data.get("status") in ["completed", "failed", "cancelled"]:
+                    break
+                
+                await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            print(f"⚠️ SSE connection cancelled for session: {session_id[:8]}")
+            raise
+        except Exception as e:
+            print(f"❌ SSE error for session {session_id[:8]}: {e}")
+            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+        finally:
+            print(f"🔌 SSE connection closed for session: {session_id[:8]}")
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_generator(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable buffering for nginx
+        }
+    )
 
 
 @router.get("/preview/{session_id}")

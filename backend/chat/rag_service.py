@@ -17,13 +17,69 @@ class RAGService:
         self.chroma_path = os.path.join(os.getcwd(), "chroma_db")
         self.client = None
         self.collection = None
+        self._logged_embedding_model = False  # Flag to prevent excessive logging
 
     def _get_collection(self):
         if self.collection is None:
             if self.client is None:
                 self.client = chromadb.PersistentClient(path=self.chroma_path)
-            self.collection = self.client.get_or_create_collection(name="guideline_chunks")
+            
+            collection_name = "guideline_chunks"
+            
+            # Try to get existing collection
+            try:
+                self.collection = self.client.get_collection(name=collection_name)
+                print(f"✅ Using existing ChromaDB collection: {collection_name}")
+            except Exception as e:
+                # Collection doesn't exist, create it
+                print(f"📦 Creating new ChromaDB collection: {collection_name}")
+                self.collection = self.client.create_collection(name=collection_name)
+                
         return self.collection
+    
+    def reset_collection_if_dimension_mismatch(self, expected_dimension: int):
+        """
+        Reset the collection if there's a dimension mismatch.
+        This is needed when switching between different embedding models.
+        """
+        if self.client is None:
+            self.client = chromadb.PersistentClient(path=self.chroma_path)
+        
+        collection_name = "guideline_chunks"
+        
+        try:
+            # Try to get existing collection
+            existing_collection = self.client.get_collection(name=collection_name)
+            
+            # Check if collection has any documents
+            count = existing_collection.count()
+            
+            if count > 0:
+                # Get a sample document to check dimension
+                sample = existing_collection.peek(limit=1)
+                if sample and sample.get('embeddings') and len(sample['embeddings']) > 0:
+                    actual_dimension = len(sample['embeddings'][0])
+                    
+                    if actual_dimension != expected_dimension:
+                        print(f"⚠️ Dimension mismatch detected: Collection has {actual_dimension}D embeddings, but model produces {expected_dimension}D")
+                        print(f"🔄 Deleting and recreating collection...")
+                        
+                        # Delete old collection
+                        self.client.delete_collection(name=collection_name)
+                        
+                        # Create new collection
+                        self.collection = self.client.create_collection(name=collection_name)
+                        print(f"✅ Created new collection with {expected_dimension}D embeddings")
+                        return True
+            
+            self.collection = existing_collection
+            return False
+            
+        except Exception as e:
+            # Collection doesn't exist, create it
+            print(f"📦 Creating new ChromaDB collection: {collection_name}")
+            self.collection = self.client.create_collection(name=collection_name)
+            return False
 
     async def get_embedding(self, text: str, provider: str, api_key: str, **kwargs) -> List[float]:
         """Generates embedding for a single text chunk (Async)."""
@@ -32,22 +88,43 @@ class RAGService:
                 # ... existing client setup ...
                 client = None
                 if kwargs.get("azure_endpoint"):
+                     # For Azure OpenAI, use a separate embedding deployment
+                     embedding_deployment = kwargs.get("azure_embedding_deployment", "embedding-model")
+                     
+                     # Only log once per session
+                     if not self._logged_embedding_model:
+                         print(f"🔍 Using Azure OpenAI Embedding Deployment: {embedding_deployment}")
+                         self._logged_embedding_model = True
+                     
                      client = AzureOpenAI(
                         api_key=api_key,
                         api_version="2023-05-15",
-                        azure_endpoint=kwargs.get("azure_endpoint"),
-                        azure_deployment=kwargs.get("azure_deployment")
+                        azure_endpoint=kwargs.get("azure_endpoint")
                     )
+                     # Use the embedding deployment name as the model parameter
+                     func = functools.partial(client.embeddings.create, input=[text], model=embedding_deployment)
                 else:
                     client = OpenAI(api_key=api_key)
+                    
+                    # Only log once per session
+                    if not self._logged_embedding_model:
+                        print(f"🔍 Using OpenAI Embedding Model: {EMBEDDING_MODEL_OPENAI}")
+                        self._logged_embedding_model = True
+                    
+                    # For standard OpenAI, use the embedding model constant
+                    func = functools.partial(client.embeddings.create, input=[text], model=EMBEDDING_MODEL_OPENAI)
                 
                 # Run sync call in thread
-                func = functools.partial(client.embeddings.create, input=[text], model=EMBEDDING_MODEL_OPENAI)
                 response = await asyncio.to_thread(func)
                 return response.data[0].embedding
 
             elif provider == "gemini":
                 genai.configure(api_key=api_key)
+                
+                # Only log once per session
+                if not self._logged_embedding_model:
+                    print(f"🔍 Using Gemini Embedding Model: {EMBEDDING_MODEL_GEMINI}")
+                    self._logged_embedding_model = True
                 
                 # Retry logic for Gemini embedding
                 max_retries = 5
@@ -91,14 +168,42 @@ class RAGService:
         metadatas = [doc["metadata"] for doc in documents]
         documents_text = [doc["text"] for doc in documents]
 
+        # Check embedding dimension and reset collection if needed
+        if embeddings and len(embeddings) > 0:
+            embedding_dimension = len(embeddings[0])
+            self.reset_collection_if_dimension_mismatch(embedding_dimension)
+        
         collection = self._get_collection()
-        collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            documents=documents_text
-        )
-        print(f"✅ Added {len(documents)} chunks to ChromaDB.")
+        
+        try:
+            collection.add(
+                ids=ids,
+                embeddings=embeddings,
+                metadatas=metadatas,
+                documents=documents_text
+            )
+            print(f"✅ Added {len(documents)} chunks to ChromaDB.")
+        except Exception as e:
+            if "dimension" in str(e).lower():
+                print(f"⚠️ Dimension error detected: {e}")
+                print(f"🔄 Recreating collection with correct dimension...")
+                
+                # Force reset the collection
+                if embeddings and len(embeddings) > 0:
+                    embedding_dimension = len(embeddings[0])
+                    self.reset_collection_if_dimension_mismatch(embedding_dimension)
+                    
+                    # Retry adding documents
+                    collection = self._get_collection()
+                    collection.add(
+                        ids=ids,
+                        embeddings=embeddings,
+                        metadatas=metadatas,
+                        documents=documents_text
+                    )
+                    print(f"✅ Added {len(documents)} chunks to ChromaDB after reset.")
+            else:
+                raise e
 
     async def search(self, query: str, provider: str, api_key: str, n_results: int = 5, filter_metadata: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """
@@ -118,6 +223,7 @@ class RAGService:
                  query_embedding = result['embedding']
                  
             elif provider == "openai":
+                 # Pass through all kwargs including azure_embedding_deployment
                  query_embedding = await self.get_embedding(query, provider, api_key, **kwargs)
             
         except Exception as e:

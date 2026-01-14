@@ -78,7 +78,8 @@ async def seed_admin():
         
         # Azure OpenAI Configuration
         "openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        "openai_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        "openai_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        "openai_embedding_deployment": os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "embedding-model"),
         
         # Default Model Configuration
         "default_model_provider": os.getenv("DEFAULT_MODEL_PROVIDER", "gemini"),
@@ -110,7 +111,9 @@ async def seed_admin():
         if settings_data.get("openai_endpoint"):
             print(f"   ✓ Azure Endpoint: {settings_data['openai_endpoint']}")
         if settings_data.get("openai_deployment"):
-            print(f"   ✓ Azure Deployment: {settings_data['openai_deployment']}")
+            print(f"   ✓ Azure Chat Deployment: {settings_data['openai_deployment']}")
+        if settings_data.get("openai_embedding_deployment"):
+            print(f"   ✓ Azure Embedding Deployment: {settings_data['openai_embedding_deployment']}")
         print(f"   ✓ Default Provider: {settings_data['default_model_provider']}")
         print(f"   ✓ Default Model: {settings_data['default_model_name']}")
         
