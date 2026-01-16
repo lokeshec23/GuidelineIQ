@@ -169,7 +169,8 @@ async def process_guideline_background(
                 valid_docs = [d for d in embedded_items if d["embedding"]]
                 
                 if valid_docs:
-                    rag_service.add_documents(valid_docs)
+                    # Use async version to prevent event loop blocking
+                    await rag_service.add_documents_async(valid_docs, batch_size=200)
                     print(f"✅ RAG: Stored {len(valid_docs)} chunks from PDF {idx} in Vector DB.")
 
             except Exception as rag_err:

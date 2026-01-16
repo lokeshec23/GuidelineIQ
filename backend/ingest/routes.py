@@ -3,12 +3,9 @@
 import os
 import uuid
 import tempfile
-import json
-import asyncio
-from typing import AsyncGenerator
 from bson import ObjectId
-from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Header
+from fastapi.responses import JSONResponse, FileResponse
 
 # Local utilities
 from ingest.schemas import IngestResponse, ProcessingStatus
@@ -46,7 +43,6 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 
 @router.post("/guideline", response_model=IngestResponse)
 async def ingest_guideline(
-    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     investor: str = Form(...),
     version: str = Form(...),
@@ -62,7 +58,8 @@ async def ingest_guideline(
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
-    Endpoint to upload one or more PDFs and start the ingestion background process.
+    Endpoint to upload one or more PDFs and process them synchronously.
+    Returns the session_id when processing is complete.
     """
     # Validate all files are PDFs
     for file in files:
@@ -78,8 +75,7 @@ async def ingest_guideline(
     if model_name not in SUPPORTED_MODELS.get(model_provider, []):
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
-    # ✅ UPDATED: Fetch admin's settings instead of current user's
-    # ✅ UPDATED: Fetch admin's settings instead of current user's
+    # Fetch admin's settings
     from database import db_manager
     if db_manager.users is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -98,12 +94,12 @@ async def ingest_guideline(
             detail="API keys not configured. Please contact the administrator to configure API keys."
         )
 
-    # ✅ NEW: Get current user's info for history tracking
+    # Get current user's info for history tracking
     current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # ✅ NEW: Check for duplicate ingestion
+    # Check for duplicate ingestion
     if await check_duplicate_ingestion(investor, version, user_id):
         raise HTTPException(
             status_code=400, 
@@ -112,7 +108,7 @@ async def ingest_guideline(
 
     session_id = str(uuid.uuid4())
     
-    # ✅ UPDATED: Save multiple PDFs to GridFS
+    # Save multiple PDFs to GridFS
     gridfs_file_ids = []
     filenames = []
     
@@ -136,7 +132,7 @@ async def ingest_guideline(
                     "page_range": page_range,
                     "guideline_type": guideline_type,
                     "program_type": program_type,
-                    "file_index": idx,  # Track order of files
+                    "file_index": idx,
                     "total_files": len(files)
                 }
             )
@@ -148,74 +144,36 @@ async def ingest_guideline(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded files: {str(e)}")
 
-    update_progress(session_id, 0, "Initializing...")
-    
-    background_tasks.add_task(
-        process_guideline_background,
-        session_id=session_id,
-        gridfs_file_ids=gridfs_file_ids,  # ✅ Pass list of GridFS IDs
-        filenames=filenames,  # ✅ Pass list of filenames
-        investor=investor,
-        version=version,  
-        user_settings=admin_settings,
-        model_provider=model_provider,
-        model_name=model_name,
-        system_prompt=system_prompt,
-        user_prompt=user_prompt,
-        user_id=user_id,
-        username=current_user.get("email", "Unknown"),
-        effective_date=effective_date,
-        expiry_date=expiry_date,
-        page_range=page_range,
-        guideline_type=guideline_type,
-        program_type=program_type,
-    )
-    
-    return IngestResponse(status="processing", message="Processing started", session_id=session_id)
+    # Process synchronously and wait for completion
+    try:
+        await process_guideline_background(
+            session_id=session_id,
+            gridfs_file_ids=gridfs_file_ids,
+            filenames=filenames,
+            investor=investor,
+            version=version,  
+            user_settings=admin_settings,
+            model_provider=model_provider,
+            model_name=model_name,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            user_id=user_id,
+            username=current_user.get("email", "Unknown"),
+            effective_date=effective_date,
+            expiry_date=expiry_date,
+            page_range=page_range,
+            guideline_type=guideline_type,
+            program_type=program_type,
+        )
+        
+        return IngestResponse(status="completed", message="Processing completed successfully", session_id=session_id)
+        
+    except Exception as e:
+        print(f"❌ Ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 
-@router.get("/progress/{session_id}")
-async def progress_stream(session_id: str):
-    """Streams processing progress using Server-Sent Events (SSE)."""
-    async def event_generator() -> AsyncGenerator[str, None]:
-        last_progress = -1
-        try:
-            while True:
-                with progress_lock:
-                    progress_data = progress_store.get(session_id)
 
-                if not progress_data:
-                    # Send a final message before closing
-                    yield f"data: {json.dumps({'status': 'not_found', 'message': 'Session not found'})}\n\n"
-                    break
-
-                current_progress = progress_data["progress"]
-                if current_progress != last_progress:
-                    yield f"data: {json.dumps(progress_data)}\n\n"
-                    last_progress = current_progress
-
-                if progress_data.get("status") in ["completed", "failed", "cancelled"]:
-                    break
-                
-                await asyncio.sleep(0.5)
-        except asyncio.CancelledError:
-            print(f"⚠️ SSE connection cancelled for session: {session_id[:8]}")
-            raise
-        except Exception as e:
-            print(f"❌ SSE error for session {session_id[:8]}: {e}")
-            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-        finally:
-            print(f"🔌 SSE connection closed for session: {session_id[:8]}")
-
-    return StreamingResponse(
-        event_generator(), 
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable buffering for nginx
-        }
-    )
 
 
 @router.get("/preview/{session_id}")
@@ -252,8 +210,8 @@ async def get_preview(session_id: str):
 
 
 @router.get("/download/{session_id}")
-async def download_result(session_id: str, background_tasks: BackgroundTasks):
-    """Endpoint to download the final Excel file and trigger cleanup."""
+async def download_result(session_id: str):
+    """Endpoint to download the final Excel file."""
     
     # 1. Try to get from in-memory store (active/recent jobs)
     with progress_lock:
@@ -263,9 +221,6 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
             filename = session_data.get("filename", "extraction.xlsx")
 
             if os.path.exists(excel_path):
-                # Prevent re-downloads by removing session from store immediately
-                del progress_store[session_id]
-                background_tasks.add_task(cleanup_file, path=excel_path)
                 return FileResponse(
                     excel_path,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -285,8 +240,6 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                     dynamic_json_to_excel(record["preview_data"], tmp.name)
                     
                     filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
-                    
-                    background_tasks.add_task(cleanup_file, path=tmp.name)
                     
                     return FileResponse(
                         tmp.name,

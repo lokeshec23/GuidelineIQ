@@ -7,7 +7,6 @@ import {
   Button,
   Input,
   message,
-  Progress,
   Modal,
   Table,
   Tag,
@@ -41,8 +40,6 @@ const IngestPage = () => {
   // --- STATE ---
   const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState("");
   const [previewData, setPreviewData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [supportedModels, setSupportedModels] = useState({
@@ -140,8 +137,6 @@ const IngestPage = () => {
 
     try {
       setProcessing(true);
-      setProgress(0);
-      setProgressMessage("Initializing...");
       setProcessingModalVisible(true);
 
       // ✅ Fetch user's prompts from prompts API
@@ -194,75 +189,35 @@ const IngestPage = () => {
 
       console.log("Starting ingestion...");
       const res = await ingestAPI.ingestGuideline(formData);
-      const { session_id } = res.data;
-      setSessionId(session_id);
-      console.log("Session ID:", session_id);
+      const { session_id, status } = res.data;
 
-      // Create progress stream
-      const es = ingestAPI.createProgressStream(session_id);
+      console.log("Ingestion response:", res.data);
 
-      es.onmessage = (event) => {
-        console.log("Progress event received:", event.data);
-        try {
-          const data = JSON.parse(event.data);
-          console.log("Parsed progress data:", data);
+      // Processing is complete, close modal
+      setProcessing(false);
+      setProcessingModalVisible(false);
 
-          setProgress(data.progress || 0);
-          setProgressMessage(data.message || "Processing...");
+      // Store current model selection before clearing
+      const currentModelProvider = form.getFieldValue('model_provider');
+      const currentModelName = form.getFieldValue('model_name');
 
-          // Check for completion
-          if (data.status === "completed" || data.progress >= 100) {
-            console.log("Processing completed, closing stream");
-            es.close();
-            setProcessing(false);
-            setProcessingModalVisible(false);
+      // Clear form and files for next ingestion
+      form.resetFields();
+      setFiles([]);
 
-            // Store current model selection before clearing
-            const currentModelProvider = form.getFieldValue('model_provider');
-            const currentModelName = form.getFieldValue('model_name');
+      // Restore model selection
+      if (currentModelProvider && currentModelName) {
+        form.setFieldsValue({
+          model_provider: currentModelProvider,
+          model_name: currentModelName,
+        });
+      }
 
-            // Clear form and files for next ingestion
-            form.resetFields();
-            setFiles([]);
+      // Load preview
+      console.log("Loading preview for session:", session_id);
+      await loadPreview(session_id);
 
-            // Restore model selection
-            if (currentModelProvider && currentModelName) {
-              form.setFieldsValue({
-                model_provider: currentModelProvider,
-                model_name: currentModelName,
-              });
-            }
-
-            // Load preview
-            setTimeout(() => {
-              console.log("Loading preview for session:", session_id);
-              loadPreview(session_id);
-            }, 500);
-
-            showToast.success("Processing complete!");
-          } else if (data.status === "failed") {
-            console.error("Processing failed:", data.error);
-            es.close();
-            setProcessing(false);
-            setProcessingModalVisible(false);
-            showToast.error(data.error || "Processing failed");
-          }
-        } catch (parseError) {
-          console.error("Error parsing progress data:", parseError);
-        }
-      };
-
-      es.onerror = (error) => {
-        console.error("SSE error:", error);
-        es.close();
-        setProcessing(false);
-        setProcessingModalVisible(false);
-        showToast.error("Connection error. Please try again.");
-      };
-
-      es.onopen = () => {
-        console.log("SSE connection opened");
-      };
+      showToast.success("Processing complete!");
 
     } catch (err) {
       console.error("Submission error:", err);
@@ -272,11 +227,6 @@ const IngestPage = () => {
       const errorMessage = err.response?.data?.detail || "Failed to start processing";
 
       if (errorMessage && errorMessage.includes("Duplicate ingestion")) {
-        // Modal.warning({
-        //   title: "Duplicate Ingestion",
-        //   content: errorMessage,
-        //   okText: "Got it",
-        // });
         showToast.warning(errorMessage)
       } else {
         showToast.error(errorMessage);
@@ -589,9 +539,7 @@ const IngestPage = () => {
           </div>
         }
       >
-        <Progress percent={Math.round(progress)} status="active" strokeColor="#1890ff" />
-        <p className="text-center mt-3 text-gray-600">{progressMessage}</p>
-        {/* <p className="text-center mt-2 text-gray-400 text-xs">Session: {sessionId?.substring(0, 8)}</p> */}
+        <p className="text-center mt-3 text-gray-600">Please wait while we process your documents...</p>
       </Modal>
 
       {/* Preview Modal */}

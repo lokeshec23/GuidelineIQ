@@ -157,7 +157,7 @@ class RAGService:
             print(f"❌ Embedding generation failed: {e}")
             return []
 
-    def add_documents(self, documents: List[Dict]):
+    def add_documents(self, documents: List[Dict], check_dimension: bool = True):
         # ... existing sync add_documents is fine (local DB) ...
         # (Same implementation as before)
         if not documents:
@@ -168,8 +168,8 @@ class RAGService:
         metadatas = [doc["metadata"] for doc in documents]
         documents_text = [doc["text"] for doc in documents]
 
-        # Check embedding dimension and reset collection if needed
-        if embeddings and len(embeddings) > 0:
+        # Check embedding dimension and reset collection if needed (only if requested)
+        if check_dimension and embeddings and len(embeddings) > 0:
             embedding_dimension = len(embeddings[0])
             self.reset_collection_if_dimension_mismatch(embedding_dimension)
         
@@ -204,6 +204,44 @@ class RAGService:
                     print(f"✅ Added {len(documents)} chunks to ChromaDB after reset.")
             else:
                 raise e
+    
+    async def add_documents_async(self, documents: List[Dict], batch_size: int = 200):
+        """
+        Asynchronously add documents to ChromaDB in batches.
+        Offloads blocking operations to thread pool to prevent event loop starvation.
+        
+        Args:
+            documents: List of document dictionaries with id, text, embedding, metadata
+            batch_size: Number of documents to process per batch (default: 200)
+        """
+        if not documents:
+            return
+        
+        total = len(documents)
+        print(f"📦 Adding {total} documents to ChromaDB in batches of {batch_size}...")
+
+        # 1. Pre-check dimension ONCE to avoid checking it for every batch
+        if documents:
+            sample_doc = documents[0]
+            if "embedding" in sample_doc:
+                dim = len(sample_doc["embedding"])
+                await asyncio.to_thread(self.reset_collection_if_dimension_mismatch, dim)
+        
+        # 2. Add batches without repeated dimension checks
+        for i in range(0, total, batch_size):
+            batch = documents[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total + batch_size - 1) // batch_size
+            print(f"📦 Adding batch {batch_num}/{total_batches} to ChromaDB...")
+            
+            # Offload synchronous ChromaDB operation to thread pool
+            # Pass check_dimension=False since we checked upfront
+            await asyncio.to_thread(self.add_documents, batch, check_dimension=False)
+            
+            print(f"✅ Batch {batch_num}/{total_batches}: Added {len(batch)} documents")
+            
+            # Yield control back to event loop between batches
+            await asyncio.sleep(0)
 
     async def search(self, query: str, provider: str, api_key: str, n_results: int = 5, filter_metadata: Optional[Dict] = None, **kwargs) -> List[Dict]:
         """
