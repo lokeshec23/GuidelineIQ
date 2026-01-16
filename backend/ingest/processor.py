@@ -67,115 +67,128 @@ async def process_guideline_background(
         # === STEP 1-3: Process Each PDF (Retrieve, OCR, Embed) ===
         all_text_chunks = []
         
-        for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames), 1):
-            print(f"\n{'='*60}")
-            print(f"📄 Processing PDF {idx}/{num_files}: {filename}")
-            print(f"{'='*60}")
+        # Concurrency control
+        semaphore = asyncio.Semaphore(5)
+        files_completed = 0
+        files_lock = asyncio.Lock()
+        
+        async def process_single_pdf(idx: int, file_id: str, filename: str):
+            nonlocal files_completed
             
-            # Retrieve PDF from GridFS
-            update_progress(session_id, 2 + (idx-1)*20, f"Retrieving PDF {idx}/{num_files} from storage...")
-            from utils.gridfs_helper import get_pdf_from_gridfs
-            
-            pdf_content = await get_pdf_from_gridfs(file_id)
-            
-            # Create temporary file for OCR processing
-            temp_pdf_path = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".pdf",
-                prefix=f"ocr_{session_id[:8]}_{idx}_"
-            ).name
-            temp_pdf_paths.append(temp_pdf_path)
-            
-            with open(temp_pdf_path, "wb") as f:
-                f.write(pdf_content)
-            
-            print(f"✅ Created temporary PDF for OCR: {temp_pdf_path}")
-
-            # OCR Extraction
-            update_progress(session_id, 5 + (idx-1)*20, f"Extracting text from PDF {idx}/{num_files}...")
-            ocr_client = AzureOCR()
-            text_chunks = ocr_client.analyze_doc_page_by_page(
-                temp_pdf_path, 
-                pages_per_chunk=pages_per_chunk, 
-                page_range=page_range
-            )
-            num_chunks = len(text_chunks)
-            if num_chunks == 0:
-                print(f"⚠️ OCR failed for {filename}, skipping...")
-                continue
-
-            update_progress(session_id, 15 + (idx-1)*20, f"OCR complete for PDF {idx}. Created {num_chunks} chunk(s).")
-            all_text_chunks.extend(text_chunks)
-            
-            # Generate Embeddings for this PDF's chunks
-            update_progress(session_id, 20 + (idx-1)*20, f"Generating embeddings for PDF {idx}...")
-            try:
-                items_to_embed = []
-                
-                for i, chunk_tuple in enumerate(text_chunks):
-                    text, pages = chunk_tuple
-                    items_to_embed.append({
-                        "id": f"{file_id}_chunk_{i}",
-                        "text": text,
-                        "metadata": {
-                            "investor": investor,
-                            "version": version,
-                            "page": pages,
-                            "filename": filename,
-                            "gridfs_file_id": file_id,
-                            "type": "pdf_chunk",
-                            "file_index": idx
-                        }
-                    })
-
-                # Determine provider and key
-                rag_provider = model_provider
-                api_key = user_settings.get(f"{model_provider}_api_key")
-                
-                # Generate Embeddings concurrently with progress tracking
-                print(f"⚡ Generating embeddings for {len(items_to_embed)} chunks from PDF {idx}...")
-                
-                # Track completed embeddings for progress updates
-                completed_embeddings = 0
-                total_embeddings = len(items_to_embed)
-                embedding_lock = asyncio.Lock()
-                
-                async def process_embedding(item, item_idx):
-                    nonlocal completed_embeddings
+            async with semaphore:
+                try:
+                    print(f"\nExample Parallel Start: Processing PDF {idx}/{num_files}: {filename}")
                     
-                    emb = await rag_service.get_embedding(
-                        item["text"], 
-                        rag_provider, 
-                        api_key,
-                        azure_endpoint=user_settings.get("openai_endpoint"),
-                        azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
+                    # 1. Retrieve PDF
+                    from utils.gridfs_helper import get_pdf_from_gridfs
+                    pdf_content = await get_pdf_from_gridfs(file_id)
+                    
+                    # 2. Save Temp
+                    temp_pdf_path = tempfile.NamedTemporaryFile(
+                        delete=False,
+                        suffix=".pdf",
+                        prefix=f"ocr_{session_id[:8]}_{idx}_"
+                    ).name
+                    
+                    with open(temp_pdf_path, "wb") as f:
+                        f.write(pdf_content)
+                        
+                    # 3. OCR (CPU bound, run in thread pool)
+                    ocr_client = AzureOCR()
+                    chunk_tuples = await asyncio.to_thread(
+                        ocr_client.analyze_doc_page_by_page,
+                        temp_pdf_path,
+                        pages_per_chunk,
+                        page_range
                     )
-                    item["embedding"] = emb
                     
-                    # Update progress periodically (every 5 chunks or at completion)
-                    async with embedding_lock:
-                        completed_embeddings += 1
-                        if completed_embeddings % 5 == 0 or completed_embeddings == total_embeddings:
-                            progress_pct = 20 + (idx-1)*20 + int((completed_embeddings / total_embeddings) * 15)
-                            update_progress(
-                                session_id, 
-                                progress_pct, 
-                                f"Embedding PDF {idx}: {completed_embeddings}/{total_embeddings} chunks"
-                            )
+                    num_file_chunks = len(chunk_tuples)
+                    if num_file_chunks == 0:
+                        print(f"⚠️ OCR failed for {filename}, skipping...")
+                        # Return path so it can be cleaned up
+                        return [], temp_pdf_path
+                        
+                    # 4. Embeddings
+                    items_to_embed = []
+                    for i, chunk_tuple in enumerate(chunk_tuples):
+                        text, pages = chunk_tuple
+                        items_to_embed.append({
+                            "id": f"{file_id}_chunk_{i}",
+                            "text": text,
+                            "metadata": {
+                                "investor": investor,
+                                "version": version,
+                                "page": pages,
+                                "filename": filename,
+                                "gridfs_file_id": file_id,
+                                "type": "pdf_chunk",
+                                "file_index": idx
+                            }
+                        })
+                        
+                    rag_provider = model_provider
+                    api_key = user_settings.get(f"{model_provider}_api_key")
                     
-                    return item
+                    # Embed in batches to respect rate limits somewhat within the file
+                    embedded_docs = []
+                    
+                    # We reuse the logic: embed chunks in parallel
+                    async def embed_single_chunk(item):
+                        emb = await rag_service.get_embedding(
+                            item["text"], 
+                            rag_provider, 
+                            api_key,
+                            azure_endpoint=user_settings.get("openai_endpoint"),
+                            azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
+                        )
+                        item["embedding"] = emb
+                        return item
 
-                embedded_items = await asyncio.gather(*[process_embedding(item, i) for i, item in enumerate(items_to_embed)])
-                valid_docs = [d for d in embedded_items if d["embedding"]]
+                    # Gather embeddings for this file
+                    # We can limit concurrency PER FILE here too if needed, but the outer semaphore 
+                    # limits total files, so 5 files * N chunks might be extensive.
+                    # Let's batch chunks per file to be safe: batch size 10
+                    
+                    batch_size = 10
+                    for k in range(0, len(items_to_embed), batch_size):
+                        batch = items_to_embed[k:k+batch_size]
+                        batch_results = await asyncio.gather(*[embed_single_chunk(item) for item in batch])
+                        for res in batch_results:
+                            if res.get("embedding"):
+                                embedded_docs.append(res)
                 
-                if valid_docs:
-                    # Use async version to prevent event loop blocking
-                    await rag_service.add_documents_async(valid_docs, batch_size=200)
-                    print(f"✅ RAG: Stored {len(valid_docs)} chunks from PDF {idx} in Vector DB.")
+                    if embedded_docs:
+                        await rag_service.add_documents_async(embedded_docs, batch_size=200)
+                        print(f"✅ RAG: Stored {len(embedded_docs)} chunks from {filename}")
 
-            except Exception as rag_err:
-                print(f"⚠️ RAG Embedding Failed for PDF {idx}: {rag_err}")
-                traceback.print_exc()
+                    # Update global progress
+                    async with files_lock:
+                        files_completed += 1
+                        # Map 0 to 45% progress
+                        pct = int((files_completed / num_files) * 45)
+                        update_progress(session_id, pct, f"Processed PDF {files_completed}/{num_files}: {filename}")
+
+                    return chunk_tuples, temp_pdf_path
+
+                except Exception as e:
+                    print(f"❌ Error processing {filename}: {e}")
+                    traceback.print_exc()
+                    return [], (temp_pdf_path if 'temp_pdf_path' in locals() else None)
+
+        # Gather all tasks
+        tasks = [
+            process_single_pdf(idx, file_id, filename)
+            for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames), 1)
+        ]
+        
+        results = await asyncio.gather(*tasks)
+        
+        # Aggregate results
+        for chunks, temp_path in results:
+            if chunks:
+                all_text_chunks.extend(chunks)
+            if temp_path:
+                temp_pdf_paths.append(temp_path)
         
         if not all_text_chunks:
             raise ValueError("OCR process failed to extract text from any document.")
