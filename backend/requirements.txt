@@ -66,3 +66,8 @@ websocket-client==1.9.0
 websockets==16.0
 wrapt==1.17.3
 zipp==3.23.0
+faiss-cpu==1.7.4
+numpy==1.24.0
+openai==1.12.0
+google-generativeai==0.3.2
+azure-identity==1.15.0

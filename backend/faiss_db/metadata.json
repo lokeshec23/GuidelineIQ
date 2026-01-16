@@ -1,0 +1,48 @@
+[
+  {
+    "id": "test_doc_1",
+    "text": "This is a test document about DSCR calculations for investors.",
+    "metadata": {
+      "investor": "TestInvestor",
+      "version": "v1.0",
+      "filename": "test.pdf",
+      "page": "1",
+      "type": "pdf_chunk"
+    }
+  },
+  {
+    "id": "test_doc_2",
+    "text": "Another document discussing loan-to-value ratios and guidelines.",
+    "metadata": {
+      "investor": "TestInvestor",
+      "version": "v1.0",
+      "filename": "test.pdf",
+      "page": "2",
+      "type": "pdf_chunk"
+    }
+  },
+  {
+    "id": "test_doc_3",
+    "text": "Different investor guidelines for property evaluation.",
+    "metadata": {
+      "investor": "AnotherInvestor",
+      "version": "v2.0",
+      "filename": "other.pdf",
+      "page": "1",
+      "type": "pdf_chunk"
+    }
+  },
+  {
+    "id": "696a39af169c75778af2393f_chunk_0",
+    "text": "FUNDING\nUPDATES\nBelow please find a summary of updates for the Flex NonQM and DSCR Matrices and Acquisition Guidelines. These updates must be implemented for all applications and locks as of December 3, 2025. Version 1 of the update includes the changes highlighted below.\nGUIDELINES AND MATRICES - Updated as follows:\n· DSCR Supreme - Updated as follows:\n• Investor DSCR- Updated as follows:\no The maximum number of financed properties is now capped at 20, including those held in an LLC\no First Time Homebuyer is permitted\n· Foreign National - Updated as follows:\no The foreign tradeline requirements have been removed for Foreign Nationals with non-US credit.\no When the primary wage earner has three scores, the minimum tradeline requirements are waived.\no Housing history for the borrower's primary residence in a foreign country is not required to be documented.\no Updated the LTVs on Full and Alt Doc investment properties for borrowers with No Credit Score to line up with the LTVs offered for DSCR borrowers with No Credit Score.\n• Flex Debt to Asset Qualifier - Updated as follows:\no The foreign tradeline requirements have been removed for Foreign Nationals with non-US credit.\no Housing history for the borrower's primary residence in a foreign country is not required to be documented.\no Updated the Income and Asset Age of Documentation requirement to 120 days to align with the other Loan Programs.\n• Flex Select Closed End 2nd - Updated as follows:\no Updated the Income and Asset Age of Documentation requirement to 120 days to align with the other Loan Programs.\n. First Time Investor Restrictions - Added requirements that exist for DSCR Mixed &\nMulti loans to the guidelines which were already present in the matrices. No guideline change has occurred with this update.",
+    "metadata": {
+      "investor": "TLS Flex DSCR",
+      "version": "23ss",
+      "page": "1",
+      "filename": "12 03 2025v1 NQMF Acquisition Guides Summary of Updates.pdf",
+      "gridfs_file_id": "696a39af169c75778af2393f",
+      "type": "pdf_chunk",
+      "file_index": 1
+    }
+  }
+]
