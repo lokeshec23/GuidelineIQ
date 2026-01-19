@@ -105,16 +105,6 @@ const IngestPage = () => {
     // ✅ Handle multiple files
     const { fileList } = info;
 
-    // Validate all files are PDFs
-    const invalidFiles = fileList.filter(
-      f => (f.originFileObj || f).type !== "application/pdf"
-    );
-
-    if (invalidFiles.length > 0) {
-      showToast.error("All files must be PDF format");
-      return;
-    }
-
     // Extract actual file objects
     const actualFiles = fileList.map(f => f.originFileObj || f);
     setFiles(actualFiles);
@@ -133,7 +123,7 @@ const IngestPage = () => {
     console.log("Form submitted with values:", values);
     console.log("Files selected:", files);
 
-    if (!files || files.length === 0) return showToast.error("Please upload at least one PDF file");
+    // if (!files || files.length === 0) return showToast.error("Please upload at least one PDF file");
 
     try {
       setProcessing(true);
@@ -343,7 +333,8 @@ const IngestPage = () => {
             name="investor"
             label={<span className="text-gray-600">Investors</span>}
             className="mb-0"
-            rules={[{ required: true, message: 'Please enter investor name' }]}
+          // className="mb-0"
+          // rules={[{ required: true, message: 'Please enter investor name' }]}
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -351,8 +342,8 @@ const IngestPage = () => {
           <Form.Item
             name="version"
             label={<span className="text-gray-600">Version</span>}
-            className="mb-0"
-            rules={[{ required: true, message: 'Please enter version' }]}
+          // className="mb-0"
+          // rules={[{ required: true, message: 'Please enter version' }]}
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -364,7 +355,8 @@ const IngestPage = () => {
             name="effective_date"
             label={<span className="text-gray-600">Effective Date</span>}
             className="mb-0"
-            rules={[{ required: true, message: 'Please select effective date' }]}
+          // className="mb-0"
+          // rules={[{ required: true, message: 'Please select effective date' }]}
           >
             <DatePicker
               size="large"
