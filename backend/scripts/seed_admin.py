@@ -25,12 +25,12 @@ async def seed_admin():
     # Load environment variables
     load_dotenv()
     
-    admin_username = "user"
-    admin_email = "user@user.com"
-    admin_password ="user@123"
-    # admin_username = os.getenv("ADMIN_USERNAME")
-    # admin_email = os.getenv("ADMIN_EMAIL")
-    # admin_password = os.getenv("ADMIN_PASSWORD")
+    # admin_username = "user"
+    # admin_email = "user@user.com"
+    # admin_password ="user@123"
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_email = os.getenv("ADMIN_EMAIL")
+    admin_password = os.getenv("ADMIN_PASSWORD")
     
     if not admin_email or not admin_password:
         print("❌ Error: ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env file")
@@ -82,8 +82,8 @@ async def seed_admin():
         "openai_embedding_deployment": os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "embedding-model"),
         
         # Default Model Configuration
-        "default_model_provider": os.getenv("DEFAULT_MODEL_PROVIDER", "gemini"),
-        "default_model_name": os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-pro"),
+        "default_model_provider": os.getenv("DEFAULT_MODEL_PROVIDER", "openai"),
+        "default_model_name": os.getenv("DEFAULT_MODEL_NAME", "gpt-4o"),
         
         # LLM Parameters (with defaults)
         "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.3")),
@@ -92,7 +92,7 @@ async def seed_admin():
         "stop_sequences": [],
         
         # PDF Chunking
-        "pages_per_chunk": int(os.getenv("DEFAULT_PAGES_PER_CHUNK", "5")),
+        "pages_per_chunk": int(os.getenv("DEFAULT_PAGES_PER_CHUNK", "1")),
         
         # Comparison settings
         "comparison_chunk_size": int(os.getenv("COMPARISON_CHUNK_SIZE", "10")),
