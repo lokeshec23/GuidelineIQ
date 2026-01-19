@@ -8,7 +8,7 @@ import os
 from settings.models import get_user_settings
 from auth.middleware import get_admin_user
 import database
-from chat.service import chat_with_gemini, upload_pdf_with_cache
+from chat.service import chat_with_gemini, chat_with_openai, upload_pdf_with_cache
 from chat.rag_service import RAGService  # ✅ RAG Support
 rag_service = RAGService()
 
@@ -56,10 +56,36 @@ async def chat_with_session(
         raise HTTPException(status_code=500, detail="Admin user not found")
     
     settings = await get_user_settings(str(admin_user["_id"]))
-    if not settings or not settings.get("gemini_api_key"):
-        raise HTTPException(status_code=400, detail="Gemini API key not configured")
+    if not settings:
+        raise HTTPException(status_code=400, detail="Settings not configured")
+    
+    # Check preferred provider
+    provider = settings.get("default_model_provider", "openai")
+    model_name = settings.get("default_model_name", "gpt-4o")
+    
+    api_key = None
+    azure_params = {}
+
+    if provider == "openai":
+        api_key = settings.get("openai_api_key")
+        if not api_key:
+             raise HTTPException(status_code=400, detail="OpenAI API key not configured")
         
-    api_key = settings["gemini_api_key"]
+        # Check for Azure
+        if settings.get("openai_endpoint"):
+            azure_params = {
+                "azure_endpoint": settings.get("openai_endpoint"),
+                "azure_deployment": settings.get("openai_deployment"),
+                "azure_embedding_deployment": settings.get("openai_embedding_deployment")
+            }
+            
+    elif provider == "gemini":
+        api_key = settings.get("gemini_api_key")
+        if not api_key:
+            raise HTTPException(status_code=400, detail="Gemini API key not configured")
+    else:
+        # Fallback or error
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
     
     # 2. Get session data from database
     record = None
@@ -111,10 +137,11 @@ async def chat_with_session(
     # Perform Vector Search
     results = await rag_service.search(
         query=message,
-        provider="gemini", # Using Gemini API key
+        provider=provider, # Dynamic provider
         api_key=api_key,
-        n_results=10, # Fetch more context
-        filter_metadata=filter_metadata
+        n_results=10, 
+        filter_metadata=filter_metadata,
+        **azure_params # Pass Azure params if any
     )
     
     text_context = ""
@@ -138,18 +165,31 @@ async def chat_with_session(
         text_context = "\n".join(context_parts)
         print(f"✅ RAG found {len(results)} items.")
 
-    # 6. Call Gemini
+    # 6. Call LLM (Gemini or OpenAI)
     try:
-        reply = chat_with_gemini(
-            api_key=api_key,
-            model_name="gemini-2.5-pro",
-            message=message,
-            history=history,
-            file_uris=[], # No file attachment needed for RAG
-            text_context=text_context,
-            use_file_search=False, # Disable Google File Search
-            instructions=instructions
-        )
+        reply = ""
+        
+        if provider == "gemini":
+            reply = chat_with_gemini(
+                api_key=api_key,
+                model_name=model_name,
+                message=message,
+                history=history,
+                file_uris=[], 
+                text_context=text_context,
+                use_file_search=False,
+                instructions=instructions
+            )
+        elif provider == "openai":
+            reply = chat_with_openai(
+                api_key=api_key,
+                model_name=model_name,
+                message=message,
+                history=history,
+                text_context=text_context,
+                instructions=instructions,
+                **azure_params
+            )
         
         # 7. Save chat messages to conversation
         await save_chat_message_with_conversation(session_id, conversation_id, "user", message)

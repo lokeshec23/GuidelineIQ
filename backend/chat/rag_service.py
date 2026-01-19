@@ -280,6 +280,14 @@ class RAGService:
         search_k = n_results * 10 if filter_metadata else n_results
         search_k = min(search_k, self.index.ntotal)  # Don't search for more than available
         
+        # Check for dimension mismatch
+        if self.index.d != query_array.shape[1]:
+            print(f"[WARN] Dimension mismatch in search: Index={self.index.d}, Query={query_array.shape[1]}")
+            print("[WARN] Resetting index to match new embedding model dimension.")
+            self._ensure_index_exists(query_array.shape[1])
+            self._save_index()
+            return []
+
         distances, indices = self.index.search(query_array, search_k)
         
         # Format results
