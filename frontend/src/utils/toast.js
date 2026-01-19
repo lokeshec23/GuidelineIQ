@@ -232,7 +232,10 @@ export const getErrorMessage = (error) => {
             return error.response.data.detail;
         }
         if (Array.isArray(error.response.data.detail)) {
-            return error.response.data.detail.map(e => e.msg).join(', ');
+            return error.response.data.detail.map(e => {
+                const field = e.loc && e.loc.length > 0 ? e.loc[e.loc.length - 1] : 'Unknown field';
+                return `${field}: ${e.msg}`;
+            }).join(', ');
         }
     }
 

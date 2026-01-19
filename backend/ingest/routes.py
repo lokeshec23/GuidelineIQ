@@ -3,9 +3,12 @@
 import os
 import uuid
 import tempfile
+import asyncio
+import json
 from bson import ObjectId
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Header
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Header, BackgroundTasks
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from typing import AsyncGenerator
 
 # Local utilities
 from ingest.schemas import IngestResponse, ProcessingStatus
@@ -43,14 +46,15 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 
 @router.post("/guideline", response_model=IngestResponse)
 async def ingest_guideline(
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
-    investor: str = Form(...),
-    version: str = Form(...),
+    investor: str = Form(None),
+    version: str = Form(None),
     model_provider: str = Form(...),
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
-    effective_date: str = Form(...),
+    effective_date: str = Form(None),
     expiry_date: str = Form(None),
     page_range: str = Form(None),
     guideline_type: str = Form(None),
@@ -58,9 +62,13 @@ async def ingest_guideline(
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
-    Endpoint to upload one or more PDFs and process them synchronously.
-    Returns the session_id when processing is complete.
+    Endpoint to upload one or more PDFs and process them asynchronously.
+    Returns the session_id immediately. Use SSE to track progress.
     """
+    # Set defaults if not provided
+    investor = investor or "Unknown Investor"
+    version = version or "v1"
+    
     # Validate all files are PDFs
     for file in files:
         if not file.filename.lower().endswith('.pdf'):
@@ -75,7 +83,6 @@ async def ingest_guideline(
     if model_name not in SUPPORTED_MODELS.get(model_provider, []):
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
-    # Fetch admin's settings
     from database import db_manager
     if db_manager.users is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -94,12 +101,10 @@ async def ingest_guideline(
             detail="API keys not configured. Please contact the administrator to configure API keys."
         )
 
-    # Get current user's info for history tracking
     current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Check for duplicate ingestion
     if await check_duplicate_ingestion(investor, version, user_id):
         raise HTTPException(
             status_code=400, 
@@ -108,18 +113,19 @@ async def ingest_guideline(
 
     session_id = str(uuid.uuid4())
     
+    # Initialize progress
+    update_progress(session_id, 0, "Initializing ingestion...")
+    
     # Save multiple PDFs to GridFS
     gridfs_file_ids = []
     filenames = []
     
     try:
-        # Import GridFS helper
         from utils.gridfs_helper import save_pdf_to_gridfs
         
         for idx, file in enumerate(files):
             content = await file.read()
             
-            # Save to GridFS with metadata
             gridfs_file_id = await save_pdf_to_gridfs(
                 file_content=content,
                 filename=file.filename,
@@ -140,40 +146,97 @@ async def ingest_guideline(
             filenames.append(file.filename)
             
         print(f"✅ Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded files: {str(e)}")
 
-    # Process synchronously and wait for completion
-    try:
-        await process_guideline_background(
-            session_id=session_id,
-            gridfs_file_ids=gridfs_file_ids,
-            filenames=filenames,
-            investor=investor,
-            version=version,  
-            user_settings=admin_settings,
-            model_provider=model_provider,
-            model_name=model_name,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            user_id=user_id,
-            username=current_user.get("email", "Unknown"),
-            effective_date=effective_date,
-            expiry_date=expiry_date,
-            page_range=page_range,
-            guideline_type=guideline_type,
-            program_type=program_type,
+    # Start background processing
+    background_tasks.add_task(
+        process_guideline_background,
+        session_id=session_id,
+        gridfs_file_ids=gridfs_file_ids,
+        filenames=filenames,
+        investor=investor,
+        version=version,  
+        user_settings=admin_settings,
+        model_provider=model_provider,
+        model_name=model_name,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+        effective_date=effective_date,
+        expiry_date=expiry_date,
+        page_range=page_range,
+        guideline_type=guideline_type,
+        program_type=program_type,
+    )
+    
+    return IngestResponse(
+        status="processing", 
+        message="Ingestion started", 
+        session_id=session_id
+    )
+
+
+@router.get("/progress/{session_id}")
+async def progress_stream(session_id: str):
+    """Stream progress updates via Server-Sent Events"""
+    async def event_generator() -> AsyncGenerator[str, None]:
+        last_progress = -1
+        retry_count = 0
+        max_retries = 600
+        
+        print(f"SSE connected: {session_id[:8]}")
+        
+        while retry_count < max_retries:
+            with progress_lock:
+                progress_data = progress_store.get(session_id)
+            
+            if not progress_data:
+                break
+                
+            current_progress = progress_data["progress"]
+            
+            if current_progress != last_progress:
+                last_progress = current_progress
+                yield f"data: {json.dumps(progress_data)}\n\n"
+                retry_count = 0
+            
+            if progress_data.get("status") in ["completed", "failed", "cancelled"]:
+                await asyncio.sleep(0.5)
+                break
+            
+            await asyncio.sleep(0.5)
+            retry_count += 1
+        
+        print(f"SSE closed: {session_id[:8]}")
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@router.get("/status/{session_id}", response_model=ProcessingStatus)
+async def get_status(session_id: str):
+    """Get current ingestion status"""
+    with progress_lock:
+        if session_id not in progress_store:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        data = progress_store[session_id]
+        
+        return ProcessingStatus(
+            status=data.get("status", "processing"),
+            progress=data["progress"],
+            message=data["message"],
+            result_url=f"/ingest/download/{session_id}" if data.get("excel_path") else None
         )
-        
-        return IngestResponse(status="completed", message="Processing completed successfully", session_id=session_id)
-        
-    except Exception as e:
-        print(f"❌ Ingestion failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
-
-
-
 
 
 @router.get("/preview/{session_id}")

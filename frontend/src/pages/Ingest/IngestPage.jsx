@@ -14,6 +14,7 @@ import {
   Spin,
   Upload,
   DatePicker,
+  Progress,
 } from "antd";
 import {
   InboxOutlined,
@@ -27,7 +28,7 @@ import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
-import { showToast } from "../../utils/toast";
+import { showToast, getErrorMessage } from "../../utils/toast";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -40,6 +41,8 @@ const IngestPage = () => {
   // --- STATE ---
   const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
   const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0); // ✅ Progress state
+  const [progressMessage, setProgressMessage] = useState(""); // ✅ Progress message state
   const [previewData, setPreviewData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [supportedModels, setSupportedModels] = useState({
@@ -127,6 +130,8 @@ const IngestPage = () => {
 
     try {
       setProcessing(true);
+      setProgress(0); // Reset progress
+      setProgressMessage("Starting ingestion...");
       setProcessingModalVisible(true);
 
       // ✅ Fetch user's prompts from prompts API
@@ -181,40 +186,72 @@ const IngestPage = () => {
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id, status } = res.data;
 
-      console.log("Ingestion response:", res.data);
+      console.log("Ingestion started with session ID:", session_id);
+      setSessionId(session_id);
 
-      // Processing is complete, close modal
-      setProcessing(false);
-      setProcessingModalVisible(false);
+      // Start SSE for progress tracking
+      const es = ingestAPI.createProgressStream(session_id);
 
-      // Store current model selection before clearing
-      const currentModelProvider = form.getFieldValue('model_provider');
-      const currentModelName = form.getFieldValue('model_name');
+      es.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          setProgress(data.progress || 0);
+          setProgressMessage(data.message || "Processing...");
 
-      // Clear form and files for next ingestion
-      form.resetFields();
-      setFiles([]);
+          if (data.status === "completed" || data.progress >= 100) {
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
 
-      // Restore model selection
-      if (currentModelProvider && currentModelName) {
-        form.setFieldsValue({
-          model_provider: currentModelProvider,
-          model_name: currentModelName,
-        });
-      }
+            showToast.success("Processing complete!");
 
-      // Load preview
-      console.log("Loading preview for session:", session_id);
-      await loadPreview(session_id);
+            // Store current model selection before clearing
+            const currentModelProvider = form.getFieldValue('model_provider');
+            const currentModelName = form.getFieldValue('model_name');
 
-      showToast.success("Processing complete!");
+            // Clear form and files for next ingestion
+            form.resetFields();
+            setFiles([]);
+
+            // Restore model selection
+            if (currentModelProvider && currentModelName) {
+              form.setFieldsValue({
+                model_provider: currentModelProvider,
+                model_name: currentModelName,
+              });
+            }
+
+            // Load preview
+            console.log("Loading preview for session:", session_id);
+            await loadPreview(session_id);
+
+          } else if (data.status === "failed") {
+            es.close();
+            setProcessing(false);
+            setProcessingModalVisible(false);
+            showToast.error(data.error || "Processing failed");
+          }
+        } catch (parseError) {
+          console.error("Error parsing progress data:", parseError);
+        }
+      };
+
+      es.onerror = (error) => {
+        console.error("SSE error:", error);
+        es.close();
+        // Don't close modal immediately on SSE error, might be temporary
+        // setProcessing(false); 
+        // setProcessingModalVisible(false);
+        // showToast.error("Connection error. Please check status manually.");
+      };
+
 
     } catch (err) {
       console.error("Submission error:", err);
       setProcessing(false);
       setProcessingModalVisible(false);
 
-      const errorMessage = err.response?.data?.detail || "Failed to start processing";
+      const errorMessage = getErrorMessage(err);
 
       if (errorMessage && errorMessage.includes("Duplicate ingestion")) {
         showToast.warning(errorMessage)
@@ -333,8 +370,6 @@ const IngestPage = () => {
             name="investor"
             label={<span className="text-gray-600">Investors</span>}
             className="mb-0"
-          // className="mb-0"
-          // rules={[{ required: true, message: 'Please enter investor name' }]}
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -342,8 +377,7 @@ const IngestPage = () => {
           <Form.Item
             name="version"
             label={<span className="text-gray-600">Version</span>}
-          // className="mb-0"
-          // rules={[{ required: true, message: 'Please enter version' }]}
+            className="mb-0"
           >
             <Input size="large" placeholder="Enter" className="rounded-md" />
           </Form.Item>
@@ -355,8 +389,6 @@ const IngestPage = () => {
             name="effective_date"
             label={<span className="text-gray-600">Effective Date</span>}
             className="mb-0"
-          // className="mb-0"
-          // rules={[{ required: true, message: 'Please select effective date' }]}
           >
             <DatePicker
               size="large"
@@ -518,20 +550,30 @@ const IngestPage = () => {
         </div>
       </Form>
 
-      {/* Processing Modal */}
+      {/* Processing Modal - Updated for Progress Bar */}
       <Modal
         open={processingModalVisible}
         footer={null}
         closable={false}
         centered
         title={
-          <div className="flex items-center gap-3">
-            <Spin indicator={<LoadingOutlined spin style={{ fontSize: 26 }} />} />
-            <span className="text-lg font-semibold">Processing Guideline</span>
+          <div className="flex items-center gap-2">
+            <LoadingOutlined className="text-blue-500" />
+            <span>Processing Guideline...</span>
           </div>
         }
       >
-        <p className="text-center mt-3 text-gray-600">Please wait while we process your documents...</p>
+        <div className="py-6">
+          <Progress
+            percent={Math.round(progress)}
+            status={progress >= 100 ? "success" : "active"}
+            strokeColor={{
+              '0%': '#108ee9',
+              '100%': '#87d068',
+            }}
+          />
+          <p className="mt-4 text-gray-600 text-center">{progressMessage}</p>
+        </div>
       </Modal>
 
       {/* Preview Modal */}

@@ -117,6 +117,10 @@ export const ingestAPI = {
 
   getStatus: (sessionId) => api.get(`/ingest/status/${sessionId}`),
 
+  createProgressStream: (sessionId) => {
+    return new EventSource(`${API_BASE_URL}/ingest/progress/${sessionId}`);
+  },
+
   // Get preview data (JSON)
   getPreview: (sessionId) => api.get(`/ingest/preview/${sessionId}`),
 
