@@ -147,6 +147,10 @@ export const compareAPI = {
 
   getStatus: (sessionId) => api.get(`/compare/status/${sessionId}`),
 
+  createProgressStream: (sessionId) => {
+    return new EventSource(`${API_BASE_URL}/compare/progress/${sessionId}`);
+  },
+
   getPreview: (sessionId) => api.get(`/compare/preview/${sessionId}`),
 
 
