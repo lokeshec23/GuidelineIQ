@@ -400,7 +400,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="expiry_date"
-            label={<span className="text-gray-600">Expiry Date (Optional)</span>}
+            label={<span className="text-gray-600">Expiry Date</span>}
             className="mb-0"
           >
             <DatePicker

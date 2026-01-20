@@ -122,12 +122,16 @@ async def get_ingest_pdf(
         # Get PDF from GridFS
         pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
         
+        filename = record.get("uploaded_file", "document.pdf")
+        # Escape double quotes to prevent header breaking
+        filename = filename.replace('"', '\\"')
+
         # Return as streaming response
         return StreamingResponse(
             io.BytesIO(pdf_content),
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"inline; filename={record.get('uploaded_file', 'document.pdf')}"
+                "Content-Disposition": f'inline; filename="{filename}"'
             }
         )
     except Exception as e:

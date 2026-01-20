@@ -334,10 +334,7 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                 return FileResponse(
                     excel_path,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename,
-                    headers={
-                        "Content-Disposition": f"attachment; filename={filename}"
-                    }
+                    filename=filename
                 )
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
@@ -358,10 +355,7 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                 return FileResponse(
                     tmp.name,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename,
-                    headers={
-                        "Content-Disposition": f"attachment; filename={filename}"
-                    }
+                    filename=filename
                 )
             except Exception as e:
                 print(f"Error regenerating Excel from DB: {e}")
