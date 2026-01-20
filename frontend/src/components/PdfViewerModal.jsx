@@ -1,29 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, Space, Spin } from 'antd';
-import { CloseOutlined, SearchOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { Modal, Button, Tabs, Spin } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
 import { showToast } from "../utils/toast";
+import { API_BASE_URL } from "../services/api";
 
-const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initialPage = null }) => {
+const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", initialPage = null, initialFileIndex = 0 }) => {
     const [loading, setLoading] = useState(true);
-    const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+    const [pdfFiles, setPdfFiles] = useState([]);
+    const [loadedPdfs, setLoadedPdfs] = useState({}); // Cache loaded PDFs by file_index
+    const [activeTab, setActiveTab] = useState("0");
     const [error, setError] = useState(null);
     const [targetPage, setTargetPage] = useState(initialPage);
 
     useEffect(() => {
-        if (visible && pdfUrl) {
+        if (visible && sessionId) {
             setTargetPage(initialPage);
-            fetchPdfWithAuth();
+            setActiveTab(String(initialFileIndex));
+            fetchPdfList();
         }
 
-        // Cleanup blob URL when modal closes
+        // Cleanup blob URLs when modal closes
         return () => {
-            if (pdfBlobUrl) {
-                URL.revokeObjectURL(pdfBlobUrl);
-            }
+            Object.values(loadedPdfs).forEach(blobUrl => {
+                if (blobUrl) {
+                    URL.revokeObjectURL(blobUrl);
+                }
+            });
         };
-    }, [visible, pdfUrl, initialPage]);
+    }, [visible, sessionId, initialPage, initialFileIndex]);
 
-    const fetchPdfWithAuth = async () => {
+    const fetchPdfList = async () => {
         setLoading(true);
         setError(null);
 
@@ -38,11 +44,63 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initia
                 throw new Error('No authentication token found. Please login again.');
             }
 
-            const response = await fetch(pdfUrl, {
+            const response = await fetch(`${API_BASE_URL}/history/ingest/${sessionId}/pdfs`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load PDF list: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            setPdfFiles(data.pdf_files || []);
+
+            // Load the first PDF (or the one specified by initialFileIndex)
+            if (data.pdf_files && data.pdf_files.length > 0) {
+                await fetchPdfByIndex(initialFileIndex, token);
+            }
+
+            setLoading(false);
+        } catch (err) {
+            console.error('Error loading PDF list:', err);
+            setError(err.message);
+            setLoading(false);
+            showToast.error('Failed to load PDF list');
+        }
+    };
+
+    const fetchPdfByIndex = async (fileIndex, token = null) => {
+        // Check if already loaded
+        if (loadedPdfs[fileIndex]) {
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            // Get token if not provided
+            if (!token) {
+                token = sessionStorage.getItem('access_token');
+                if (!token) {
+                    token = localStorage.getItem('access_token');
+                }
+            }
+
+            if (!token) {
+                throw new Error('No authentication token found. Please login again.');
+            }
+
+            const response = await fetch(
+                `${API_BASE_URL}/history/ingest/${sessionId}/pdf?file_index=${fileIndex}`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`Failed to load PDF: ${response.statusText}`);
@@ -50,7 +108,12 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initia
 
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
-            setPdfBlobUrl(blobUrl);
+
+            setLoadedPdfs(prev => ({
+                ...prev,
+                [fileIndex]: blobUrl
+            }));
+
             setLoading(false);
         } catch (err) {
             console.error('Error loading PDF:', err);
@@ -60,18 +123,70 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initia
         }
     };
 
+    const handleTabChange = (key) => {
+        setActiveTab(key);
+        const fileIndex = parseInt(key);
 
+        // Load PDF if not already loaded
+        if (!loadedPdfs[fileIndex]) {
+            fetchPdfByIndex(fileIndex);
+        }
+    };
 
     const handleModalClose = () => {
-        // Revoke blob URL to free memory
-        if (pdfBlobUrl) {
-            URL.revokeObjectURL(pdfBlobUrl);
-            setPdfBlobUrl(null);
-        }
+        // Revoke all blob URLs to free memory
+        Object.values(loadedPdfs).forEach(blobUrl => {
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+            }
+        });
+        setLoadedPdfs({});
+        setPdfFiles([]);
         setLoading(true);
         setError(null);
         onClose();
     };
+
+    // Create tabs from PDF files
+    const tabItems = pdfFiles.map((pdfFile, index) => ({
+        key: String(index),
+        label: (
+            <div style={{ textAlign: 'center' }}>
+                <div style={{ fontWeight: 'bold' }}>PDF {index + 1}</div>
+                <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+                    {pdfFile.filename}
+                </div>
+            </div>
+        ),
+        children: (
+            <div className="relative flex-1 bg-gray-100 overflow-hidden" style={{ height: 'calc(90vh - 200px)' }}>
+                {loading && !loadedPdfs[index] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <Spin size="large" tip="Loading PDF..." />
+                    </div>
+                )}
+                {error && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="text-center">
+                            <p className="text-red-500 text-lg mb-2">Failed to load PDF</p>
+                            <p className="text-gray-600">{error}</p>
+                            <Button type="primary" onClick={() => fetchPdfByIndex(index)} className="mt-4">
+                                Retry
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                {loadedPdfs[index] && !loading && !error && (
+                    <iframe
+                        id={`pdf-iframe-${index}`}
+                        src={targetPage && activeTab === String(index) ? `${loadedPdfs[index]}#page=${targetPage}` : loadedPdfs[index]}
+                        className="w-full h-full border-0"
+                        title={`PDF Viewer ${index + 1}`}
+                    />
+                )}
+            </div>
+        )
+    }));
 
     return (
         <Modal
@@ -89,6 +204,11 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initia
             <div className="flex justify-between items-center px-4 py-3 border-b bg-gray-50 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <h3 className="font-semibold text-lg m-0">{title}</h3>
+                    {pdfFiles.length > 0 && (
+                        <span className="text-sm text-gray-500">
+                            ({pdfFiles.length} {pdfFiles.length === 1 ? 'file' : 'files'})
+                        </span>
+                    )}
                 </div>
                 <Button
                     icon={<CloseOutlined />}
@@ -98,40 +218,35 @@ const PdfViewerModal = ({ visible, onClose, pdfUrl, title = "PDF Viewer", initia
                 </Button>
             </div>
 
-            {/* PDF Viewer */}
-            <div className="relative flex-1 bg-gray-100 overflow-hidden">
-                {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                        <Spin size="large" tip="Loading PDF..." />
-                    </div>
-                )}
-                {error && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                        <div className="text-center">
-                            <p className="text-red-500 text-lg mb-2">Failed to load PDF</p>
-                            <p className="text-gray-600">{error}</p>
-                            <Button type="primary" onClick={fetchPdfWithAuth} className="mt-4">
-                                Retry
-                            </Button>
+            {/* Tabs for multiple PDFs */}
+            {pdfFiles.length > 0 ? (
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={handleTabChange}
+                    items={tabItems}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+                    className="pdf-viewer-tabs"
+                />
+            ) : (
+                <div className="relative flex-1 bg-gray-100 overflow-hidden">
+                    {loading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                            <Spin size="large" tip="Loading PDFs..." />
                         </div>
-                    </div>
-                )}
-                {pdfBlobUrl && !loading && !error && (
-                    <iframe
-                        id="pdf-iframe"
-                        src={targetPage ? `${pdfBlobUrl}#page=${targetPage}` : pdfBlobUrl}
-                        className="w-full h-full border-0"
-                        title="PDF Viewer"
-                    />
-                )}
-            </div>
-
-            {/* Search Instructions */}
-            {/* <div className="px-4 py-2 bg-blue-50 border-t flex-shrink-0">
-                <p className="m-0 text-sm text-blue-800">
-                    <strong>💡 To search in PDF:</strong> Use <kbd className="px-2 py-1 bg-white border border-blue-200 rounded text-xs font-mono">Ctrl+F</kbd> (or <kbd className="px-2 py-1 bg-white border border-blue-200 rounded text-xs font-mono">Cmd+F</kbd> on Mac) to open your browser's search tool
-                </p>
-            </div> */}
+                    )}
+                    {error && !loading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                            <div className="text-center">
+                                <p className="text-red-500 text-lg mb-2">Failed to load PDFs</p>
+                                <p className="text-gray-600">{error}</p>
+                                <Button type="primary" onClick={fetchPdfList} className="mt-4">
+                                    Retry
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </Modal>
     );
 };

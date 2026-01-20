@@ -303,7 +303,17 @@ async def process_guideline_background(
         if user_id:
             try:
                 from history.models import save_ingest_history
-                # ✅ UPDATED: Store all GridFS IDs and filenames for multi-PDF
+                
+                # ✅ NEW: Format pdf_files array with proper structure
+                pdf_files = [
+                    {
+                        "file_index": idx,
+                        "filename": filename,
+                        "gridfs_file_id": file_id
+                    }
+                    for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames))
+                ]
+                
                 history_id = await save_ingest_history({
                     "user_id": user_id,
                     "username": username,
@@ -314,14 +324,14 @@ async def process_guideline_background(
                     "preview_data": dscr_results,
                     "effective_date": effective_date,
                     "expiry_date": expiry_date,
-                    "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,  # Primary file ID
-                    "gridfs_file_ids": gridfs_file_ids,  # ✅ Store all file IDs
+                    "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,  # Primary file ID (backward compatibility)
+                    "pdf_files": pdf_files,  # ✅ NEW: Properly formatted array
                     "page_range": page_range,
                     "guideline_type": guideline_type,
                     "program_type": program_type,
-                    "total_pdfs": num_files
                 })
                 print(f"✅ Saved to ingest history for user: {username}")
+
                 
                 # Update progress with history ID
                 with progress_lock:

@@ -23,7 +23,8 @@ async def save_ingest_history(data: dict) -> str:
         "preview_data": data.get("preview_data", []),
         "effective_date": data.get("effective_date"),
         "expiry_date": data.get("expiry_date"),
-        "gridfs_file_id": data.get("gridfs_file_id"),  # ✅ UPDATED: Store GridFS file ID
+        "gridfs_file_id": data.get("gridfs_file_id"),  # ✅ Keep for backward compatibility
+        "pdf_files": data.get("pdf_files", []),  # ✅ NEW: Store array of PDF metadata
         "created_at": datetime.utcnow()
     }
     
@@ -38,6 +39,16 @@ async def get_user_ingest_history(user_id: str) -> List[Dict]:
     cursor = db_manager.ingest_history.find({"user_id": user_id}).sort("created_at", -1)
     history = []
     async for doc in cursor:
+        # ✅ Handle backward compatibility: convert old single PDF to array format
+        pdf_files = doc.get("pdf_files", [])
+        if not pdf_files and doc.get("gridfs_file_id"):
+            # Old record with single PDF - convert to new format
+            pdf_files = [{
+                "file_index": 0,
+                "filename": doc.get("uploaded_file", "document.pdf"),
+                "gridfs_file_id": doc.get("gridfs_file_id")
+            }]
+        
         history.append({
             "id": str(doc["_id"]),
             "user_id": doc["user_id"],
@@ -49,7 +60,8 @@ async def get_user_ingest_history(user_id: str) -> List[Dict]:
             "preview_data": doc.get("preview_data", []),
             "effective_date": doc.get("effective_date"),
             "expiry_date": doc.get("expiry_date"),
-            "gridfs_file_id": doc.get("gridfs_file_id"),  # ✅ UPDATED: Return GridFS file ID
+            "gridfs_file_id": doc.get("gridfs_file_id"),  # ✅ Keep for backward compatibility
+            "pdf_files": pdf_files,  # ✅ NEW: Return array of PDF metadata
             "page_range": doc.get("page_range"),
             "guideline_type": doc.get("guideline_type"),
             "program_type": doc.get("program_type"),

@@ -18,6 +18,8 @@ class IngestHistoryItem(BaseModel):
     effective_date: Optional[str] = None
     expiry_date: Optional[str] = None
     preview_data: Optional[List[Dict[str, Any]]] = None  # Excel output data
+    pdf_files: Optional[List[Dict[str, Any]]] = None  # List of PDF metadata: [{file_index, filename, gridfs_file_id}]
+
 
 
 class CompareHistoryItem(BaseModel):

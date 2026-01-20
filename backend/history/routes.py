@@ -88,13 +88,52 @@ async def delete_all_compare_records(
     return DeleteResponse(message=f"Deleted {count} records successfully", success=True)
 
 
-# ✅ NEW: PDF viewer endpoint
-@router.get("/ingest/{record_id}/pdf")
-async def get_ingest_pdf(
+# ✅ NEW: Get list of PDFs for an ingest record
+@router.get("/ingest/{record_id}/pdfs")
+async def get_ingest_pdfs_list(
     record_id: str,
     current_user: dict = Depends(get_current_user_from_token)
 ):
-    """Get PDF file for an ingest record"""
+    """Get list of all PDFs for an ingest record"""
+    user_id = str(current_user["_id"])
+    
+    # Verify record exists and belongs to user
+    if not ObjectId.is_valid(record_id):
+        raise HTTPException(status_code=400, detail="Invalid record ID")
+    
+    from database import db_manager
+    if db_manager.ingest_history is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    record = await db_manager.ingest_history.find_one({
+        "_id": ObjectId(record_id),
+        "user_id": user_id
+    })
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found or unauthorized")
+    
+    # ✅ Handle backward compatibility
+    pdf_files = record.get("pdf_files", [])
+    if not pdf_files and record.get("gridfs_file_id"):
+        # Old record with single PDF - convert to new format
+        pdf_files = [{
+            "file_index": 0,
+            "filename": record.get("uploaded_file", "document.pdf"),
+            "gridfs_file_id": record.get("gridfs_file_id")
+        }]
+    
+    return {"pdf_files": pdf_files}
+
+
+# ✅ UPDATED: PDF viewer endpoint with support for multiple PDFs
+@router.get("/ingest/{record_id}/pdf")
+async def get_ingest_pdf(
+    record_id: str,
+    file_index: int = 0,  # ✅ NEW: Support fetching specific PDF by index
+    current_user: dict = Depends(get_current_user_from_token)
+):
+    """Get PDF file for an ingest record (supports multiple PDFs via file_index)"""
     user_id = str(current_user["_id"])
     
     # Verify record exists and belongs to user
@@ -114,7 +153,24 @@ async def get_ingest_pdf(
     if not record:
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
     
-    gridfs_file_id = record.get("gridfs_file_id")
+    # ✅ NEW: Handle multiple PDFs
+    pdf_files = record.get("pdf_files", [])
+    gridfs_file_id = None
+    filename = "document.pdf"
+    
+    if pdf_files:
+        # New format: multiple PDFs
+        if file_index >= len(pdf_files):
+            raise HTTPException(status_code=404, detail=f"PDF index {file_index} not found")
+        
+        pdf_info = pdf_files[file_index]
+        gridfs_file_id = pdf_info.get("gridfs_file_id")
+        filename = pdf_info.get("filename", f"document_{file_index}.pdf")
+    else:
+        # Old format: single PDF (backward compatibility)
+        gridfs_file_id = record.get("gridfs_file_id")
+        filename = record.get("uploaded_file", "document.pdf")
+    
     if not gridfs_file_id:
         raise HTTPException(status_code=404, detail="No PDF file associated with this record")
     
@@ -122,7 +178,6 @@ async def get_ingest_pdf(
         # Get PDF from GridFS
         pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
         
-        filename = record.get("uploaded_file", "document.pdf")
         # Escape double quotes to prevent header breaking
         filename = filename.replace('"', '\\"')
 
@@ -137,3 +192,4 @@ async def get_ingest_pdf(
     except Exception as e:
         print(f"❌ Error retrieving PDF: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve PDF file")
+

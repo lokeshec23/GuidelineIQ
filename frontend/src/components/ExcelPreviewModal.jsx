@@ -669,9 +669,10 @@ const ExcelPreviewModal = ({
                         setPdfViewerVisible(false);
                         setPdfTargetPage(null);
                     }}
-                    pdfUrl={`${API_BASE_URL}/history/ingest/${sessionId}/pdf`}
+                    sessionId={sessionId}
                     title="PDF Document"
                     initialPage={pdfTargetPage}
+                    initialFileIndex={0}
                 />
             )}
         </>

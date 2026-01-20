@@ -106,3 +106,17 @@ code {
 .ant-pagination-options .ant-select-selector {
   cursor: pointer !important;
 }
+
+/* PDF Viewer Tabs Styling */
+.pdf-viewer-tabs .ant-tabs-content-holder {
+  flex: 1;
+  overflow: hidden;
+}
+
+.pdf-viewer-tabs .ant-tabs-content {
+  height: 100%;
+}
+
+.pdf-viewer-tabs .ant-tabs-tabpane {
+  height: 100%;
+}
