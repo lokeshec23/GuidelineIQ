@@ -108,9 +108,20 @@ code {
 }
 
 /* PDF Viewer Tabs Styling */
+.pdf-viewer-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-viewer-tabs .ant-tabs-nav {
+  margin-bottom: 0 !important;
+}
+
 .pdf-viewer-tabs .ant-tabs-content-holder {
   flex: 1;
   overflow: hidden;
+  background-color: #525659;
 }
 
 .pdf-viewer-tabs .ant-tabs-content {
@@ -119,6 +130,7 @@ code {
 
 .pdf-viewer-tabs .ant-tabs-tabpane {
   height: 100%;
+  padding: 0 !important;
 }
 
 /* Equal spacing for PDF tabs */
@@ -133,4 +145,13 @@ code {
   display: flex;
   justify-content: center;
   margin: 0 !important;
+}
+
+/* Ensure PDF viewer modal is above all other content */
+.ant-modal-wrap[style*="z-index: 9999"] {
+  z-index: 9999 !important;
+}
+
+.ant-modal-mask[style*="z-index: 9999"] {
+  z-index: 9999 !important;
 }

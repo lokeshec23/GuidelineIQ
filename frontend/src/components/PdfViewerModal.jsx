@@ -196,7 +196,13 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                 </div>
             ),
             children: (
-                <div className="relative flex-1 bg-gray-100 overflow-hidden" style={{ height: 'calc(90vh - 200px)' }}>
+                <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#525659',
+                    overflow: 'hidden'
+                }}>
                     {loading && !loadedPdfs[absoluteIndex] && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
                             <Spin size="large" tip="Loading PDF..." />
@@ -217,7 +223,12 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                         <iframe
                             id={`pdf-iframe-${absoluteIndex}`}
                             src={targetPage && activeTab === String(absoluteIndex) ? `${loadedPdfs[absoluteIndex]}#page=${targetPage}` : loadedPdfs[absoluteIndex]}
-                            className="w-full h-full border-0"
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                border: 'none',
+                                display: 'block'
+                            }}
                             title={`PDF Viewer ${absoluteIndex + 1}`}
                         />
                     )}
@@ -236,7 +247,9 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
             style={{ top: 20 }}
             closable={false}
             bodyStyle={{ padding: 0, height: 'calc(95vh - 100px)', display: 'flex', flexDirection: 'column' }}
-            zIndex={3000}
+            zIndex={9999}
+            maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.65)' }}
+            destroyOnClose={true}
         >
             {/* Header */}
             <div className="flex justify-between items-center px-4 py-3 border-b bg-gray-50 flex-shrink-0">

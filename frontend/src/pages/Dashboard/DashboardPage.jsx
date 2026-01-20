@@ -389,7 +389,7 @@ const DashboardPage = () => {
     }, [activeTab]);
 
     return (
-        <div className="px-8 py-6">
+        <div className="px-6">
             <div className="flex justify-between items-center mb-4">
                 {/* <div className="mb-2">
                     <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
@@ -466,6 +466,7 @@ const DashboardPage = () => {
                 onDownload={handleDownload}
                 sessionId={previewRecord?.id}
                 isComparisonMode={activeTab === "compare"}
+                filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
             />
 
             {/* Delete Confirmation Modal */}
