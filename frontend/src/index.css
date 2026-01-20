@@ -120,3 +120,17 @@ code {
 .pdf-viewer-tabs .ant-tabs-tabpane {
   height: 100%;
 }
+
+/* Equal spacing for PDF tabs */
+.pdf-viewer-tabs .ant-tabs-nav-list {
+  width: 100%;
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.pdf-viewer-tabs .ant-tabs-tab {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  margin: 0 !important;
+}

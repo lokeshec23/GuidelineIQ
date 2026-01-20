@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Tabs, Spin } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { showToast } from "../utils/toast";
 import { API_BASE_URL } from "../services/api";
 
@@ -11,11 +11,15 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
     const [activeTab, setActiveTab] = useState("0");
     const [error, setError] = useState(null);
     const [targetPage, setTargetPage] = useState(initialPage);
+    const [currentPage, setCurrentPage] = useState(0); // Pagination: which set of 4 tabs to show
+    const TABS_PER_PAGE = 4;
 
     useEffect(() => {
         if (visible && sessionId) {
             setTargetPage(initialPage);
             setActiveTab(String(initialFileIndex));
+            // Calculate which page the initial file index is on
+            setCurrentPage(Math.floor(initialFileIndex / TABS_PER_PAGE));
             fetchPdfList();
         }
 
@@ -144,49 +148,83 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
         setPdfFiles([]);
         setLoading(true);
         setError(null);
+        setCurrentPage(0);
         onClose();
     };
 
-    // Create tabs from PDF files
-    const tabItems = pdfFiles.map((pdfFile, index) => ({
-        key: String(index),
-        label: (
-            <div style={{ textAlign: 'center' }}>
-                <div style={{ fontWeight: 'bold' }}>PDF {index + 1}</div>
-                <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
-                    {pdfFile.filename}
+    // Calculate pagination
+    const totalPages = Math.ceil(pdfFiles.length / TABS_PER_PAGE);
+    const startIndex = currentPage * TABS_PER_PAGE;
+    const endIndex = Math.min(startIndex + TABS_PER_PAGE, pdfFiles.length);
+    const visiblePdfFiles = pdfFiles.slice(startIndex, endIndex);
+
+    const handlePrevPage = () => {
+        if (currentPage > 0) {
+            setCurrentPage(currentPage - 1);
+            // Switch to first tab of previous page
+            const newActiveIndex = (currentPage - 1) * TABS_PER_PAGE;
+            setActiveTab(String(newActiveIndex));
+            if (!loadedPdfs[newActiveIndex]) {
+                fetchPdfByIndex(newActiveIndex);
+            }
+        }
+    };
+
+    const handleNextPage = () => {
+        if (currentPage < totalPages - 1) {
+            setCurrentPage(currentPage + 1);
+            // Switch to first tab of next page
+            const newActiveIndex = (currentPage + 1) * TABS_PER_PAGE;
+            setActiveTab(String(newActiveIndex));
+            if (!loadedPdfs[newActiveIndex]) {
+                fetchPdfByIndex(newActiveIndex);
+            }
+        }
+    };
+
+    // Create tabs from visible PDF files
+    const tabItems = visiblePdfFiles.map((pdfFile, relativeIndex) => {
+        const absoluteIndex = startIndex + relativeIndex;
+        return {
+            key: String(absoluteIndex),
+            label: (
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: 'bold' }}>PDF {absoluteIndex + 1}</div>
+                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {pdfFile.filename}
+                    </div>
                 </div>
-            </div>
-        ),
-        children: (
-            <div className="relative flex-1 bg-gray-100 overflow-hidden" style={{ height: 'calc(90vh - 200px)' }}>
-                {loading && !loadedPdfs[index] && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                        <Spin size="large" tip="Loading PDF..." />
-                    </div>
-                )}
-                {error && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-                        <div className="text-center">
-                            <p className="text-red-500 text-lg mb-2">Failed to load PDF</p>
-                            <p className="text-gray-600">{error}</p>
-                            <Button type="primary" onClick={() => fetchPdfByIndex(index)} className="mt-4">
-                                Retry
-                            </Button>
+            ),
+            children: (
+                <div className="relative flex-1 bg-gray-100 overflow-hidden" style={{ height: 'calc(90vh - 200px)' }}>
+                    {loading && !loadedPdfs[absoluteIndex] && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                            <Spin size="large" tip="Loading PDF..." />
                         </div>
-                    </div>
-                )}
-                {loadedPdfs[index] && !loading && !error && (
-                    <iframe
-                        id={`pdf-iframe-${index}`}
-                        src={targetPage && activeTab === String(index) ? `${loadedPdfs[index]}#page=${targetPage}` : loadedPdfs[index]}
-                        className="w-full h-full border-0"
-                        title={`PDF Viewer ${index + 1}`}
-                    />
-                )}
-            </div>
-        )
-    }));
+                    )}
+                    {error && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                            <div className="text-center">
+                                <p className="text-red-500 text-lg mb-2">Failed to load PDF</p>
+                                <p className="text-gray-600">{error}</p>
+                                <Button type="primary" onClick={() => fetchPdfByIndex(absoluteIndex)} className="mt-4">
+                                    Retry
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    {loadedPdfs[absoluteIndex] && !loading && !error && (
+                        <iframe
+                            id={`pdf-iframe-${absoluteIndex}`}
+                            src={targetPage && activeTab === String(absoluteIndex) ? `${loadedPdfs[absoluteIndex]}#page=${targetPage}` : loadedPdfs[absoluteIndex]}
+                            className="w-full h-full border-0"
+                            title={`PDF Viewer ${absoluteIndex + 1}`}
+                        />
+                    )}
+                </div>
+            )
+        };
+    });
 
     return (
         <Modal
@@ -218,15 +256,44 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                 </Button>
             </div>
 
-            {/* Tabs for multiple PDFs */}
+            {/* Tabs with Pagination Controls */}
             {pdfFiles.length > 0 ? (
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={handleTabChange}
-                    items={tabItems}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-                    className="pdf-viewer-tabs"
-                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    {/* Pagination Controls - Only show if more than TABS_PER_PAGE */}
+                    {pdfFiles.length > TABS_PER_PAGE && (
+                        <div className="flex justify-between items-center px-4 py-2 bg-gray-100 border-b">
+                            <Button
+                                icon={<LeftOutlined />}
+                                onClick={handlePrevPage}
+                                disabled={currentPage === 0}
+                                size="small"
+                            >
+                                Previous
+                            </Button>
+                            <span className="text-sm text-gray-600">
+                                Showing {startIndex + 1}-{endIndex} of {pdfFiles.length} PDFs
+                            </span>
+                            <Button
+                                icon={<RightOutlined />}
+                                onClick={handleNextPage}
+                                disabled={currentPage === totalPages - 1}
+                                size="small"
+                                iconPosition="end"
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Tabs */}
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={handleTabChange}
+                        items={tabItems}
+                        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+                        className="pdf-viewer-tabs"
+                    />
+                </div>
             ) : (
                 <div className="relative flex-1 bg-gray-100 overflow-hidden">
                     {loading && (
