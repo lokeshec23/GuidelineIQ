@@ -101,7 +101,7 @@ async def process_rules():
                 - "subcategory": (string)
                 - "summary": (string, clean list with "• " bullets)
 
-                Be concise. If the context doesn't explicitly mention something, state "Not found in context".
+                Be concise. If the context doesn't explicitly mention something, state "NA".
                 """
                 
                 response_text = await asyncio.to_thread(
@@ -122,8 +122,8 @@ async def process_rules():
                     data_json = json.loads(json_str.strip())
                     return {
                         "rule": rule,
-                        "rag_variance": data_json.get("variance_category", "Not found"),
-                        "rag_subcat": data_json.get("subcategory", "Not found"),
+                        "rag_variance": data_json.get("variance_category", "NA"),
+                        "rag_subcat": data_json.get("subcategory", "NA"),
                         "content": data_json.get("summary", "No summary provided.")
                     }
                 except Exception as json_err:
