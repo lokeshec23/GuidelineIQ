@@ -155,3 +155,21 @@ code {
 .ant-modal-mask[style*="z-index: 9999"] {
   z-index: 9999 !important;
 }
+
+/* Dashboard tabs styling for fixed height layout */
+.dashboard-tabs {
+  height: 100%;
+}
+
+.dashboard-tabs .ant-tabs-content-holder {
+  overflow: hidden;
+}
+
+.dashboard-tabs .ant-tabs-content {
+  height: 100%;
+}
+
+.dashboard-tabs .ant-tabs-tabpane {
+  height: 100%;
+  overflow: hidden;
+}

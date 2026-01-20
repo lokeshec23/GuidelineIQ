@@ -389,12 +389,14 @@ const DashboardPage = () => {
     }, [activeTab]);
 
     return (
-        <div className="px-6">
-            <div className="flex justify-between items-center mb-4">
-                {/* <div className="mb-2">
-                    <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                    <p className="text-gray-500 mt-1">View and manage your processing history</p>
-                </div> */}
+        <div style={{
+            height: 'calc(100vh - 64px)', // Full height minus header
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            padding: '0 24px'
+        }}>
+            <div className="flex justify-between items-center py-4 flex-shrink-0">
                 <div className="flex-1"></div>
                 <Button
                     danger
@@ -410,16 +412,27 @@ const DashboardPage = () => {
                 activeKey={activeTab}
                 onChange={setActiveTab}
                 className="dashboard-tabs"
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                }}
             >
                 <TabPane tab="Ingest Guidelines" key="ingest">
-                    <div className="bg-white rounded-lg shadow-sm p-6">
+                    <div style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden'
+                    }}>
                         <Table
                             columns={ingestColumns}
                             dataSource={ingestHistory}
                             loading={loading}
                             rowKey="id"
                             bordered
-                            scroll={{ x: "max-content" }}
+                            scroll={{ x: "max-content", y: 'calc(100vh - 280px)' }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
@@ -433,14 +446,19 @@ const DashboardPage = () => {
                 </TabPane>
 
                 <TabPane tab="Compare Guidelines" key="compare">
-                    <div className="bg-white rounded-lg shadow-sm p-6">
+                    <div style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden'
+                    }}>
                         <Table
                             columns={compareColumns}
                             dataSource={compareHistory}
                             loading={loading}
                             rowKey="id"
                             bordered
-                            scroll={{ x: "max-content" }}
+                            scroll={{ x: "max-content", y: 'calc(100vh - 280px)' }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,

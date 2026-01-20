@@ -188,9 +188,15 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
         return {
             key: String(absoluteIndex),
             label: (
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 'bold' }}>PDF {absoluteIndex + 1}</div>
-                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ textAlign: 'center', padding: '4px 8px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>PDF {absoluteIndex + 1}</div>
+                    <div style={{
+                        fontSize: '11px',
+                        color: '#666',
+                        wordWrap: 'break-word',
+                        whiteSpace: 'normal',
+                        lineHeight: '1.3'
+                    }}>
                         {pdfFile.filename}
                     </div>
                 </div>
