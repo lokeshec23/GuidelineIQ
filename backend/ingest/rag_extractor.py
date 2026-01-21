@@ -96,7 +96,11 @@ async def run_main_rag_extraction(
                     print(f"⚠️ No context found for {query}")
                     return
 
-                context_text = "\n\n".join([f"Source (Page {r['metadata'].get('page', '?')}): {r['text']}" for r in search_results])
+                # ✅ Enhanced: Include filename and page number in source attribution
+                context_text = "\n\n".join([
+                    f"Source ({r['metadata'].get('filename', 'Unknown')} - Page {r['metadata'].get('page', '?')}): {r['text']}" 
+                    for r in search_results
+                ])
                 
                 # 2. Extract Rule
                 extracted = await extract_rule_via_rag(llm, context_text, category, sub_category)

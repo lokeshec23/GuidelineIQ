@@ -268,6 +268,79 @@ async def process_guideline_background(
                 user_settings=user_settings
             )
             print(f"✅ Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+            
+            # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===
+            update_progress(session_id, 96, "Indexing extracted DSCR rules...")
+            try:
+                rule_docs = []
+                rag_provider = model_provider
+                api_key = user_settings.get(f"{model_provider}_api_key")
+
+                # Prepare documents for embedding
+                items_to_embed = []
+                for idx, item in enumerate(dscr_results):
+                    # Skip items with no useful info
+                    summary = item.get('NQMF Investor DSCR', '')
+                    if not summary or summary in ["NA", "Error extraction", "No summary provided."]:
+                        continue
+                        
+                    # keys in dscr_results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, NQMF Investor DSCR
+                    text_content = f"Parameter: {item['DSCR_Parameters']}\n" \
+                                   f"Category: {item.get('Variance_Category', '')} - {item.get('SubCategory', '')}\n" \
+                                   f"Rule/Guideline: {summary}"
+                    
+                    items_to_embed.append({
+                        "id": f"{gridfs_file_ids[0]}_dscr_{idx}", # Anchor to first file
+                        "text": text_content,
+                        "metadata": {
+                            "investor": investor,
+                            "version": version,
+                            "page": "DSCR Extract", 
+                            "filename": "Extracted Excel Data", 
+                            "gridfs_file_id": gridfs_file_ids[0],
+                            "type": "excel_rule", # CRITICAL: This enables 'Excel' mode search
+                            "parameter": item['DSCR_Parameters']
+                        }
+                    })
+
+                print(f"📋 Found {len(dscr_results)} total DSCR parameters")
+                print(f"📋 Prepared {len(items_to_embed)} rules for indexing (skipped NA/empty entries)")
+
+                # Helper for embedding (similar to PDF chunks)
+                async def embed_rule(item):
+                    try:
+                        emb = await rag_service.get_embedding(
+                            item["text"], 
+                            rag_provider, 
+                            api_key,
+                            azure_endpoint=user_settings.get("openai_endpoint"),
+                            azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
+                        )
+                        item["embedding"] = emb
+                        return item
+                    except Exception as e:
+                        print(f"⚠️ Failed to embed rule {item['metadata']['parameter']}: {e}")
+                        return None
+
+                # Generate embeddings in parallel
+                print(f"🔄 Generating embeddings for {len(items_to_embed)} DSCR rules...")
+                embedded_rules = await asyncio.gather(*[embed_rule(item) for item in items_to_embed])
+                
+                # Filter out failures
+                valid_rules = [r for r in embedded_rules if r and r.get("embedding")]
+                
+                if valid_rules:
+                    print(f"💾 Storing {len(valid_rules)} rules to FAISS vector database...")
+                    await rag_service.add_documents_async(valid_rules, batch_size=100)
+                    print(f"✅ RAG: Stored {len(valid_rules)} derived DSCR rules in Vector DB.")
+                    print(f"✅ Excel mode search is now ENABLED for this session!")
+                else:
+                    print("⚠️ No valid DSCR rules to index.")
+
+            except Exception as idx_err:
+                 print(f"⚠️ Failed to index extracted rules: {idx_err}")
+                 traceback.print_exc()
+
         except Exception as dscr_err:
             print(f"⚠️ DSCR Extraction Failed: {dscr_err}")
             traceback.print_exc()

@@ -68,7 +68,11 @@ async def extract_dscr_parameters_safe(
                 
                 context_text = ""
                 if search_results:
-                    context_text = "\n\n".join([f"- {r['text']}" for r in search_results])
+                    # ✅ Enhanced: Include filename and page number in source attribution
+                    context_text = "\n\n".join([
+                        f"[Source: {r['metadata'].get('filename', 'Unknown')} - Page {r['metadata'].get('page', '?')}]\n{r['text']}" 
+                        for r in search_results
+                    ])
                 
                 if not context_text:
                     return {

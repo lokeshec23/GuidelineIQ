@@ -118,17 +118,25 @@ async def chat_with_session(
     
     # 5. Prepare context using RAG (for BOTH modes)
     gridfs_file_id = record.get("gridfs_file_id")
+    investor = record.get("investor", "")
+    version = record.get("version", "")
+    
     if not gridfs_file_id:
          raise HTTPException(status_code=400, detail="No source file found for this session.")
 
-    filter_metadata = {"gridfs_file_id": gridfs_file_id}
+    filter_metadata = {}
     
     if mode == "excel":
-        # Restrict to extracted rules only
+        # ✅ FIX: For Excel mode, filter by investor+version instead of gridfs_file_id
+        # This allows finding DSCR rules even after re-ingestion (which creates new file IDs)
         filter_metadata["type"] = "excel_rule"
+        if investor:
+            filter_metadata["investor"] = investor
+        if version:
+            filter_metadata["version"] = version
     elif mode == "pdf":
-        # Search everything (chunks + rules)
-        pass 
+        # For PDF mode, use gridfs_file_id to get specific file chunks
+        filter_metadata["gridfs_file_id"] = gridfs_file_id
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
  
@@ -139,7 +147,7 @@ async def chat_with_session(
         query=message,
         provider=provider, # Dynamic provider
         api_key=api_key,
-        n_results=10, 
+        n_results=20,  # ✅ INCREASED: Capture more context for broad queries
         filter_metadata=filter_metadata,
         **azure_params # Pass Azure params if any
     )
@@ -155,12 +163,14 @@ async def chat_with_session(
             # res has 'text', 'metadata', 'distance'
             meta = res['metadata']
             source_type = meta.get('type', 'unknown')
+            # ✅ Enhanced: Include filename in source attribution
+            filename = meta.get('filename', 'Unknown')
             page_info = f"Page {meta.get('page')}" if meta.get('page') else "Unknown"
             
             if source_type == 'excel_rule':
-                context_parts.append(f"--- [Rule | {page_info}] ---\n{res['text']}\n")
+                context_parts.append(f"--- [Rule | {filename} - {page_info}] ---\n{res['text']}\n")
             else:
-                context_parts.append(f"--- [Text Chunk | {page_info}] ---\n{res['text']}\n")
+                context_parts.append(f"--- [Text | {filename} - {page_info}] ---\n{res['text']}\n")
         
         text_context = "\n".join(context_parts)
         print(f"✅ RAG found {len(results)} items.")
@@ -168,6 +178,23 @@ async def chat_with_session(
     # 6. Call LLM (Gemini or OpenAI)
     try:
         reply = ""
+        
+        # ✅ Enhanced: Add source citation and strict summarization instructions
+        enhanced_instructions = instructions or ""
+        if text_context and text_context != "No relevant info found in the document index.":
+            citation_instruction = """
+            
+STRICT INSTRUCTIONS:
+1. Answer ONLY based on the provided context. Do NOT use your general knowledge.
+2. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the uploaded documents."
+3. For broad queries, organize your answer as a structured summary with:
+   - **Key Requirements**: Bullet points
+   - **Restrictions**: Specific limits
+   - **Sources**: Cite [filename] and Page numbers
+   
+IMPORTANT: When answering, please reference the source document and page number when citing specific information (e.g., 'According to [filename] page X...').
+"""
+            enhanced_instructions = (enhanced_instructions + citation_instruction).strip()
         
         if provider == "gemini":
             reply = chat_with_gemini(
@@ -178,7 +205,7 @@ async def chat_with_session(
                 file_uris=[], 
                 text_context=text_context,
                 use_file_search=False,
-                instructions=instructions
+                instructions=enhanced_instructions
             )
         elif provider == "openai":
             reply = chat_with_openai(
@@ -187,7 +214,7 @@ async def chat_with_session(
                 message=message,
                 history=history,
                 text_context=text_context,
-                instructions=instructions,
+                instructions=enhanced_instructions,
                 **azure_params
             )
         
