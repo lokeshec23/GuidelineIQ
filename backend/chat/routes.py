@@ -179,7 +179,7 @@ async def chat_with_session(
     try:
         reply = ""
         
-        # ✅ Enhanced: Add source citation and strict summarization instructions
+        # ✅ Enhanced: Add strict summarization instructions
         enhanced_instructions = instructions or ""
         if text_context and text_context != "No relevant info found in the document index.":
             citation_instruction = """
@@ -187,12 +187,8 @@ async def chat_with_session(
 STRICT INSTRUCTIONS:
 1. Answer ONLY based on the provided context. Do NOT use your general knowledge.
 2. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the uploaded documents."
-3. For broad queries, organize your answer as a structured summary with:
-   - **Key Requirements**: Bullet points
-   - **Restrictions**: Specific limits
-   - **Sources**: Cite [filename] and Page numbers
-   
-IMPORTANT: When answering, please reference the source document and page number when citing specific information (e.g., 'According to [filename] page X...').
+
+IMPORTANT: Provide direct, clear answers without referencing source documents or page numbers.
 """
             enhanced_instructions = (enhanced_instructions + citation_instruction).strip()
         
