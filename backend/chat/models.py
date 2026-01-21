@@ -237,7 +237,7 @@ async def delete_conversation(conversation_id: str) -> int:
         Number of messages deleted
     """
     await _ensure_db()
-    if not db_manager.chat_conversations or not db_manager.chat_sessions:
+    if db_manager.chat_conversations is None or db_manager.chat_sessions is None:
         raise ConnectionError("Database not initialized")
     
     # Delete all messages for this conversation
