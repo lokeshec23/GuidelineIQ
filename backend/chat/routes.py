@@ -127,16 +127,19 @@ async def chat_with_session(
     filter_metadata = {}
     
     if mode == "excel":
-        # ✅ FIX: For Excel mode, filter by investor+version instead of gridfs_file_id
-        # This allows finding DSCR rules even after re-ingestion (which creates new file IDs)
+        # ✅ For Excel mode, filter by investor+version to find DSCR rules
         filter_metadata["type"] = "excel_rule"
         if investor:
             filter_metadata["investor"] = investor
         if version:
             filter_metadata["version"] = version
     elif mode == "pdf":
-        # For PDF mode, use gridfs_file_id to get specific file chunks
-        filter_metadata["gridfs_file_id"] = gridfs_file_id
+        # ✅ For PDF mode, search ALL PDF chunks for this investor/version
+        filter_metadata["type"] = "pdf_chunk"
+        if investor:
+            filter_metadata["investor"] = investor
+        if version:
+            filter_metadata["version"] = version
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
  
