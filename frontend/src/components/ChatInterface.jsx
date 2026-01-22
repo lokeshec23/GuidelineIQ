@@ -4,13 +4,14 @@ import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlin
 import { chatAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import './ChatInterface.css';
 
 const { Text, TextArea } = Typography;
 
 const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [], isComparisonMode = false, onOpenPdf }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [size, setSize] = useState({ width: 700, height: 600 });
+    const [isExpanded, setIsExpanded] = useState(true);
+    const [size, setSize] = useState({ width: 1000, height: 700 });
     const [messages, setMessages] = useState([
         {
             id: 'welcome',
@@ -238,38 +239,37 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         <div className="fixed bottom-6 right-6 z-[1050] flex flex-col items-end">
             {/* Chat Window */}
             <Card
-                className="mb-4 shadow-xl border-0 rounded-2xl overflow-hidden flex flex-col relative"
+                className="chat-card mb-4 rounded-2xl overflow-hidden flex flex-col relative"
                 bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'row', height: '100%' }}
                 style={{
                     width: `${size.width}px`,
                     height: `${size.height}px`,
                     maxHeight: 'calc(100vh - 100px)',
-                    animation: 'fadeInUp 0.3s ease-out',
+                    animation: 'fadeIn 0.3s ease-out',
                     transition: isResizingRef.current ? 'none' : 'width 0.3s, height 0.3s'
                 }}
             >
                 {/* Resize Handle (Top-Left Corner) */}
                 <div
-                    className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-50 hover:bg-gray-200 rounded-br"
+                    className="chat-resize-handle absolute top-0 left-0 w-4 h-4 z-50 rounded-br"
                     onMouseDown={handleMouseDown}
                     style={{
-                        background: 'linear-gradient(135deg, #ccc 50%, transparent 50%)',
-                        opacity: 0.5
+                        background: 'linear-gradient(135deg, #93c5fd 50%, transparent 50%)'
                     }}
                     title="Resize"
                 />
 
                 {/* History Sidebar */}
                 {showHistory && (
-                    <div className="w-64 border-r bg-gray-50 flex flex-col" style={{ height: '100%' }}>
+                    <div className="chat-sidebar w-64 flex flex-col" style={{ height: '100%' }}>
                         {/* Sidebar Header */}
-                        <div className="p-3 border-b bg-white">
+                        <div className="chat-sidebar-header p-3">
                             <Button
                                 type="primary"
                                 icon={<PlusOutlined />}
                                 onClick={handleNewChat}
                                 block
-                                className="mb-2"
+                                className="chat-new-button mb-2"
                             >
                                 New Chat
                             </Button>
@@ -293,7 +293,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                     renderItem={(conv) => (
                                         <div
                                             key={conv.id}
-                                            className={`p-3 border-b cursor-pointer hover:bg-gray-100 transition-colors ${currentConversationId === conv.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                                            className={`chat-conversation-item p-3 ${currentConversationId === conv.id ? 'chat-conversation-item-active' : ''
                                                 }`}
                                             onClick={() => handleSwitchConversation(conv.id)}
                                         >
@@ -328,7 +328,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                         icon={<DeleteOutlined />}
                                                         danger
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="hover:bg-red-100"
+                                                        className="chat-delete-button"
                                                     />
                                                 </Popconfirm>
                                             </div>
@@ -341,9 +341,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 )}
 
                 {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col" style={{ height: '100%' }}>
+                <div className="chat-main-area flex-1 flex flex-col" style={{ height: '100%' }}>
                     {/* Header */}
-                    <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10 select-none">
+                    <div className="chat-header p-4 flex justify-between items-center sticky top-0 z-10 select-none">
                         <div className="flex items-center gap-2">
                             <Tooltip title={showHistory ? "Hide History" : "Show History"}>
                                 <Button
@@ -351,6 +351,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                     size="small"
                                     icon={<HistoryOutlined />}
                                     onClick={() => setShowHistory(!showHistory)}
+                                    className="chat-icon-button"
                                 />
                             </Tooltip>
                             <Avatar
@@ -366,6 +367,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                         <Segmented
                                             value={mode}
                                             onChange={setMode}
+                                            className="chat-segmented-control"
                                             options={[
                                                 { label: 'Excel (Rules)', value: 'excel', icon: <FileExcelOutlined /> },
                                                 { label: 'PDF (Full)', value: 'pdf', icon: <FilePdfOutlined /> },
@@ -392,6 +394,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                     size="small"
                                     icon={<FormOutlined />}
                                     onClick={openInstructionModal}
+                                    className={instructions ? "chat-instruction-button-active" : "chat-icon-button"}
                                 >
                                     Instruction
                                 </Button>
@@ -402,6 +405,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                     size="small"
                                     icon={isExpanded ? <ShrinkOutlined /> : <ArrowsAltOutlined />}
                                     onClick={() => setIsExpanded(!isExpanded)}
+                                    className="chat-icon-button"
                                 />
                             </Tooltip>
                             <Button
@@ -409,24 +413,25 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                 size="small"
                                 icon={<CloseOutlined />}
                                 onClick={onClose}
+                                className="chat-icon-button"
                             />
                         </Space>
                     </div>
 
                     {/* Messages Area */}
-                    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                    <div className="chat-messages-area flex-1 overflow-y-auto p-4">
                         <List
                             itemLayout="horizontal"
                             dataSource={messages}
                             split={false}
                             renderItem={(item) => (
-                                <div className={`mb-4 flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`chat-message-wrapper mb-4 flex ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] ${item.role === 'user' ? 'order-1' : 'order-2'}`}>
                                         <div
-                                            className={`p-3 rounded-2xl ${item.role === 'user'
-                                                ? 'bg-[#0EA5E9] text-white rounded-tr-none'
-                                                : 'bg-white border border-gray-100 shadow-sm rounded-tl-none'
-                                                }`}
+                                            className={item.role === 'user'
+                                                ? 'chat-message-user'
+                                                : 'chat-message-assistant'
+                                            }
                                         >
                                             <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
                                                 <ReactMarkdown
@@ -464,10 +469,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                 {item.suggestions.map((suggestion, idx) => (
                                                     <div
                                                         key={idx}
-                                                        className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors text-sm text-gray-600"
+                                                        className="chat-suggestion-chip flex items-center gap-2 p-2 text-sm text-gray-600"
                                                         onClick={() => handleSendMessage(suggestion)}
                                                     >
-                                                        <BulbOutlined className="text-[#0EA5E9]" />
+                                                        <BulbOutlined style={{ color: '#3b82f6' }} />
                                                         {suggestion}
                                                     </div>
                                                 ))}
@@ -478,8 +483,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                             )}
                         />
                         {loading && (
-                            <div className="flex justify-start mb-4">
-                                <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm">
+                            <div className="chat-loading flex justify-start mb-4">
+                                <div className="chat-message-assistant">
                                     <Spin size="small" />
                                 </div>
                             </div>
@@ -488,9 +493,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                     </div>
 
                     {/* Input Area */}
-                    <div className="p-4 bg-white border-t">
+                    <div className="chat-input-container p-4">
                         <Input
-                            placeholder="Ask  anything..."
+                            placeholder="Ask anything..."
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onPressEnter={() => handleSendMessage()}
@@ -500,10 +505,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                     icon={<SendOutlined />}
                                     onClick={() => handleSendMessage()}
                                     disabled={!inputValue.trim() || loading}
-                                    className={inputValue.trim() ? "text-[#0EA5E9]" : "text-gray-300"}
+                                    className="chat-send-button"
                                 />
                             }
-                            className="rounded-full py-2 px-4 bg-gray-50 border-gray-200 hover:bg-white focus:bg-white"
+                            className="chat-input-field py-2 px-4"
                         />
                         <div className="text-center mt-2">
                             <Text type="secondary" style={{ fontSize: '10px' }}>
@@ -524,6 +529,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 onCancel={() => setIsInstructionModalOpen(false)}
                 okText="Save"
                 cancelText="Close"
+                className="chat-modal"
                 zIndex={2000}
             >
                 <p className="mb-2 text-gray-600">

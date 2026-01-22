@@ -1,0 +1,270 @@
+/* ChatInterface - Minimal White & Blue Design */
+
+:root {
+  /* Primary Blue Colors */
+  --chat-blue-primary: #3b82f6;
+  --chat-blue-hover: #60a5fa;
+  --chat-blue-light: #93c5fd;
+  --chat-blue-bg: #eff6ff;
+  
+  /* White & Gray Colors */
+  --chat-white: #ffffff;
+  --chat-gray-50: #f9fafb;
+  --chat-gray-100: #f3f4f6;
+  --chat-gray-200: #e5e7eb;
+  --chat-gray-300: #d1d5db;
+  --chat-border: #e2e8f0;
+  --chat-divider: #f1f5f9;
+  --chat-text: #1f2937;
+  --chat-text-secondary: #6b7280;
+}
+
+/* Message entrance animation */
+@keyframes fadeInMessage {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Conversation item animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sidebar Styles */
+.chat-sidebar {
+  background-color: var(--chat-white);
+  border-right: 1px solid var(--chat-border);
+}
+
+.chat-sidebar-header {
+  background-color: var(--chat-white);
+  border-bottom: 1px solid var(--chat-divider);
+}
+
+.chat-new-button {
+  background-color: var(--chat-blue-primary) !important;
+  border-color: var(--chat-blue-primary) !important;
+  transition: all 0.2s ease;
+}
+
+.chat-new-button:hover {
+  background-color: var(--chat-blue-hover) !important;
+  border-color: var(--chat-blue-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.chat-conversation-item {
+  border-bottom: 1px solid var(--chat-divider);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.chat-conversation-item:hover {
+  background-color: var(--chat-blue-bg);
+}
+
+.chat-conversation-item-active {
+  background-color: var(--chat-blue-bg);
+  border-left: 4px solid var(--chat-blue-primary);
+  padding-left: 8px;
+}
+
+/* Main Chat Area */
+.chat-main-area {
+  background-color: var(--chat-white);
+}
+
+.chat-header {
+  background-color: var(--chat-white);
+  border-bottom: 1px solid var(--chat-border);
+}
+
+.chat-messages-area {
+  background-color: var(--chat-gray-50);
+}
+
+/* Message Bubbles */
+.chat-message-wrapper {
+  animation: fadeInMessage 0.3s ease-out;
+}
+
+.chat-message-user {
+  background-color: var(--chat-blue-primary);
+  color: var(--chat-white);
+  border-radius: 18px;
+  border-top-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  padding: 12px 16px;
+}
+
+.chat-message-assistant {
+  background-color: var(--chat-white);
+  border: 1px solid var(--chat-border);
+  border-radius: 18px;
+  border-top-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  padding: 12px 16px;
+  color: var(--chat-text);
+}
+
+/* Input Area */
+.chat-input-container {
+  background-color: var(--chat-white);
+  border-top: 1px solid var(--chat-border);
+}
+
+.chat-input-field {
+  background-color: var(--chat-gray-50);
+  border: 2px solid var(--chat-blue-light);
+  border-radius: 24px;
+  transition: all 0.2s ease;
+}
+
+.chat-input-field:hover {
+  background-color: var(--chat-white);
+  border-color: var(--chat-blue-hover);
+}
+
+.chat-input-field:focus,
+.chat-input-field:focus-within {
+  background-color: var(--chat-white);
+  border-color: var(--chat-blue-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Send Button */
+.chat-send-button {
+  color: var(--chat-blue-primary);
+  transition: all 0.2s ease;
+}
+
+.chat-send-button:hover:not(:disabled) {
+  color: var(--chat-blue-hover);
+  transform: scale(1.1);
+}
+
+.chat-send-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.chat-send-button:disabled {
+  color: var(--chat-gray-300);
+}
+
+/* Buttons and Controls */
+.chat-icon-button {
+  transition: all 0.2s ease;
+}
+
+.chat-icon-button:hover {
+  color: var(--chat-blue-primary);
+  background-color: var(--chat-blue-bg);
+}
+
+.chat-segmented-control .ant-segmented-item-selected {
+  background-color: var(--chat-blue-primary) !important;
+  color: var(--chat-white) !important;
+}
+
+.chat-instruction-button-active {
+  background-color: var(--chat-blue-primary) !important;
+  border-color: var(--chat-blue-primary) !important;
+  color: var(--chat-white) !important;
+}
+
+.chat-instruction-button-active:hover {
+  background-color: var(--chat-blue-hover) !important;
+  border-color: var(--chat-blue-hover) !important;
+}
+
+/* Delete Button */
+.chat-delete-button {
+  transition: all 0.2s ease;
+}
+
+.chat-delete-button:hover {
+  background-color: #fee2e2 !important;
+  color: #dc2626 !important;
+}
+
+/* Loading Spinner */
+.chat-loading {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Suggestion Chips */
+.chat-suggestion-chip {
+  border: 1px solid var(--chat-border);
+  background-color: var(--chat-white);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.chat-suggestion-chip:hover {
+  background-color: var(--chat-blue-bg);
+  border-color: var(--chat-blue-light);
+  transform: translateX(4px);
+}
+
+/* Modal Styles */
+.chat-modal .ant-modal-content {
+  border-radius: 12px;
+}
+
+.chat-modal .ant-modal-header {
+  border-bottom: 1px solid var(--chat-border);
+}
+
+/* Resize Handle */
+.chat-resize-handle {
+  cursor: nw-resize;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chat-resize-handle:hover {
+  opacity: 1;
+  background-color: var(--chat-blue-bg) !important;
+}
+
+/* Scrollbar Styling for Chat */
+.chat-messages-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages-area::-webkit-scrollbar-thumb {
+  background: var(--chat-blue-light);
+  border-radius: 3px;
+}
+
+.chat-messages-area::-webkit-scrollbar-thumb:hover {
+  background: var(--chat-blue-hover);
+}
+
+/* Card Shadow */
+.chat-card {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--chat-border);
+}
+
+/* Smooth transitions */
+.chat-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
