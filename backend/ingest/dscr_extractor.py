@@ -163,7 +163,7 @@ async def extract_dscr_parameters_multi_pdf(
     user_settings: dict
 ) -> Tuple[str, List[Dict]]:
     """
-    Extracts DSCR parameters from multiple PDFs and aggregates results.
+    Extracts DSCR parameters from multiple PDFs by searching across ALL PDFs.
     
     Args:
         session_id: Unique session identifier
@@ -181,76 +181,139 @@ async def extract_dscr_parameters_multi_pdf(
     print(f"\n{'='*60}")
     print(f"🚀 Starting Multi-PDF DSCR Extraction for Session: {session_id[:8]}")
     print(f"Processing {len(gridfs_file_ids)} PDFs")
+    print(f"✅ Searching across ALL PDFs for each DSCR parameter")
     print(f"{'='*60}\n")
     
-    # Store all results by parameter name
-    aggregated_by_parameter = {}
+    # Concurrency control
+    semaphore = asyncio.Semaphore(10)
     
-    # ✅ PARALLEL PROCESSING: Process all PDFs concurrently
-    async def process_single_pdf(idx: int, file_id: str, filename: str):
-        """Process a single PDF and return its results"""
-        print(f"\n📄 Processing PDF {idx}/{len(gridfs_file_ids)}: {filename}")
-        print(f"{'='*60}")
-        
-        try:
-            # Extract DSCR parameters for this PDF
-            _, pdf_results = await extract_dscr_parameters_safe(
-                session_id=session_id,
-                gridfs_file_id=file_id,
-                rag_service=rag_service,
-                llm=llm,
-                investor=investor,
-                version=version,
-                user_settings=user_settings
-            )
+    # ✅ NEW APPROACH: Search across ALL PDFs for each parameter
+    async def extract_parameter_from_all_pdfs(guideline_config: Dict) -> Dict:
+        """Extract a single DSCR parameter by searching across ALL PDFs"""
+        async with semaphore:
+            param = guideline_config["parameter"]
+            category = guideline_config.get("category", "General")
+            subcategory = guideline_config.get("subcategory", "General")
+            ppe_field = guideline_config.get("ppe_field", "Text")
             
-            print(f"✅ Completed extraction for {filename}")
-            return (filename, pdf_results)
-            
-        except Exception as e:
-            print(f"❌ Error processing {filename}: {e}")
-            return (filename, [])
-    
-    # Execute all PDF extractions in parallel
-    tasks = [
-        process_single_pdf(idx, file_id, filename)
-        for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames), 1)
-    ]
-    
-    all_results = await asyncio.gather(*tasks)
-    
-    # Aggregate results from all PDFs
-    for filename, pdf_results in all_results:
-        if not pdf_results:
-            continue
-            
-        for result in pdf_results:
-            param_name = result["DSCR_Parameters"]
-            
-            if param_name not in aggregated_by_parameter:
-                aggregated_by_parameter[param_name] = {
-                    "parameter": param_name,
-                    "category": result.get("Variance_Category", ""),
-                    "subcategory": result.get("SubCategory", ""),
-                    "ppe_field": result.get("PPE_Field_Type", ""),
-                    "extractions": []
+            try:
+                provider = llm.provider 
+                api_key = llm.api_key
+                
+                # ✅ CRITICAL FIX: Filter by investor+version+session to search ALL PDFs
+                # Instead of filtering by single gridfs_file_id, we filter by session metadata
+                # This allows searching across all PDFs in the session
+                filter_metadata = {
+                    "investor": investor,
+                    "version": version,
+                    "type": "pdf_chunk"  # Search PDF chunks, not excel rules
                 }
-            
-            # Store extraction with source info
-            aggregated_by_parameter[param_name]["extractions"].append({
-                "source_pdf": filename,
-                "summary": result["NQMF Investor DSCR"]
-            })
+                
+                # Check for aliases
+                base_query = f"What are the requirements for {param}?"
+                search_query = base_query
+                
+                aliases = guideline_config.get("aliases", [])
+                if aliases:
+                    search_query = f"{param} {' '.join(aliases)}"
+                
+                # ✅ Search across ALL PDFs (increased n_results to capture from all PDFs)
+                search_results = await rag_service.search(
+                    query=search_query,
+                    provider=provider,
+                    api_key=api_key,
+                    n_results=20,  # Increased to capture results from all PDFs
+                    filter_metadata=filter_metadata,
+                    azure_endpoint=user_settings.get("openai_endpoint"),
+                    azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
+                )
+                
+                context_text = ""
+                if search_results:
+                    # ✅ Enhanced: Include filename and page number in source attribution
+                    context_text = "\n\n".join([
+                        f"[Source: {r['metadata'].get('filename', 'Unknown')} - Page {r['metadata'].get('page', '?')}]\n{r['text']}" 
+                        for r in search_results
+                    ])
+                
+                if not context_text:
+                    return {
+                        "DSCR_Parameters": param, 
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
+                        "NQMF Investor DSCR": "NA"
+                    }
+                
+                # Enhanced Prompt for Detailed Extraction
+                system_prompt = "You are a Mortgage Policy Summarizer."
+                user_msg = f"""
+                Initial Request: {base_query}
+                
+                Context from Guidelines (searched across {len(gridfs_file_ids)} PDFs):
+                {context_text}
+                
+                Task:
+                Create a bulleted list of the specific requirements, limits, and conditions for "{param}" based strictly on the context from ALL PDFs.
+                
+                Format your response as a JSON object with the following key:
+                - "summary": (string, clean list with "• " bullets)
+                
+                Be concise. If the context doesn't explicitly mention something, state "NA".
+                """
+                
+                response_text = await asyncio.to_thread(
+                    llm.generate,
+                    "You are a helpful mortgage expert assistant. Always return valid JSON.",
+                    user_msg
+                )
+                
+                try:
+                    # Basic JSON cleaning
+                    json_str = response_text.strip()
+                    if json_str.startswith("```json"):
+                        json_str = json_str[7:]
+                    if json_str.endswith("```"):
+                        json_str = json_str[:-3]
+                    
+                    data_json = json.loads(json_str.strip())
+                    return {
+                        "DSCR_Parameters": param,
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
+                        "NQMF Investor DSCR": data_json.get("summary", "No summary provided.")
+                    }
+                except Exception as json_err:
+                    print(f"JSON Parse Error for {param}: {json_err}")
+                    return {
+                        "DSCR_Parameters": param,
+                        "Variance_Category": category,
+                        "SubCategory": subcategory,
+                        "PPE_Field_Type": ppe_field,
+                        "NQMF Investor DSCR": response_text.strip()
+                    }
+                
+            except Exception as e:
+                print(f"Error on {param}: {e}")
+                return {
+                    "DSCR_Parameters": param,
+                    "Variance_Category": category,
+                    "SubCategory": subcategory, 
+                    "PPE_Field_Type": ppe_field,
+                    "NQMF Investor DSCR": "Error extraction"
+                }
     
-    # Summarize aggregated results
-    print(f"\n{'='*60}")
-    print(f"🔄 Summarizing results from {len(gridfs_file_ids)} PDFs...")
-    print(f"{'='*60}\n")
+    # ✅ Execute: Extract each parameter by searching across ALL PDFs
+    from ingest.dscr_config import DSCR_GUIDELINES
+    tasks = [extract_parameter_from_all_pdfs(g) for g in DSCR_GUIDELINES]
+    final_results = await asyncio.gather(*tasks)
     
-    final_results = await summarize_dscr_aggregated_results(
-        aggregated_by_parameter=aggregated_by_parameter,
-        llm=llm
-    )
+    # Sort results to match config order
+    param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
+    final_results.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
+    
+    print(f"✅ Extracted {len(final_results)} DSCR parameters from all {len(gridfs_file_ids)} PDFs")
     
     # Generate Excel with multi-PDF context
     filepath = create_dscr_excel_multi_pdf(
