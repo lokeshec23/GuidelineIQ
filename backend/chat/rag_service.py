@@ -95,7 +95,7 @@ class RAGService:
                     
                     client = AzureOpenAI(
                         api_key=api_key,
-                        api_version="2023-05-15",
+                        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
                         azure_endpoint=kwargs.get("azure_endpoint")
                     )
                     # Use the embedding deployment name as the model parameter

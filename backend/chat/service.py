@@ -200,7 +200,7 @@ def chat_with_openai(
     if kwargs.get("azure_endpoint"):
         client = AzureOpenAI(
             api_key=api_key,
-            api_version="2024-02-15-preview",
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview"),
             azure_endpoint=kwargs.get("azure_endpoint"),
             azure_deployment=kwargs.get("azure_deployment")
         )
