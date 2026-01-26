@@ -73,10 +73,13 @@ async def chat_with_session(
         
         # Check for Azure
         if settings.get("openai_endpoint"):
+            # ✅ Fallback to .env if embedding deployment not set in database
+            embedding_deployment = settings.get("openai_embedding_deployment") or os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
+            
             azure_params = {
                 "azure_endpoint": settings.get("openai_endpoint"),
                 "azure_deployment": settings.get("openai_deployment"),
-                "azure_embedding_deployment": settings.get("openai_embedding_deployment")
+                "azure_embedding_deployment": embedding_deployment
             }
             
     elif provider == "gemini":
