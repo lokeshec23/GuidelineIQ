@@ -205,7 +205,12 @@ class LLMProvider:
                 return text
 
             except Exception as e:
-                logger.warning(f"[Gemini] Attempt {attempt} failed: {e}")
+                error_details = str(e)
+                if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                     error_details += f" | Body: {e.response.text}"
+                
+                logger.warning(f"[Gemini] Attempt {attempt} failed: {error_details}")
+
 
 
                 if attempt < self.max_retries:

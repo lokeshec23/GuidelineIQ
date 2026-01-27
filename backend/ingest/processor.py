@@ -108,8 +108,9 @@ async def process_guideline_background(
                     num_file_chunks = len(chunk_tuples)
                     num_file_chunks = len(chunk_tuples)
                     if num_file_chunks == 0:
-                        logger.warning(f"OCR failed for {filename}, skipping...")
+                        logger.warning(f"OCR yielded no text chunks for file: {filename}. Skipping.")
                         # Return path so it can be cleaned up
+
 
                         return [], temp_pdf_path
                         
@@ -164,7 +165,8 @@ async def process_guideline_background(
                 
                     if embedded_docs:
                         await rag_service.add_documents_async(embedded_docs, batch_size=200)
-                        logger.info(f"RAG: Stored {len(embedded_docs)} chunks from {filename}")
+                        logger.info(f"RAG: Successfully stored {len(embedded_docs)} embedding chunks for {filename}")
+
 
 
                     # Update global progress
@@ -177,8 +179,9 @@ async def process_guideline_background(
                     return chunk_tuples, temp_pdf_path
 
                 except Exception as e:
-                    logger.error(f"Error processing {filename}: {e}", exc_info=True)
+                    logger.error(f"Failed to process PDF {filename}: {str(e)}", exc_info=True)
                     return [], (temp_pdf_path if 'temp_pdf_path' in locals() else None)
+
 
 
         # Gather all tasks

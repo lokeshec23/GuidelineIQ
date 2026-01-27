@@ -170,7 +170,9 @@ async def chat_with_session(
     file_uris = [] # Not used in RAG mode usually, unless we mix strategies
     
     if not results:
+        logger.warning(f"RAG search returned 0 results for query: '{message}'")
         text_context = "No relevant info found in the document index."
+
     else:
         context_parts = []
         for res in results:

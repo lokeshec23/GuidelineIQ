@@ -87,10 +87,12 @@ async def compare_guidelines(
     # Validate file types
     for file in [file1, file2]:
         if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            logger.warning(f"Invalid file type for comparison: {file.filename}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Only Excel files (.xlsx, .xls) are supported. Got: {file.filename}"
             )
+
     
     # Generate session ID
     session_id = str(uuid.uuid4())
@@ -397,4 +399,5 @@ def cleanup_file(path: str):
             os.remove(path)
             logger.info(f"Cleaned up temporary file: {path}")
     except Exception as e:
-        logger.error(f"Error during file cleanup: {e}")
+        logger.error(f"Error cleaning up file {path}: {e}")
+

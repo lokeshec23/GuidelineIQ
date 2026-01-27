@@ -77,10 +77,12 @@ async def ingest_guideline(
     # Validate all files are PDFs
     for file in files:
         if not file.filename.lower().endswith('.pdf'):
+            logger.warning(f"Invalid file type uploaded: {file.filename}")
             raise HTTPException(
                 status_code=400, 
                 detail=f"Invalid file type for '{file.filename}'. Only PDF files are supported."
             )
+
 
     if model_provider not in SUPPORTED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {model_provider}")
@@ -340,4 +342,5 @@ def cleanup_file(path: str):
             os.remove(path)
             logger.info(f"Cleaned up temporary file: {path}")
     except Exception as e:
-        logger.error(f"Error during file cleanup: {e}")
+        logger.error(f"Error cleaning up file {path}: {e}")
+

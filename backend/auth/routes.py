@@ -40,9 +40,15 @@ async def register_user(user: UserCreate):
 @router.post("/login", response_model=TokenResponse)
 async def login_user(credentials: UserLogin):
     user = await find_user_by_email(credentials.email)
-    if not user or not verify_password(credentials.password, user["password"]):
-        logger.warning(f"Failed login attempt for email: {credentials.email}")
+    
+    if not user:
+        logger.warning(f"Failed login attempt: User not found for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not verify_password(credentials.password, user["password"]):
+        logger.warning(f"Failed login attempt: Invalid password for email: {credentials.email}")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
 
     access_token, refresh_token = create_tokens(str(user["_id"]), user["email"], user["username"], credentials.remember_me)
     logger.info(f"User logged in successfully: {user['email']}")
