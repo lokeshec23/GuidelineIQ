@@ -17,6 +17,7 @@ const SettingsPage = lazy(() => import("./pages/Settings/SettingsPage"));
 const PromptsPage = lazy(() => import("./pages/Prompts/PromptsPage"));
 const IngestionPromptPage = lazy(() => import("./pages/Prompts/IngestionPromptPage"));
 const ComparisonPromptPage = lazy(() => import("./pages/Prompts/ComparisonPromptPage"));
+const ManagementPage = lazy(() => import("./pages/Management/ManagementPage"));
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -96,10 +97,20 @@ function AppRoutes() {
           }
         />
         <Route
+
           path="/settings"
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/management"
+          element={
+            <ProtectedRoute>
+              <ManagementPage />
             </ProtectedRoute>
           }
         />

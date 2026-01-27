@@ -24,3 +24,13 @@ async def create_user(user_data: dict):
         
     result = await db_manager.users.insert_one(user_data)
     return await db_manager.users.find_one({"_id": result.inserted_id})
+
+async def get_all_users():
+    """Retrieve all users from the database."""
+    if db_manager.users is None:
+        await db_manager.connect()
+    
+    users = []
+    async for user in db_manager.users.find():
+        users.append(user)
+    return users

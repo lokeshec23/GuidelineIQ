@@ -14,6 +14,7 @@ import {
   LikeOutlined,
   ArrowRightOutlined,
   EditOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -123,11 +124,26 @@ const MainLayout = ({ children }) => {
         icon: <SettingOutlined />,
         label: "Settings",
       },
+
+      {
+        key: "/management",
+        icon: <TeamOutlined />,
+        label: "Management",
+      },
     ];
 
     const accessibleItems = baseItems.filter(
-      (item) => item.key !== "/settings" && item.key !== "/ingestion-prompt" && item.key !== "/comparison-prompt" || isAdmin
+      (item) => {
+        if (item.key === "/ingestion-prompt" || item.key === "/comparison-prompt") {
+          return false;
+        }
+        if (item.key === "/management" && !isAdmin) {
+          return false;
+        }
+        return item.key !== "/settings" || isAdmin;
+      }
     );
+
 
     return accessibleItems.map((item) => {
       const isActive = location.pathname === item.key;

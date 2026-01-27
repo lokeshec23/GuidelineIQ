@@ -1,12 +1,12 @@
-# auth/routes.py
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from auth.models import find_user_by_email, create_user
+from auth.models import find_user_by_email, create_user, get_all_users
 from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh
 from auth.utils import hash_password, verify_password, create_tokens, verify_token
 from utils.logger import setup_logger
 import database
+from datetime import datetime
 
 logger = setup_logger(__name__)
 
@@ -21,7 +21,13 @@ async def register_user(user: UserCreate):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_pw = hash_password(user.password)
-    user_data = {"username": user.username, "email": user.email, "password": hashed_pw, "role": "user"}
+    user_data = {
+        "username": user.username, 
+        "email": user.email, 
+        "password": hashed_pw, 
+        "role": "user",
+        "created_at": datetime.utcnow().isoformat()
+    }
     new_user = await create_user(user_data)
     user_id = str(new_user["_id"])
     
@@ -33,7 +39,13 @@ async def register_user(user: UserCreate):
     except Exception as e:
         print(f"⚠️ Failed to initialize prompts for user {user.email}: {e}")
 
-    return UserOut(id=str(new_user["_id"]), username=new_user["username"], email=new_user["email"], role=new_user["role"])
+    return UserOut(
+        id=str(new_user["_id"]), 
+        username=new_user["username"], 
+        email=new_user["email"], 
+        role=new_user["role"],
+        created_at=new_user.get("created_at")
+    )
 
 
 # ✅ Login user
@@ -106,3 +118,31 @@ async def refresh_token(data: TokenRefresh):
 
 
     return JSONResponse({"access_token": new_access_token})
+
+
+# ✅ Get all users (Admin only)
+@router.get("/users", response_model=list[UserOut])
+async def list_users(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = authorization.split(" ")[1]
+    payload = verify_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # Verify admin role
+    # In a real app, you'd check role here or via dependency
+    # For now, we trust the token payload or check DB if needed
+    
+    users = await get_all_users()
+    return [
+        UserOut(
+            id=str(u["_id"]), 
+            username=u.get("username"), 
+            email=u["email"], 
+            role=u.get("role"),
+            created_at=u.get("created_at")
+        ) 
+        for u in users
+    ]

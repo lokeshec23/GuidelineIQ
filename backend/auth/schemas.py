@@ -34,6 +34,7 @@ class UserOut(BaseModel):
     username: Optional[str] = None
     email: EmailStr
     role: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 # Schema for token responses
