@@ -19,8 +19,12 @@ from chat.models import (
     save_chat_message_with_conversation
 )
 from utils.gridfs_helper import get_pdf_from_gridfs
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
+
 
 @router.post("/session/{session_id}/message")
 async def chat_with_session(
@@ -114,7 +118,9 @@ async def chat_with_session(
         # Create a new conversation
         conversation_id = await create_conversation(session_id, title="New Conversation")
         is_new_conversation = True
-        print(f"✅ Created new conversation: {conversation_id}")
+        logger.info(f"Created new conversation: {conversation_id}")
+
+
     
     # 4. Get chat history for this conversation
     history = await get_conversation_messages(conversation_id, limit=20)
@@ -146,7 +152,9 @@ async def chat_with_session(
     else:
         raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
  
-    print(f"🔍 RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
+    
+    logger.info(f"RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
+
     
     # Perform Vector Search
     results = await rag_service.search(
@@ -179,7 +187,9 @@ async def chat_with_session(
                 context_parts.append(f"--- [Text | {filename} - {page_info}] ---\n{res['text']}\n")
         
         text_context = "\n".join(context_parts)
-        print(f"✅ RAG found {len(results)} items.")
+        logger.info(f"RAG found {len(results)} items.")
+
+
 
     # 6. Call LLM (Gemini or OpenAI)
     try:
@@ -240,8 +250,9 @@ IMPORTANT: Provide direct, clear answers without referencing source documents or
         }
         
     except Exception as e:
-        print(f"❌ Chat Error: {e}")
+        logger.error(f"Chat Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/session/{session_id}/history")
@@ -259,8 +270,9 @@ async def get_session_history(session_id: str):
         history = await get_chat_history(session_id, limit=50)
         return {"history": history}
     except Exception as e:
-        print(f"❌ Error fetching history: {e}")
+        logger.error(f"Error fetching history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.delete("/session/{session_id}/history")
@@ -284,8 +296,9 @@ async def clear_session_history(session_id: str):
             "deleted_count": result.deleted_count
         }
     except Exception as e:
-        print(f"❌ Error clearing history: {e}")
+        logger.error(f"Error clearing history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # ==================== CONVERSATION MANAGEMENT ENDPOINTS ====================
@@ -309,8 +322,9 @@ async def create_new_conversation(session_id: str, title: Optional[str] = Body(d
             "message": "Conversation created successfully"
         }
     except Exception as e:
-        print(f"❌ Error creating conversation: {e}")
+        logger.error(f"Error creating conversation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/session/{session_id}/conversations")
@@ -328,8 +342,9 @@ async def list_conversations(session_id: str):
         conversations = await get_conversations(session_id)
         return {"conversations": conversations}
     except Exception as e:
-        print(f"❌ Error listing conversations: {e}")
+        logger.error(f"Error listing conversations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.delete("/conversation/{conversation_id}")
@@ -350,8 +365,9 @@ async def remove_conversation(conversation_id: str):
             "deleted_messages": deleted_count
         }
     except Exception as e:
-        print(f"❌ Error deleting conversation: {e}")
+        logger.error(f"Error deleting conversation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/conversation/{conversation_id}/messages")
@@ -370,6 +386,7 @@ async def get_messages(conversation_id: str, limit: int = 100):
         messages = await get_conversation_messages(conversation_id, limit)
         return {"messages": messages}
     except Exception as e:
-        print(f"❌ Error fetching messages: {e}")
+        logger.error(f"Error fetching messages: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 

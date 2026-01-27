@@ -19,9 +19,14 @@ from utils.progress import update_progress, get_progress, delete_progress, progr
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 from utils.json_to_excel import dynamic_json_to_excel
+from utils.json_to_excel import dynamic_json_to_excel
 from typing import List
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["Ingest Guideline"])
+
 
 # ✅ CORRECTED: Define the dependency function properly
 async def get_current_user_id_from_token(authorization: str = Header(...)) -> str:
@@ -145,8 +150,12 @@ async def ingest_guideline(
             gridfs_file_ids.append(gridfs_file_id)
             filenames.append(file.filename)
             
-        print(f"✅ Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
+            gridfs_file_ids.append(gridfs_file_id)
+            filenames.append(file.filename)
+            
+        logger.info(f"Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
     except Exception as e:
+
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded files: {str(e)}")
 
     # Start background processing
@@ -186,9 +195,12 @@ async def progress_stream(session_id: str):
         retry_count = 0
         max_retries = 600
         
-        print(f"SSE connected: {session_id[:8]}")
+        max_retries = 600
+        
+        logger.info(f"SSE connected: {session_id[:8]}")
         
         while retry_count < max_retries:
+
             with progress_lock:
                 progress_data = progress_store.get(session_id)
             
@@ -209,9 +221,13 @@ async def progress_stream(session_id: str):
             await asyncio.sleep(0.5)
             retry_count += 1
         
-        print(f"SSE closed: {session_id[:8]}")
+            await asyncio.sleep(0.5)
+            retry_count += 1
+        
+        logger.info(f"SSE closed: {session_id[:8]}")
     
     return StreamingResponse(
+
         event_generator(),
         media_type="text/event-stream",
         headers={
@@ -267,9 +283,10 @@ async def get_preview(session_id: str):
                     }
                     return JSONResponse(content=response_data)
     except Exception as e:
-        print(f"Error fetching preview from DB: {e}")
+        logger.error(f"Error fetching preview from DB: {e}")
 
     raise HTTPException(status_code=404, detail="Preview data not found or job is not complete.")
+
 
 
 @router.get("/download/{session_id}")
@@ -310,16 +327,17 @@ async def download_result(session_id: str):
                         filename=filename
                     )
                 except Exception as e:
-                    print(f"Error regenerating Excel from DB: {e}")
+                    logger.error(f"Error regenerating Excel from DB: {e}")
                     raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
 
     raise HTTPException(status_code=404, detail="Result file not found or already downloaded.")
+
 
 def cleanup_file(path: str):
     """A simple background task to delete a file."""
     try:
         if os.path.exists(path):
             os.remove(path)
-            print(f"🧹 Cleaned up temporary file: {path}")
+            logger.info(f"Cleaned up temporary file: {path}")
     except Exception as e:
-        print(f"❌ Error during file cleanup: {e}")
+        logger.error(f"Error during file cleanup: {e}")

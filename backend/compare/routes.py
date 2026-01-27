@@ -15,8 +15,12 @@ from config import SUPPORTED_MODELS
 import asyncio
 from typing import AsyncGenerator
 from utils.json_to_excel import dynamic_json_to_excel
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
+
 
 async def get_current_user_id_from_token(authorization: str = Header(...)) -> str:
     """Extract and validate user ID from JWT token"""
@@ -48,12 +52,10 @@ async def compare_guidelines(
 ):
     """Upload two Excel files and compare them using LLM"""
     
-    print(f"Comparison request received:")
-    print(f"  - File 1: {file1.filename}")
-    print(f"  - File 2: {file2.filename}")
-    print(f"  - Provider: {model_provider}")
-    print(f"  - Model: {model_name}")
-    print(f"  - User ID: {user_id}")
+    """Upload two Excel files and compare them using LLM"""
+    
+    logger.info(f"Comparison request received: File1={file1.filename}, File2={file2.filename}, Provider={model_provider}, Model={model_name}, UserID={user_id}")
+
     
     # Validate model
     if model_provider not in SUPPORTED_MODELS:
@@ -93,22 +95,30 @@ async def compare_guidelines(
     # Generate session ID
     session_id = str(uuid.uuid4())
     
-    print(f"\n{'='*60}")
-    print(f"Session: {session_id}")
-    print(f"{'='*60}\n")
+    # Generate session ID
+    session_id = str(uuid.uuid4())
+    
+    logger.info(f"Session: {session_id}")
+
     
     # Save Excel files temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp1:
         content1 = await file1.read()
         tmp1.write(content1)
         file1_path = tmp1.name
-        print(f"File 1 saved: {len(content1) / 1024:.2f} KB")
+        tmp1.write(content1)
+        file1_path = tmp1.name
+        logger.info(f"File 1 saved: {len(content1) / 1024:.2f} KB")
+
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp2:
         content2 = await file2.read()
         tmp2.write(content2)
         file2_path = tmp2.name
-        print(f"File 2 saved: {len(content2) / 1024:.2f} KB")
+        tmp2.write(content2)
+        file2_path = tmp2.name
+        logger.info(f"File 2 saved: {len(content2) / 1024:.2f} KB")
+
     
     # ✅ NEW: Get current user's info for history tracking
     current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
@@ -247,7 +257,10 @@ async def progress_stream(session_id: str):
         retry_count = 0
         max_retries = 600
         
-        print(f"SSE connected: {session_id[:8]}")
+        max_retries = 600
+        
+        logger.info(f"SSE connected: {session_id[:8]}")
+
         
         while retry_count < max_retries:
             with progress_lock:
@@ -270,7 +283,11 @@ async def progress_stream(session_id: str):
             await asyncio.sleep(0.5)
             retry_count += 1
         
-        print(f"SSE closed: {session_id[:8]}")
+            await asyncio.sleep(0.5)
+            retry_count += 1
+        
+        logger.info(f"SSE closed: {session_id[:8]}")
+
     
     return StreamingResponse(
         event_generator(),
@@ -357,9 +374,15 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     filename=filename
                 )
+                return FileResponse(
+                    tmp.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename
+                )
             except Exception as e:
-                print(f"Error regenerating Excel from DB: {e}")
+                logger.error(f"Error regenerating Excel from DB: {e}")
                 raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
+
 
     raise HTTPException(
         status_code=404, 
@@ -372,6 +395,6 @@ def cleanup_file(path: str):
     try:
         if os.path.exists(path):
             os.remove(path)
-            print(f"Cleaned up temporary file: {path}")
+            logger.info(f"Cleaned up temporary file: {path}")
     except Exception as e:
-        print(f"Error during file cleanup: {e}")
+        logger.error(f"Error during file cleanup: {e}")

@@ -23,15 +23,18 @@ def create_token(data: dict, expires_delta: timedelta):
     return encoded_jwt
 
 # ✅ Create both access & refresh tokens
-def create_tokens(user_id: str, remember_me: bool = False):
+def create_tokens(user_id: str, email: str, username: str, remember_me: bool = False):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     # If remember_me is True, set refresh token to 30 days, otherwise use default (7 days)
     refresh_days = 30 if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
     refresh_token_expires = timedelta(days=refresh_days)
 
-    access_token = create_token({"sub": user_id, "type": "access"}, access_token_expires)
-    refresh_token = create_token({"sub": user_id, "type": "refresh"}, refresh_token_expires)
+    access_payload = {"sub": user_id, "type": "access", "email": email, "username": username}
+    refresh_payload = {"sub": user_id, "type": "refresh", "email": email, "username": username}
+
+    access_token = create_token(access_payload, access_token_expires)
+    refresh_token = create_token(refresh_payload, refresh_token_expires)
 
     return access_token, refresh_token
 

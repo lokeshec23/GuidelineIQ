@@ -14,8 +14,12 @@ from utils.progress import update_progress
 from chat.rag_service import RAGService  # ✅ Import RAG Service
 from ingest.dscr_extractor import extract_dscr_parameters_safe  # ✅ Import DSCR Extractor
 from ingest.rag_extractor import run_main_rag_extraction # ✅ Import RAG Extractor
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 rag_service = RAGService()  # ✅ Initialize RAG Service
+
 
 async def process_guideline_background(
     session_id: str,
@@ -43,26 +47,24 @@ async def process_guideline_background(
         pages_per_chunk = user_settings.get("pages_per_chunk", 1)
         num_files = len(gridfs_file_ids)
         
-        print(f"\n{'='*60}")
-        print(f"RAG-Based Multi-PDF Ingestion started for session {session_id[:8]}")
-        print(f"Investor: {investor} | Version: {version}")
-        print(f"Number of PDFs: {num_files}")
-        print(f"Files: {', '.join(filenames)}")
-        print(f"Model: {model_provider}/{model_name}")
-        print(f"Pages per chunk: {pages_per_chunk}")
-        print(f"Effective Date: {effective_date}")
-        print(f"{'='*60}\n")
+        num_files = len(gridfs_file_ids)
+        
+        logger.info(f"RAG-Based Multi-PDF Ingestion started for session {session_id[:8]}")
+        logger.info(f"Investor: {investor} | Version: {version} | Files: {num_files}")
+
 
         # Validate prompts - Use defaults if empty
         if not user_prompt.strip():
             from config import DEFAULT_INGEST_PROMPT_USER
             user_prompt = DEFAULT_INGEST_PROMPT_USER
-            print("⚠️ Using DEFAULT_INGEST_PROMPT_USER (user prompt was empty)")
+            logger.warning("Using DEFAULT_INGEST_PROMPT_USER (user prompt was empty)")
+
         
         if not system_prompt.strip():
             from config import DEFAULT_INGEST_PROMPT_SYSTEM
             system_prompt = DEFAULT_INGEST_PROMPT_SYSTEM
-            print("⚠️ Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
+            logger.warning("Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
+
 
         # === STEP 1-3: Process Each PDF (Retrieve, OCR, Embed) ===
         all_text_chunks = []
@@ -77,7 +79,8 @@ async def process_guideline_background(
             
             async with semaphore:
                 try:
-                    print(f"\nExample Parallel Start: Processing PDF {idx}/{num_files}: {filename}")
+                    logger.info(f"Processing PDF {idx}/{num_files}: {filename}")
+
                     
                     # 1. Retrieve PDF
                     from utils.gridfs_helper import get_pdf_from_gridfs
@@ -103,9 +106,11 @@ async def process_guideline_background(
                     )
                     
                     num_file_chunks = len(chunk_tuples)
+                    num_file_chunks = len(chunk_tuples)
                     if num_file_chunks == 0:
-                        print(f"⚠️ OCR failed for {filename}, skipping...")
+                        logger.warning(f"OCR failed for {filename}, skipping...")
                         # Return path so it can be cleaned up
+
                         return [], temp_pdf_path
                         
                     # 4. Embeddings
@@ -159,7 +164,8 @@ async def process_guideline_background(
                 
                     if embedded_docs:
                         await rag_service.add_documents_async(embedded_docs, batch_size=200)
-                        print(f"✅ RAG: Stored {len(embedded_docs)} chunks from {filename}")
+                        logger.info(f"RAG: Stored {len(embedded_docs)} chunks from {filename}")
+
 
                     # Update global progress
                     async with files_lock:
@@ -171,9 +177,9 @@ async def process_guideline_background(
                     return chunk_tuples, temp_pdf_path
 
                 except Exception as e:
-                    print(f"❌ Error processing {filename}: {e}")
-                    traceback.print_exc()
+                    logger.error(f"Error processing {filename}: {e}", exc_info=True)
                     return [], (temp_pdf_path if 'temp_pdf_path' in locals() else None)
+
 
         # Gather all tasks
         tasks = [
@@ -267,7 +273,8 @@ async def process_guideline_background(
                 version=version,
                 user_settings=user_settings
             )
-            print(f"✅ Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+            logger.info(f"Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+
             
             # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===
             update_progress(session_id, 96, "Indexing extracted DSCR rules...")
@@ -319,8 +326,9 @@ async def process_guideline_background(
                         item["embedding"] = emb
                         return item
                     except Exception as e:
-                        print(f"⚠️ Failed to embed rule {item['metadata']['parameter']}: {e}")
+                        logger.error(f"Failed to embed rule {item['metadata']['parameter']}: {e}")
                         return None
+
 
                 # Generate embeddings in parallel
                 print(f"🔄 Generating embeddings for {len(items_to_embed)} DSCR rules...")
@@ -342,8 +350,8 @@ async def process_guideline_background(
                  traceback.print_exc()
 
         except Exception as dscr_err:
-            print(f"⚠️ DSCR Extraction Failed: {dscr_err}")
-            traceback.print_exc()
+            logger.error(f"DSCR Extraction Failed: {dscr_err}", exc_info=True)
+
 
         # === STEP 7: Convert results to Excel ===
         update_progress(session_id, 95, "Converting results to Excel...")
@@ -357,7 +365,8 @@ async def process_guideline_background(
         dynamic_json_to_excel(results, excel_path)
 
         update_progress(session_id, 100, "Processing complete.")
-        print(f"{'='*60}\nPROCESSING COMPLETE\n{'='*60}")
+        logger.info("PROCESSING COMPLETE")
+
 
         # Save preview + meta
         from utils.progress import progress_store, progress_lock
@@ -412,13 +421,14 @@ async def process_guideline_background(
                         progress_store[session_id]["history_id"] = history_id
                         
             except Exception as hist_err:
-                print(f"⚠️ Failed to save history: {hist_err}")
+                logger.error(f"Failed to save history: {hist_err}")
+
 
     except Exception as e:
         error_msg = str(e)
-        print(f"\nCritical error: {error_msg}\n")
-        traceback.print_exc()
+        logger.critical(f"Critical error: {error_msg}", exc_info=True)
         update_progress(session_id, -1, f"Error: {error_msg}")
+
 
         from utils.progress import progress_store, progress_lock
         with progress_lock:
@@ -435,9 +445,10 @@ async def process_guideline_background(
             if temp_pdf_path and os.path.exists(temp_pdf_path):
                 try:
                     os.remove(temp_pdf_path)
-                    print(f"🧹 Cleaned up temporary PDF: {temp_pdf_path}")
+                    logger.debug(f"Cleaned up temporary PDF: {temp_pdf_path}")
                 except Exception as e:
-                    print(f"⚠️ Failed to clean up temporary PDF: {e}")
+                    logger.warning(f"Failed to clean up temporary PDF: {e}")
+
 
 
 async def run_parallel_llm_processing(
@@ -487,13 +498,10 @@ Start with '[' and end with ']'. No markdown, no explanations."""
             )
 
             # ✅ Log LLM response for verification
-            print(f"\n{'='*60}")
-            print(f"📝 LLM RESPONSE - Chunk {idx + 1}/{total_chunks} (Pages: {page_numbers})")
-            print(f"{'='*60}")
-            print(response)
-            print(f"{'='*60}\n")
-
+            # logger.debug(f"LLM RESPONSE - Chunk {idx + 1}/{total_chunks} (Pages: {page_numbers}): {response[:100]}...") 
+            
             # ✅ Parse response and automatically inject page numbers
+
             parsed = parse_and_clean_llm_response(response, idx + 1, page_numbers)
 
             if parsed:
@@ -504,7 +512,8 @@ Start with '[' and end with ']'. No markdown, no explanations."""
 
         except Exception as e:
             failed_count += 1
-            print(f"Chunk {idx+1} FAILED: {e}")
+            logger.error(f"Chunk {idx+1} FAILED: {e}")
+
 
         finally:
             completed += 1
@@ -517,8 +526,10 @@ Start with '[' and end with ']'. No markdown, no explanations."""
 
     await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
     
-    print(f"\n✅ Successfully parsed: {len(results)} rules")
-    print(f"❌ Failed chunks: {failed_count}")
+    await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
+    
+    logger.info(f"Successfully parsed: {len(results)} rules | Failed chunks: {failed_count}")
+
     
     return results, failed_count
 
@@ -572,15 +583,17 @@ def parse_and_clean_llm_response(response: str, chunk_num: int, page_numbers: st
     end = cleaned.rfind("]")
 
     if start == -1 or end == -1:
-        print(f"⚠️ Chunk {chunk_num}: No JSON array found in response")
+        logger.warning(f"Chunk {chunk_num}: No JSON array found in response")
         return []
+
 
     try:
         data = json.loads(cleaned[start:end + 1])
 
         if not isinstance(data, list):
-            print(f"⚠️ Chunk {chunk_num}: Response is not a JSON array")
+            logger.warning(f"Chunk {chunk_num}: Response is not a JSON array")
             return []
+
         
         valid_items = []
         
@@ -608,9 +621,10 @@ def parse_and_clean_llm_response(response: str, chunk_num: int, page_numbers: st
                 }
                 valid_items.append(normalized_item)
         
-        print(f"✅ Chunk {chunk_num}: Parsed {len(valid_items)} items and injected page_number '{page_numbers}'")
+        # logger.debug(f"Chunk {chunk_num}: Parsed {len(valid_items)} items and injected page_number '{page_numbers}'")
         return valid_items
 
+
     except json.JSONDecodeError as e:
-        print(f"❌ Chunk {chunk_num}: JSON decode error - {str(e)}")
+        logger.error(f"Chunk {chunk_num}: JSON decode error - {str(e)}")
         return []

@@ -5,7 +5,11 @@ from bson import ObjectId
 from auth.models import find_user_by_email, create_user
 from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh
 from auth.utils import hash_password, verify_password, create_tokens, verify_token
+from utils.logger import setup_logger
 import database
+
+logger = setup_logger(__name__)
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -37,9 +41,12 @@ async def register_user(user: UserCreate):
 async def login_user(credentials: UserLogin):
     user = await find_user_by_email(credentials.email)
     if not user or not verify_password(credentials.password, user["password"]):
+        logger.warning(f"Failed login attempt for email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    access_token, refresh_token = create_tokens(str(user["_id"]), credentials.remember_me)
+    access_token, refresh_token = create_tokens(str(user["_id"]), user["email"], user["username"], credentials.remember_me)
+    logger.info(f"User logged in successfully: {user['email']}")
+
 
     user_data = UserOut(id=str(user["_id"]), username=user["username"], email=user["email"], role=user["role"])
     return TokenResponse(
@@ -80,6 +87,16 @@ async def refresh_token(data: TokenRefresh):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user_id = payload.get("sub")
-    new_access_token, _ = create_tokens(user_id)
+    
+    # Fetch user to get current email/username
+    from auth.models import get_user_by_id
+    user = await get_user_by_id(user_id)
+    if not user:
+         logger.warning(f"Refresh token used for non-existent user_id: {user_id}")
+         raise HTTPException(status_code=401, detail="User not found")
+
+    new_access_token, _ = create_tokens(user_id, user["email"], user["username"])
+    logger.info(f"Token refreshed for user: {user['email']}")
+
 
     return JSONResponse({"access_token": new_access_token})

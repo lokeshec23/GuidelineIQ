@@ -5,6 +5,10 @@ import requests
 from typing import List, Optional
 from openai import AzureOpenAI
 from config import get_model_config, GEMINI_API_BASE_URL
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
 
 
 class LLMProvider:
@@ -51,8 +55,10 @@ class LLMProvider:
                 api_version="2024-02-01",
                 azure_endpoint=azure_endpoint,
             )
+            
             self.deployment = azure_deployment
-            print(f"[INIT] Azure OpenAI ready (deployment: {self.deployment})")
+            logger.info(f"[INIT] Azure OpenAI ready (deployment: {self.deployment})")
+
 
         # -------- Gemini --------
         elif self.provider == "gemini":
@@ -62,7 +68,8 @@ class LLMProvider:
             if not LLMProvider._gemini_session:
                 LLMProvider._gemini_session = requests.Session()
 
-            print(f"[INIT] Gemini ready (model: {self.model})")
+            logger.info(f"[INIT] Gemini ready (model: {self.model})")
+
 
         else:
             raise ValueError(f"Unsupported LLM provider: '{self.provider}'")
@@ -103,11 +110,12 @@ class LLMProvider:
                 )
 
                 content = response.choices[0].message.content
-                print(f"[OpenAI] Response OK ({len(content)} chars)")
+                logger.info(f"[OpenAI] Response OK ({len(content)} chars)")
                 return content
 
             except Exception as e:
-                print(f"[OpenAI] Attempt {attempt} failed: {e}")
+                logger.warning(f"[OpenAI] Attempt {attempt} failed: {e}")
+
 
                 if attempt < self.max_retries:
                     time.sleep(self.backoff_base ** attempt)
@@ -116,8 +124,9 @@ class LLMProvider:
                 # Fallback to gpt-4o
                 if "gpt-4o" not in self.deployment:
                     try:
-                        print("[OpenAI] Switching to fallback model: gpt-4o")
+                        logger.warning("[OpenAI] Switching to fallback model: gpt-4o")
                         self.deployment = "gpt-4o"
+
                         response = self.client.chat.completions.create(
                             model=self.deployment,
                             messages=[
@@ -126,10 +135,11 @@ class LLMProvider:
                             ],
                         )
                         content = response.choices[0].message.content
-                        print(f"[OpenAI] Fallback OK ({len(content)} chars)")
+                        logger.info(f"[OpenAI] Fallback OK ({len(content)} chars)")
                         return content
                     except Exception as e2:
-                        print(f"[OpenAI] Fallback failed: {e2}")
+                        logger.error(f"[OpenAI] Fallback failed: {e2}")
+
 
                 raise Exception(f"Azure OpenAI failed after retries: {e}")
 
@@ -175,8 +185,9 @@ class LLMProvider:
                 response = session.post(api_url, headers=headers, json=payload, timeout=180)
 
                 if response.status_code == 503:
-                    print(f"[Gemini] 503 overload (attempt {attempt}), retrying...")
+                    logger.warning(f"[Gemini] 503 overload (attempt {attempt}), retrying...")
                     time.sleep(self.backoff_base ** attempt)
+
                     continue
 
                 response.raise_for_status()
@@ -190,11 +201,12 @@ class LLMProvider:
                 parts = candidates[0].get("content", {}).get("parts", [])
                 text = "".join(p.get("text", "") for p in parts)
 
-                print(f"[Gemini] Response OK ({len(text)} chars)")
+                logger.info(f"[Gemini] Response OK ({len(text)} chars)")
                 return text
 
             except Exception as e:
-                print(f"[Gemini] Attempt {attempt} failed: {e}")
+                logger.warning(f"[Gemini] Attempt {attempt} failed: {e}")
+
 
                 if attempt < self.max_retries:
                     time.sleep(self.backoff_base ** attempt)
@@ -202,8 +214,9 @@ class LLMProvider:
 
                 # Fallback to Flash model
                 if self.model == "gemini-2.5-pro":
-                    print("[Gemini] Switching to fallback: gemini-2.5-flash")
+                    logger.warning("[Gemini] Switching to fallback: gemini-2.5-flash")
                     self.model = "gemini-2.5-flash"
                     return self._generate_gemini(system_prompt, user_content)
+
 
                 raise Exception(f"Gemini failed after retries: {e}")

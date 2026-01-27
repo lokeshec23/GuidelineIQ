@@ -1,13 +1,24 @@
 # auth/schemas.py
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 # Schema for user registration
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=16)
     role: str
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_length(cls, v: str) -> str:
+        if len(v) < 6 or len(v) > 16:
+             logger.warning(f"Password validation failed: length {len(v)}")
+             raise ValueError('Password must be between 6 and 16 characters')
+        return v
 
 
 # Schema for login

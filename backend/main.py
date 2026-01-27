@@ -4,6 +4,12 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from utils.logger import setup_logger
+from utils.middleware import LogContextMiddleware
+
+# Setup logger
+logger = setup_logger(__name__)
+
 
 # Load environment
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,13 +40,15 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     await db_manager.connect()
-    print("🚀 Application started successfully")
+    await db_manager.connect()
+    logger.info("Application started successfully")
     
     yield
     
     # Shutdown
     await db_manager.close()
-    print("🛑 Application shut down")
+    logger.info("Application shut down")
+
 
 # Initialize FastAPI
 app = FastAPI(
@@ -58,6 +66,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Logging Middleware
+app.add_middleware(LogContextMiddleware)
+
 
 # Include routers
 app.include_router(auth_router)
