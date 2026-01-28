@@ -66,123 +66,85 @@ async def process_guideline_background(
             logger.warning("Using DEFAULT_INGEST_PROMPT_SYSTEM (system prompt was empty)")
 
 
-        # === STEP 1-3: Process Each PDF (Retrieve, OCR, Embed) ===
-        all_text_chunks = []
+        # === STEP 1: Process Each PDF with RAG Pipeline ===
+        from rag_pipeline.pipeline import RAGPipeline
+        from rag_pipeline.models import DocumentPayload, ProgramType
+        
+        # Initialize Pipeline
+        pipeline = RAGPipeline()
         
         # Concurrency control
         semaphore = asyncio.Semaphore(5)
         files_completed = 0
         files_lock = asyncio.Lock()
         
-        async def process_single_pdf(idx: int, file_id: str, filename: str):
+        # Track indexed documents for later cleanup/extraction
+        indexed_documents = []
+
+        async def process_single_pdf(idx: int, gridfs_id: str, filename: str):
             nonlocal files_completed
             
             async with semaphore:
                 try:
                     logger.info(f"Processing PDF {idx}/{num_files}: {filename}")
-
                     
-                    # 1. Retrieve PDF
+                    # 1. Retrieve PDF from GridFS
                     from utils.gridfs_helper import get_pdf_from_gridfs
-                    pdf_content = await get_pdf_from_gridfs(file_id)
+                    pdf_content = await get_pdf_from_gridfs(gridfs_id)
                     
-                    # 2. Save Temp
-                    temp_pdf_path = tempfile.NamedTemporaryFile(
-                        delete=False,
-                        suffix=".pdf",
-                        prefix=f"ocr_{session_id[:8]}_{idx}_"
-                    ).name
+                    # 2. Save to temp file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=f"rag_{session_id[:8]}_{idx}_") as temp_file:
+                        temp_file.write(pdf_content)
+                        temp_pdf_path = temp_file.name
+                        temp_pdf_paths.append(temp_pdf_path)
                     
-                    with open(temp_pdf_path, "wb") as f:
-                        f.write(pdf_content)
-                        
-                    # 3. OCR (CPU bound, run in thread pool)
-                    ocr_client = AzureOCR()
-                    chunk_tuples = await asyncio.to_thread(
-                        ocr_client.analyze_doc_page_by_page,
-                        temp_pdf_path,
-                        pages_per_chunk,
-                        page_range
+                    # 3. Create Document Payload
+                    # Map program_type string to Enum, default to DSCR if not specified or invalid
+                    program_enum = ProgramType.DSCR
+                    if program_type and program_type.upper() in [p.value for p in ProgramType]:
+                        program_enum = ProgramType(program_type.upper())
+                    
+                    doc_payload = DocumentPayload(
+                        lender=investor,
+                        program=program_enum,
+                        version=version,
+                        filename=filename,
+                        gridfs_file_id=gridfs_id,
+                        effective_date=effective_date,
+                        expiry_date=expiry_date
                     )
                     
-                    num_file_chunks = len(chunk_tuples)
-                    num_file_chunks = len(chunk_tuples)
-                    if num_file_chunks == 0:
-                        logger.warning(f"OCR yielded no text chunks for file: {filename}. Skipping.")
-                        # Return path so it can be cleaned up
-
-
-                        return [], temp_pdf_path
-                        
-                    # 4. Embeddings
-                    items_to_embed = []
-                    for i, chunk_tuple in enumerate(chunk_tuples):
-                        text, pages = chunk_tuple
-                        items_to_embed.append({
-                            "id": f"{file_id}_chunk_{i}",
-                            "text": text,
-                            "metadata": {
-                                "investor": investor,
-                                "version": version,
-                                "page": pages,
-                                "filename": filename,
-                                "gridfs_file_id": file_id,
-                                "type": "pdf_chunk",
-                                "file_index": idx
-                            }
-                        })
-                        
-                    rag_provider = model_provider
-                    api_key = user_settings.get(f"{model_provider}_api_key")
+                    # 4. Ingest using RAG Pipeline (Parse -> Chunk -> Embed -> Index)
+                    # use_ocr_fallback=True is default and handled by pipeline
+                    num_chunks = await pipeline.ingest_pdf(
+                        pdf_path=temp_pdf_path,
+                        document_payload=doc_payload,
+                        use_ocr_fallback=True
+                    )
                     
-                    # Embed in batches to respect rate limits somewhat within the file
-                    embedded_docs = []
+                    logger.info(f"Successfully indexed {num_chunks} chunks for {filename}")
                     
-                    # We reuse the logic: embed chunks in parallel
-                    async def embed_single_chunk(item):
-                        emb = await rag_service.get_embedding(
-                            item["text"], 
-                            rag_provider, 
-                            api_key,
-                            azure_endpoint=user_settings.get("openai_endpoint"),
-                            azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
-                        )
-                        item["embedding"] = emb
-                        return item
-
-                    # Gather embeddings for this file
-                    # We can limit concurrency PER FILE here too if needed, but the outer semaphore 
-                    # limits total files, so 5 files * N chunks might be extensive.
-                    # Let's batch chunks per file to be safe: batch size 10
-                    
-                    batch_size = 10
-                    for k in range(0, len(items_to_embed), batch_size):
-                        batch = items_to_embed[k:k+batch_size]
-                        batch_results = await asyncio.gather(*[embed_single_chunk(item) for item in batch])
-                        for res in batch_results:
-                            if res.get("embedding"):
-                                embedded_docs.append(res)
-                
-                    if embedded_docs:
-                        await rag_service.add_documents_async(embedded_docs, batch_size=200)
-                        logger.info(f"RAG: Successfully stored {len(embedded_docs)} embedding chunks for {filename}")
-
-
-
-                    # Update global progress
+                    # Update progress
                     async with files_lock:
                         files_completed += 1
-                        # Map 0 to 45% progress
                         pct = int((files_completed / num_files) * 45)
                         update_progress(session_id, pct, f"Processed PDF {files_completed}/{num_files}: {filename}")
-
-                    return chunk_tuples, temp_pdf_path
+                    
+                    return {
+                        "filename": filename,
+                        "gridfs_id": gridfs_id,
+                        "chunks": num_chunks,
+                        "status": "success"
+                    }
 
                 except Exception as e:
                     logger.error(f"Failed to process PDF {filename}: {str(e)}", exc_info=True)
-                    return [], (temp_pdf_path if 'temp_pdf_path' in locals() else None)
-
-
+                    return {
+                        "filename": filename,
+                        "gridfs_id": gridfs_id,
+                        "error": str(e),
+                        "status": "failed"
+                    }
 
         # Gather all tasks
         tasks = [
@@ -192,16 +154,14 @@ async def process_guideline_background(
         
         results = await asyncio.gather(*tasks)
         
-        # Aggregate results
-        for chunks, temp_path in results:
-            if chunks:
-                all_text_chunks.extend(chunks)
-            if temp_path:
-                temp_pdf_paths.append(temp_path)
-        
-        if not all_text_chunks:
-            raise ValueError("OCR process failed to extract text from any document.")
+        # Check results
+        failed_files = [r for r in results if r["status"] == "failed"]
+        if len(failed_files) == len(results):
+             raise ValueError("All files failed to process via RAG Pipeline.")
+             
+        logger.info(f"Ingestion complete. Success: {len(results) - len(failed_files)}, Failed: {len(failed_files)}")
 
+        # Initialize LLM for downstream tasks (legacy support if needed)
         llm = initialize_llm_provider(user_settings, model_provider, model_name)
 
         # === STEP 5: RAG-Based Extraction (Optional - Commented for Multi-PDF) ===

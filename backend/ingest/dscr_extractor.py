@@ -11,6 +11,9 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from ingest.dscr_config import DSCR_GUIDELINES
 from chat.rag_service import RAGService
 from utils.llm_provider import LLMProvider
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 async def extract_dscr_parameters_safe(
     session_id: str,
@@ -165,166 +168,70 @@ async def extract_dscr_parameters_multi_pdf(
     """
     Extracts DSCR parameters from multiple PDFs by searching across ALL PDFs.
     
+    Extracts DSCR parameters using the production-grade RAG Pipeline.
+    
     Args:
-        session_id: Unique session identifier
-        gridfs_file_ids: List of GridFS file IDs for the PDFs
-        filenames: List of original PDF filenames
-        rag_service: RAG service instance
-        llm: LLM provider instance
-        investor: Investor name
-        version: Version identifier
-        user_settings: User configuration settings
-    
+        session_id: Session identifier
+        gridfs_file_ids: List of GridFS file IDs
+        filenames: List of filenames
+        rag_service: Legacy RAG service (unused in new pipeline)
+        llm: Legacy LLM provider (unused in new pipeline)
+        investor: Investor/Lender name
+        version: Guideline version
+        user_settings: User settings dict
+
     Returns:
-        Tuple[str, List[Dict]]: (Excel file path, Aggregated results list)
+        Tuple[str, List[Dict]]: (Path to Excel file, Extraction results)
     """
-    print(f"\n{'='*60}")
-    print(f"🚀 Starting Multi-PDF DSCR Extraction for Session: {session_id[:8]}")
-    print(f"Processing {len(gridfs_file_ids)} PDFs")
-    print(f"✅ Searching across ALL PDFs for each DSCR parameter")
-    print(f"{'='*60}\n")
-    
-    # Concurrency control
-    semaphore = asyncio.Semaphore(10)
-    
-    # ✅ NEW APPROACH: Search across ALL PDFs for each parameter
-    async def extract_parameter_from_all_pdfs(guideline_config: Dict) -> Dict:
-        """Extract a single DSCR parameter by searching across ALL PDFs"""
-        async with semaphore:
-            param = guideline_config["parameter"]
-            category = guideline_config.get("category", "General")
-            subcategory = guideline_config.get("subcategory", "General")
-            ppe_field = guideline_config.get("ppe_field", "Text")
-            
-            try:
-                provider = llm.provider 
-                api_key = llm.api_key
-                
-                # ✅ CRITICAL FIX: Filter by investor+version+session to search ALL PDFs
-                # Instead of filtering by single gridfs_file_id, we filter by session metadata
-                # This allows searching across all PDFs in the session
-                filter_metadata = {
-                    "investor": investor,
-                    "version": version,
-                    "type": "pdf_chunk"  # Search PDF chunks, not excel rules
-                }
-                
-                # Check for aliases
-                base_query = f"What are the requirements for {param}?"
-                search_query = base_query
-                
-                aliases = guideline_config.get("aliases", [])
-                if aliases:
-                    search_query = f"{param} {' '.join(aliases)}"
-                
-                # ✅ Search across ALL PDFs (increased n_results to capture from all PDFs)
-                search_results = await rag_service.search(
-                    query=search_query,
-                    provider=provider,
-                    api_key=api_key,
-                    n_results=20,  # Increased to capture results from all PDFs
-                    filter_metadata=filter_metadata,
-                    azure_endpoint=user_settings.get("openai_endpoint"),
-                    azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
-                )
-                
-                context_text = ""
-                if search_results:
-                    # ✅ Enhanced: Include filename and page number in source attribution
-                    context_text = "\n\n".join([
-                        f"[Source: {r['metadata'].get('filename', 'Unknown')} - Page {r['metadata'].get('page', '?')}]\n{r['text']}" 
-                        for r in search_results
-                    ])
-                
-                if not context_text:
-                    return {
-                        "DSCR_Parameters": param, 
-                        "Variance_Category": category,
-                        "SubCategory": subcategory,
-                        "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": "NA"
-                    }
-                
-                # Enhanced Prompt for Detailed Extraction
-                system_prompt = "You are a Mortgage Policy Summarizer."
-                user_msg = f"""
-                Initial Request: {base_query}
-                
-                Context from Guidelines (searched across {len(gridfs_file_ids)} PDFs):
-                {context_text}
-                
-                Task:
-                Create a bulleted list of the specific requirements, limits, and conditions for "{param}" based strictly on the context from ALL PDFs.
-                
-                Format your response as a JSON object with the following key:
-                - "summary": (string, clean list with "• " bullets)
-                
-                Be concise. If the context doesn't explicitly mention something, state "NA".
-                """
-                
-                response_text = await asyncio.to_thread(
-                    llm.generate,
-                    "You are a helpful mortgage expert assistant. Always return valid JSON.",
-                    user_msg
-                )
-                
-                try:
-                    # Basic JSON cleaning
-                    json_str = response_text.strip()
-                    if json_str.startswith("```json"):
-                        json_str = json_str[7:]
-                    if json_str.endswith("```"):
-                        json_str = json_str[:-3]
-                    
-                    data_json = json.loads(json_str.strip())
-                    return {
-                        "DSCR_Parameters": param,
-                        "Variance_Category": category,
-                        "SubCategory": subcategory,
-                        "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": data_json.get("summary", "No summary provided.")
-                    }
-                except Exception as json_err:
-                    print(f"JSON Parse Error for {param}: {json_err}")
-                    return {
-                        "DSCR_Parameters": param,
-                        "Variance_Category": category,
-                        "SubCategory": subcategory,
-                        "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": response_text.strip()
-                    }
-                
-            except Exception as e:
-                print(f"Error on {param}: {e}")
-                return {
-                    "DSCR_Parameters": param,
-                    "Variance_Category": category,
-                    "SubCategory": subcategory, 
-                    "PPE_Field_Type": ppe_field,
-                    "NQMF Investor DSCR": "Error extraction"
-                }
-    
-    # ✅ Execute: Extract each parameter by searching across ALL PDFs
+    from rag_pipeline.pipeline import RAGPipeline
+    from rag_pipeline.models import ProgramType
     from ingest.dscr_config import DSCR_GUIDELINES
-    tasks = [extract_parameter_from_all_pdfs(g) for g in DSCR_GUIDELINES]
-    final_results = await asyncio.gather(*tasks)
     
-    # Sort results to match config order
-    param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
-    final_results.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
+    logger.info(f"🚀 Starting RAG Pipeline DSCR Extraction for {len(filenames)} files")
     
-    print(f"✅ Extracted {len(final_results)} DSCR parameters from all {len(gridfs_file_ids)} PDFs")
+    # Initialize Pipeline
+    pipeline = RAGPipeline()
     
-    # Generate Excel with multi-PDF context
-    filepath = create_dscr_excel_multi_pdf(
-        data=final_results,
-        session_id=session_id,
-        investor=investor,
-        version=version,
-        pdf_filenames=filenames
-    )
+    # Define filter conditions for Qdrant retrieval
+    # Note: We filter by lender and version. The pipeline will search across all 
+    # chunks matching these criteria, effectively aggregating from all ingested PDFs.
+    filter_conditions = {
+        "lender": investor,
+        "version": version
+    }
     
-    return filepath, final_results
+    # Add program type if available in settings, otherwise default to DSCR
+    program_type = user_settings.get("program_type", "DSCR")
+    if program_type:
+         # Map to Enum string value if valid, else keep original
+         # (Qdrant filter matches string values)
+         filter_conditions["program"] = program_type
+    
+    try:
+        # Execute Extraction with Verification
+        final_results = await pipeline.extract_parameters(
+            parameters_config=DSCR_GUIDELINES,
+            filter_conditions=filter_conditions,
+            enable_verification=True
+        )
+        
+        logger.info(f"✅ RAG Pipeline extracted {len(final_results)} parameters")
+        
+        # Generate Excel
+        filepath = create_dscr_excel_multi_pdf(
+            data=final_results,
+            session_id=session_id,
+            investor=investor,
+            version=version,
+            pdf_filenames=filenames
+        )
+        
+        return filepath, final_results
+
+    except Exception as e:
+        logger.error(f"RAG Pipeline Extraction failed: {e}", exc_info=True)
+        # Return empty/error state to prevent crash
+        return "", []
 
 
 async def summarize_dscr_aggregated_results(
@@ -599,7 +506,9 @@ def create_dscr_excel_multi_pdf(
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type", 
-        f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)"
+        f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)",
+        "Classification",
+        "Notes / Citations"
     ]
     
     ws.append(headers)
@@ -627,6 +536,7 @@ def create_dscr_excel_multi_pdf(
     
     fill_light_yellow = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
     fill_light_green = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    fill_light_red = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
 
     for item in data:
         row = [
@@ -634,7 +544,9 @@ def create_dscr_excel_multi_pdf(
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
             item.get('PPE_Field_Type', ''),
-            item['NQMF Investor DSCR']
+            item['NQMF Investor DSCR'],
+            item.get('Classification', 'Extracted'),
+            item.get('Notes', '')
         ]
         ws.append(row)
         
@@ -650,14 +562,19 @@ def create_dscr_excel_multi_pdf(
             elif col_idx == 4:
                 pass
             elif col_idx == 5:
-                cell.fill = fill_light_yellow 
+                cell.fill = fill_light_yellow
+            elif col_idx == 6:
+                if cell.value == "Clarification Required":
+                    cell.fill = fill_light_red
 
     # Column Widths
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 25
     ws.column_dimensions['C'].width = 25
     ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 80
+    ws.column_dimensions['E'].width = 60
+    ws.column_dimensions['F'].width = 20
+    ws.column_dimensions['G'].width = 40
     
     # File Path
     filename = f"DSCR_MultiPDF_{investor}_{version}_{session_id[:8]}.xlsx"
