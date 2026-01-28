@@ -259,3 +259,188 @@ Return ONLY valid JSON matching the schema. No markdown, no explanations."""
                 "clarification_reason": "LLM returned invalid JSON",
                 "citations": []
             }
+
+    async def summarize(
+        self,
+        parameter: str,
+        evidence_chunks: List[RetrievalResult],
+        context: Dict = None
+    ) -> ExtractionResult:
+        """
+        Generate a comprehensive paragraph summary from evidence chunks
+        
+        Args:
+            parameter: Topic to summarize
+            evidence_chunks: Retrieved chunks as evidence
+            context: Additional context
+        
+        Returns:
+            ExtractionResult with summary and citations
+        """
+        if not evidence_chunks:
+            return ExtractionResult(
+                parameter=parameter,
+                value="N/A",
+                needs_clarification=True,
+                clarification_reason="No evidence found",
+                citations=[]
+            )
+        
+        # Map-Reduce for large chunk counts
+        BATCH_SIZE = 15  # Limit chunks per call to stay safe within context window
+        
+        if len(evidence_chunks) <= BATCH_SIZE:
+            return await self._summarize_batch(parameter, evidence_chunks, context)
+        
+        # MAP STEP: Summarize batches concurrently
+        batches = [evidence_chunks[i:i + BATCH_SIZE] for i in range(0, len(evidence_chunks), BATCH_SIZE)]
+        logger.info(f"Summarizing {len(evidence_chunks)} chunks in {len(batches)} batches...")
+        
+        tasks = [self._summarize_batch(parameter, batch, context) for batch in batches]
+        batch_results = await asyncio.gather(*tasks)
+        
+        # Filter successful summaries
+        intermediate_summaries = [res for res in batch_results if not res.needs_clarification and res.value != "N/A"]
+        
+        if not intermediate_summaries:
+             return ExtractionResult(
+                parameter=parameter,
+                value="N/A",
+                needs_clarification=True,
+                clarification_reason="No valid info found in any batch",
+                citations=[]
+            )
+
+        # REDUCE STEP: Summarize the summaries
+        # Construct "meta-chunks" from intermediate summaries to feed into final reduction
+        meta_chunks = []
+        all_citations = []
+        
+        for idx, res in enumerate(intermediate_summaries):
+            all_citations.extend(res.citations)
+            meta_chunks.append(RetrievalResult(
+                chunk=Chunk(
+                    id=f"summary_{idx}",
+                    text=res.value,
+                    chunk_type="narrative", # Dummy
+                    section_path="Summary",
+                    metadata={"filename": "Intermediate Summary"}
+                ),
+                score=1.0,
+                retrieval_method="summary"
+            ))
+            
+        final_result = await self._summarize_batch(
+            parameter, 
+            meta_chunks, 
+            context, 
+            is_final_reduction=True
+        )
+        
+        # Attach aggregated citations
+        final_result.citations = all_citations
+        return final_result
+
+    async def _summarize_batch(
+        self,
+        parameter: str,
+        evidence_chunks: List[RetrievalResult],
+        context: Dict = None,
+        is_final_reduction: bool = False
+    ) -> ExtractionResult:
+        """Internal helper to summarize a specific batch of chunks"""
+        
+        # Build prompt for summarization
+        system_prompt = self._build_system_prompt()
+        user_prompt = self._build_summary_user_prompt(parameter, evidence_chunks, context, is_final_reduction)
+        
+        try:
+            response = await asyncio.to_thread(
+                self._call_llm,
+                system_prompt,
+                user_prompt
+            )
+            
+            extraction_data = self._parse_llm_response(response)
+            
+            return ExtractionResult(
+                parameter=parameter,
+                value=extraction_data.get("value", "N/A"),
+                needs_clarification=extraction_data.get("needs_clarification", False),
+                clarification_reason=extraction_data.get("clarification_reason"),
+                citations=[
+                    Citation(
+                        page=c.get("page", 0),
+                        excerpt=c.get("excerpt", ""),
+                        source_file=c.get("source_file")
+                    )
+                    for c in extraction_data.get("citations", [])
+                ]
+            )
+            
+        except Exception as e:
+            logger.error(f"Batch summarization failed: {e}")
+            return ExtractionResult(
+                parameter=parameter,
+                value=f"Error: {str(e)}",
+                needs_clarification=True,
+                clarification_reason=str(e),
+                citations=[]
+            )
+
+    def _build_summary_user_prompt(
+        self,
+        parameter: str,
+        evidence_chunks: List[RetrievalResult],
+        context: Dict = None,
+        is_final_reduction: bool = False
+    ) -> str:
+        """Build user prompt specifically for summarization"""
+        context_str = ""
+        if context:
+            context_str = f"""
+CONTEXT:
+- Category: {context.get('category', 'N/A')}
+- Sub-Category: {context.get('subcategory', 'N/A')}
+"""
+        evidence_str = ""
+        for idx, result in enumerate(evidence_chunks, 1):
+            chunk = result.chunk
+            source_info = "Intermediate Summary" if is_final_reduction else f"{chunk.metadata.get('filename', 'Unknown')} (pg {chunk.page_start})"
+            
+            evidence_str += f"""
+--- Evidence {idx} ---
+Source: {source_info}
+Content:
+{chunk.text}
+"""
+        
+        task_instruction = (
+            "Synthesize these intermediate summaries into one final, coherent paragraph summary."
+            if is_final_reduction else
+            "Write a comprehensive paragraph summary about the topic based on the evidence."
+        )
+
+        return f"""TOPIC TO SUMMARIZE: {parameter}
+{context_str}
+EVIDENCE:
+{evidence_str}
+
+TASK:
+{task_instruction}
+
+INSTRUCTIONS:
+1. Synthesize all relevant details into a coherent paragraph.
+2. Focus on requirements, limits, exceptions, and conditions.
+3. If multiple sources disagree, mention the conflict.
+4. Do NOT use bullet points. Write in full sentences.
+5. If no relevant info is found, say "No specific guidelines found for {parameter}".
+6. Provide citations.
+
+OUTPUT:
+Return JSON:
+{{
+    "value": "Comprehensive paragraph summary...",
+    "needs_clarification": false,
+    "citations": [...]
+}}"""

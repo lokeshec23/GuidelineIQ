@@ -132,16 +132,16 @@ class RAGPipeline:
                     # Determine if we should prefer tables
                     prefer_tables = self.hybrid_retriever.should_prefer_tables(query)
                     
-                    # Retrieve evidence
+                    # Retrieve evidence with comprehensive recall
                     evidence_chunks = await self.hybrid_retriever.search(
                         query=query,
-                        top_k=5,
+                        top_k=self.config.TOP_K_COMPREHENSIVE,  # Use much larger context
                         filter_conditions=filter_conditions,
                         prefer_tables=prefer_tables
                     )
                     
-                    # Extract
-                    extraction_result = await self.extractor.extract(
+                    # Extract using summarization
+                    extraction_result = await self.extractor.summarize(
                         parameter=parameter,
                         evidence_chunks=evidence_chunks,
                         context={
