@@ -2,7 +2,7 @@
 
 import os
 import json
-import faiss
+# import faiss
 import numpy as np
 from typing import List, Dict, Optional
 import google.generativeai as genai

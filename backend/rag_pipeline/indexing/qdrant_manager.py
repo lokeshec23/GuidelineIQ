@@ -26,6 +26,7 @@ class QdrantManager:
     """
     Manages Qdrant collection for mortgage guidelines
     """
+    _client_instance = None
     
     def __init__(self):
         self.config = RAGConfig
@@ -34,13 +35,34 @@ class QdrantManager:
         self._initialize_client()
     
     def _initialize_client(self):
-        """Initialize Qdrant client"""
+        """Initialize Qdrant client (Singleton)"""
+        # Return existing singleton if available
+        if QdrantManager._client_instance is not None:
+            self.client = QdrantManager._client_instance
+            return
+
         try:
-            self.client = QdrantClient(
-                url=self.config.QDRANT_URL,
-                api_key=self.config.QDRANT_API_KEY
-            )
-            logger.info(f"Connected to Qdrant at {self.config.QDRANT_URL}")
+            if self.config.QDRANT_PATH:
+                logger.info(f"Connecting to Qdrant (Embedded) at {self.config.QDRANT_PATH}")
+                self.client = QdrantClient(path=self.config.QDRANT_PATH)
+            elif self.config.QDRANT_URL:
+                logger.info(f"Connecting to Qdrant (Server) at {self.config.QDRANT_URL}")
+                self.client = QdrantClient(
+                    url=self.config.QDRANT_URL,
+                    api_key=self.config.QDRANT_API_KEY
+                )
+            else:
+                # Default fallback
+                default_url = "http://localhost:6333"
+                logger.warning(f"No Qdrant config found. Defaulting to {default_url}")
+                self.client = QdrantClient(url=default_url)
+            
+            # Store instance in singleton
+            QdrantManager._client_instance = self.client
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to Qdrant: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to connect to Qdrant: {e}")
             raise

@@ -234,7 +234,8 @@ async def process_guideline_background(
                 llm=llm,
                 investor=investor,
                 version=version,
-                user_settings=user_settings
+                user_settings=user_settings,
+                pipeline=pipeline  # ✅ Pass initialized pipeline with BM25 index
             )
             logger.info(f"Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
 
@@ -339,8 +340,8 @@ async def process_guideline_background(
                 "preview_data": dscr_results,  # Use DSCR results for preview
                 "filename": f"DSCR_MultiPDF_{investor}_{version}.xlsx",
                 "status": "completed",
-                "total_chunks": len(all_text_chunks),
-                "failed_chunks": failed,
+                "total_chunks": sum(r.get("chunks", 0) for r in results),
+                "failed_chunks": len([r for r in results if r["status"] == "failed"]),
                 "total_pdfs": num_files,
             })
 

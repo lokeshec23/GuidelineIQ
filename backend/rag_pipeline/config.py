@@ -28,7 +28,8 @@ class RAGConfig:
     AZURE_DI_KEY: str = os.getenv("DI_key", "")
     
     # Qdrant Configuration
-    QDRANT_URL: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    QDRANT_URL: Optional[str] = os.getenv("QDRANT_URL")  # Default to None to allow path fallback
+    QDRANT_PATH: Optional[str] = os.getenv("QDRANT_PATH")
     QDRANT_API_KEY: Optional[str] = os.getenv("QDRANT_API_KEY", None)
     QDRANT_COLLECTION: str = "DSCR_GUIDELINES"  # New collection for production RAG
     
@@ -117,6 +118,7 @@ class RAGConfig:
         """Get Qdrant configuration"""
         return {
             "url": cls.QDRANT_URL,
+            "path": cls.QDRANT_PATH,
             "api_key": cls.QDRANT_API_KEY,
             "collection_name": cls.QDRANT_COLLECTION
         }

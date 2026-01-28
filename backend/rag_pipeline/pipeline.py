@@ -94,7 +94,7 @@ class RAGPipeline:
         # Also index for BM25
         self.hybrid_retriever.index_chunks(chunks)
         
-        logger.info(f"✅ Ingestion complete: {len(chunks)} chunks indexed")
+        logger.info(f"Ingestion complete: {len(chunks)} chunks indexed")
         return len(chunks)
     
     async def extract_parameters(
@@ -195,7 +195,7 @@ class RAGPipeline:
         tasks = [extract_one(config) for config in parameters_config]
         results = await asyncio.gather(*tasks)
         
-        logger.info(f"✅ Extraction complete: {len(results)} parameters processed")
+        logger.info(f"Extraction complete: {len(results)} parameters processed")
         return results
     
     def _build_query(self, param_config: Dict) -> str:
@@ -300,5 +300,5 @@ class RAGPipeline:
             enable_verification=enable_verification
         )
         
-        logger.info(f"✅ Pipeline complete: {num_chunks} chunks, {len(extraction_results)} parameters")
+        logger.info(f"Pipeline complete: {num_chunks} chunks, {len(extraction_results)} parameters")
         return extraction_results, num_chunks

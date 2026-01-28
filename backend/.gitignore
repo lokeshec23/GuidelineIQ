@@ -93,3 +93,6 @@ chroma_db/
 reports/
 
 results/
+
+qdrant_db/
+faiss_db/

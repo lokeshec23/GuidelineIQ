@@ -30,7 +30,7 @@ async def extract_dscr_parameters_safe(
         Tuple[str, List[Dict]]: (The path to the generated Excel file, The data list)
     """
     print(f"\n{'='*60}")
-    print(f"🚀 Starting RAG-Based DSCR Extraction for Session: {session_id[:8]}")
+    print(f"Starting RAG-Based DSCR Extraction for Session: {session_id[:8]}")
     print(f"{'='*60}\n")
     
     # Concurrency control
@@ -163,7 +163,8 @@ async def extract_dscr_parameters_multi_pdf(
     llm: LLMProvider,
     investor: str,
     version: str,
-    user_settings: dict
+    user_settings: dict,
+    pipeline = None  # Optional pipeline injection
 ) -> Tuple[str, List[Dict]]:
     """
     Extracts DSCR parameters from multiple PDFs by searching across ALL PDFs.
@@ -179,18 +180,23 @@ async def extract_dscr_parameters_multi_pdf(
         investor: Investor/Lender name
         version: Guideline version
         user_settings: User settings dict
+        pipeline: Existing RAGPipeline instance (optional)
 
     Returns:
         Tuple[str, List[Dict]]: (Path to Excel file, Extraction results)
     """
-    from rag_pipeline.pipeline import RAGPipeline
     from rag_pipeline.models import ProgramType
     from ingest.dscr_config import DSCR_GUIDELINES
     
-    logger.info(f"🚀 Starting RAG Pipeline DSCR Extraction for {len(filenames)} files")
+    logger.info(f"Starting RAG Pipeline DSCR Extraction for {len(filenames)} files")
     
-    # Initialize Pipeline
-    pipeline = RAGPipeline()
+    # Initialize Pipeline if not provided
+    if pipeline is None:
+        from rag_pipeline.pipeline import RAGPipeline
+        pipeline = RAGPipeline()
+        logger.warning("Initializing NEW RAGPipeline for extraction (BM25 index may be empty!)")
+    else:
+        logger.info("Using existing RAGPipeline instance for extraction")
     
     # Define filter conditions for Qdrant retrieval
     # Note: We filter by lender and version. The pipeline will search across all 
@@ -215,7 +221,7 @@ async def extract_dscr_parameters_multi_pdf(
             enable_verification=True
         )
         
-        logger.info(f"✅ RAG Pipeline extracted {len(final_results)} parameters")
+        logger.info(f"RAG Pipeline extracted {len(final_results)} parameters")
         
         # Generate Excel
         filepath = create_dscr_excel_multi_pdf(
@@ -351,7 +357,7 @@ Be concise but complete. If information is consistent across PDFs, state it once
     param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
     final_results.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
     
-    print(f"✅ Summarization complete for {len(final_results)} parameters")
+    print(f"Summarization complete for {len(final_results)} parameters")
     return final_results
 
 def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version: str) -> str:
@@ -444,7 +450,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     
     try:
         wb.save(filepath)
-        print(f"✅ DSCR Excel saved at: {filepath}")
+        print(f"DSCR Excel saved at: {filepath}")
         return filepath
     except Exception as e:
         print(f"Error saving Excel: {e}")
@@ -589,7 +595,7 @@ def create_dscr_excel_multi_pdf(
     
     try:
         wb.save(filepath)
-        print(f"✅ Multi-PDF DSCR Excel saved at: {filepath}")
+        print(f"Multi-PDF DSCR Excel saved at: {filepath}")
         return filepath
     except Exception as e:
         print(f"Error saving Excel: {e}")
