@@ -170,6 +170,11 @@ export const compareAPI = {
   },
 
   compareFromDB: (data) => api.post("/compare/from-db", data),
+
+  compareWithQdrant: (formData) =>
+    api.post("/compare/qdrant", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 // ==================== HISTORY APIs ====================

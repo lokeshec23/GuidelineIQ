@@ -238,12 +238,20 @@ const ComparePage = () => {
         const fd = new FormData();
         fd.append("file1", files[0]);
         fd.append("file2", files[1]);
-        fd.append("model_provider", modelProvider);
-        fd.append("model_name", modelName);
-        fd.append("system_prompt", systemPrompt);
-        fd.append("user_prompt", userPrompt);
 
-        res = await compareAPI.compareGuidelines(fd);
+        // Add investor and version if provided
+        const investor = values.investor || "";
+        const version = values.version || "";
+
+        if (investor) {
+          fd.append("investor", investor);
+        }
+        if (version) {
+          fd.append("version", version);
+        }
+
+        // Use Qdrant comparison for faster processing
+        res = await compareAPI.compareWithQdrant(fd);
       }
 
       const { session_id } = res.data;
@@ -456,6 +464,33 @@ const ComparePage = () => {
             </Form.Item>
           </div>
         )}
+
+        {/* Investor and Version Input Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Form.Item
+            name="investor"
+            label={<span className="text-gray-700 font-medium">Investor</span>}
+            className="mb-0"
+          >
+            <Input
+              placeholder="Enter investor name"
+              size="large"
+              className="w-full"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="version"
+            label={<span className="text-gray-700 font-medium">Version</span>}
+            className="mb-0"
+          >
+            <Input
+              placeholder="Enter version (e.g., v1, v2)"
+              size="large"
+              className="w-full"
+            />
+          </Form.Item>
+        </div>
 
         {/* Database Selection Section */}
         <div className="mb-8">

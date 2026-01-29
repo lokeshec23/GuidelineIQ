@@ -28,6 +28,8 @@ async def process_qdrant_comparison_background(
     file2_path: str,
     file1_name: str,
     file2_name: str,
+    investor: str = "Unknown Investor",
+    version: str = "v1",
     user_id: str = None,
     username: str = "Unknown",
 ):
@@ -46,6 +48,7 @@ async def process_qdrant_comparison_background(
     try:
         logger.info(f"{'='*60}")
         logger.info(f"Qdrant comparison started for session {session_id[:8]}")
+        logger.info(f"Investor: {investor} | Version: {version}")
         logger.info(f"File 1: {file1_name}")
         logger.info(f"File 2: {file2_name}")
         logger.info(f"{'='*60}")
@@ -164,6 +167,8 @@ async def process_qdrant_comparison_background(
                 await save_compare_history({
                     "user_id": user_id,
                     "username": username,
+                    "investor": investor,
+                    "version": version,
                     "uploaded_file1": file1_name,
                     "uploaded_file2": file2_name,
                     "extracted_file": (

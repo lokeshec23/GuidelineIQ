@@ -161,6 +161,8 @@ async def compare_with_qdrant(
     background_tasks: BackgroundTasks,
     file1: UploadFile = File(...),
     file2: UploadFile = File(...),
+    investor: str = Form(None),
+    version: str = Form(None),
     user_id: str = Depends(get_current_user_id_from_token)
 ):
     """
@@ -203,6 +205,10 @@ async def compare_with_qdrant(
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Set defaults if not provided
+    investor = investor or "Unknown Investor"
+    version = version or "v1"
+    
     # Initialize progress
     from utils.progress import update_progress
     update_progress(session_id, 0, "Starting Qdrant comparison...")
@@ -215,6 +221,8 @@ async def compare_with_qdrant(
         file2_path=file2_path,
         file1_name=file1.filename,
         file2_name=file2.filename,
+        investor=investor,
+        version=version,
         user_id=user_id,
         username=current_user.get("email", "Unknown"),
     )

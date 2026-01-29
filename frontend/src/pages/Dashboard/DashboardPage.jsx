@@ -304,6 +304,18 @@ const DashboardPage = () => {
             render: (text, record, index) => index + 1,
         },
         {
+            title: "Investor",
+            dataIndex: "investor",
+            key: "investor",
+            width: 150,
+        },
+        {
+            title: "Version",
+            dataIndex: "version",
+            key: "version",
+            width: 100,
+        },
+        {
             title: "Extracted File Name",
             dataIndex: "extractedFile",
             key: "extractedFile",

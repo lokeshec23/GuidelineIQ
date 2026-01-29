@@ -31,7 +31,7 @@ class RAGService:
         # Create directory if it doesn't exist
         Path(self.index_dir).mkdir(parents=True, exist_ok=True)
         
-        print("[INFO] RAGService initialized.")
+        print("[INFO] RAG Service initialized.")
 
     
     def _save_index(self):
