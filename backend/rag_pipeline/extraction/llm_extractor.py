@@ -9,7 +9,7 @@ from typing import List, Dict
 import logging
 from openai import AzureOpenAI
 
-from rag_pipeline.models import ExtractionResult, Citation, RetrievalResult
+from rag_pipeline.models import ExtractionResult, Citation, RetrievalResult, Chunk, ChunkType
 from rag_pipeline.config import RAGConfig
 
 logger = logging.getLogger(__name__)
@@ -322,8 +322,10 @@ Return ONLY valid JSON matching the schema. No markdown, no explanations."""
                 chunk=Chunk(
                     id=f"summary_{idx}",
                     text=res.value,
-                    chunk_type="narrative", # Dummy
+                    chunk_type=ChunkType.NARRATIVE, # Dummy
                     section_path="Summary",
+                    page_start=0,
+                    page_end=0,
                     metadata={"filename": "Intermediate Summary"}
                 ),
                 score=1.0,

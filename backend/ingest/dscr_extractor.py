@@ -512,9 +512,7 @@ def create_dscr_excel_multi_pdf(
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type", 
-        f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)",
-        "Classification",
-        "Notes / Citations"
+        f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)"
     ]
     
     ws.append(headers)
@@ -542,7 +540,7 @@ def create_dscr_excel_multi_pdf(
     
     fill_light_yellow = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
     fill_light_green = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
-    fill_light_red = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
+    # fill_light_red = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid") # Unused
 
     for item in data:
         row = [
@@ -550,9 +548,7 @@ def create_dscr_excel_multi_pdf(
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
             item.get('PPE_Field_Type', ''),
-            item['NQMF Investor DSCR'],
-            item.get('Classification', 'Extracted'),
-            item.get('Notes', '')
+            item['NQMF Investor DSCR']
         ]
         ws.append(row)
         
@@ -569,18 +565,13 @@ def create_dscr_excel_multi_pdf(
                 pass
             elif col_idx == 5:
                 cell.fill = fill_light_yellow
-            elif col_idx == 6:
-                if cell.value == "Clarification Required":
-                    cell.fill = fill_light_red
 
     # Column Widths
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 25
     ws.column_dimensions['C'].width = 25
     ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 60
-    ws.column_dimensions['F'].width = 20
-    ws.column_dimensions['G'].width = 40
+    ws.column_dimensions['E'].width = 80
     
     # File Path
     filename = f"DSCR_MultiPDF_{investor}_{version}_{session_id[:8]}.xlsx"

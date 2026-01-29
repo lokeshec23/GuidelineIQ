@@ -152,9 +152,6 @@ async def ingest_guideline(
             gridfs_file_ids.append(gridfs_file_id)
             filenames.append(file.filename)
             
-            gridfs_file_ids.append(gridfs_file_id)
-            filenames.append(file.filename)
-            
         logger.info(f"Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
     except Exception as e:
 

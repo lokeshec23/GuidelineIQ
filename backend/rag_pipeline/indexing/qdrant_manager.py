@@ -41,23 +41,7 @@ class QdrantManager:
 
     # ... (skipping index_chunks code)
 
-    async def index_chunks_async(
-        self,
-        chunks: List[Chunk],
-        document_payload: DocumentPayload,
-        batch_size: int = 100
-    ):
-        """
-        Asynchronously index chunks to Qdrant
-        serialized with a lock to prevent SQLite concurrency issues.
-        """
-        async with self._write_lock:
-            await asyncio.to_thread(
-                self.index_chunks,
-                chunks,
-                document_payload,
-                batch_size
-            )
+
     
     def _initialize_client(self):
         """Initialize Qdrant client (Singleton)"""
@@ -205,18 +189,27 @@ class QdrantManager:
     ):
         """
         Asynchronously index chunks to Qdrant
-        
-        Args:
-            chunks: List of Chunk objects with embeddings
-            document_payload: Document metadata
-            batch_size: Number of chunks per batch
         """
-        await asyncio.to_thread(
-            self.index_chunks,
-            chunks,
-            document_payload,
-            batch_size
-        )
+        # Global lock to serialize writes (prevent SQLite concurrency issues)
+        async with self._write_lock:
+            # Fix for SQLite Thread Safety:
+            # If we are running local Qdrant (SQLite), we MUST run on the main thread
+            # where the client connection was created.
+            if self.config.QDRANT_PATH:
+                # Local mode: Run synchronously (blocking main loop, but safe)
+                self.index_chunks(
+                    chunks,
+                    document_payload,
+                    batch_size
+                )
+            else:
+                # Server mode: Safe to run in thread pool
+                await asyncio.to_thread(
+                    self.index_chunks,
+                    chunks,
+                    document_payload,
+                    batch_size
+                )
     
     def search(
         self,
