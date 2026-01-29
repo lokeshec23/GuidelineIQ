@@ -237,7 +237,7 @@ async def process_guideline_background(
                 user_settings=user_settings,
                 pipeline=pipeline  # ✅ Pass initialized pipeline with BM25 index
             )
-            logger.info(f"Multi-PDF DSCR Extraction Complete. File saved at: {dscr_excel_path}")
+            logger.info(f"Multi-PDF DSCR Extraction Complete.")
 
             
             # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===

@@ -118,11 +118,12 @@ class LLMExtractor:
 Your task is to extract specific parameter values from provided evidence chunks.
 
 CRITICAL RULES:
-1. Extract ONLY information explicitly stated in the evidence
-2. If information is unclear or contradictory, flag for clarification
-3. Always provide citations with page numbers
-4. Output MUST be valid JSON matching the schema
-5. Be deterministic - same input should always produce same output
+1. Extract ONLY information explicitly stated in the evidence.
+2. DO NOT use external knowledge or general mortgage standards (e.g., do not assume "0x30x12" unless stated).
+3. DO NOT hallucinate or infer conditions that are not present.
+4. If information is unclear or contradictory, flag for clarification.
+5. Always provide citations with page numbers.
+6. EXPLICITLY CAPTURE ANY RESTRICTIONS, EXCLUSIONS, OR "NOT PERMITTED" ITEMS.
 
 OUTPUT SCHEMA:
 {
@@ -181,9 +182,10 @@ INSTRUCTIONS:
 1. Synthesize information from all evidence chunks
 2. If evidence contains tables/matrices, extract key values
 3. If requirements vary by condition (e.g., LTV, FICO), specify conditions
-4. If evidence is contradictory or unclear, set needs_clarification=true
-5. Provide citations for each key piece of information
-6. If no relevant information found, set value="N/A" and needs_clarification=true
+4. CAPTURE NEGATIVE CRITERIA: Explicitly state what is NOT permitted, ineligible, or restricted (e.g., "Texas 50(a)(6) not permitted").
+5. If evidence is contradictory or unclear, set needs_clarification=true
+6. Provide citations for each key piece of information
+7. If no relevant information found, set value="N/A" and needs_clarification=true
 
 OUTPUT:
 Return ONLY valid JSON matching the schema. No markdown, no explanations."""

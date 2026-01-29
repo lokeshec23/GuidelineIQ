@@ -75,8 +75,8 @@ class LLMVerifier:
             )
             
             if not result.verified:
-                logger.warning(
-                    f"Verification failed for {extraction_result.parameter}: "
+                logger.info(
+                    f"Verification flagged issues for {extraction_result.parameter} (Auto-correcting): "
                     f"{', '.join(result.issues)}"
                 )
             
@@ -107,7 +107,7 @@ OUTPUT SCHEMA:
 {
     "verified": true/false,
     "issues": ["list of issues found"],
-    "suggested_fix": "corrected value if issues found (or null)",
+    "suggested_fix": "corrected value. IF HALLUCINATION/UNSUPPORTED: you MUST provide 'N/A' or the correct supported value.",
     "verification_notes": "additional notes (optional)"
 }"""
     
