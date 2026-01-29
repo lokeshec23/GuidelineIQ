@@ -343,9 +343,19 @@ const DashboardPage = () => {
 
     // Preview modal columns - dynamic based on data type
     const previewColumns = React.useMemo(() => {
-        // For Ingest tab, we return null to let ExcelPreviewModal auto-generate columns
-        // This supports both legacy data (category/rule) and new RAG data (DSCR parameters)
-        if (activeTab === "ingest") return null;
+        // For Ingest tab, ensure we filter out internal fields
+        if (activeTab === "ingest") {
+            if (!previewData || previewData.length === 0) return null;
+
+            const allKeys = Object.keys(previewData[0]);
+            const hiddenColumns = ['Classification', 'Notes', '_verification', 'key'];
+            const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
+
+            return visibleKeys.map(key => ({
+                dataIndex: key,
+                key: key
+            }));
+        }
 
         // For Compare tab, we keep the specific columns
         return [
@@ -386,7 +396,7 @@ const DashboardPage = () => {
                 width: "10%",
             },
         ];
-    }, [activeTab]);
+    }, [activeTab, previewData]);
 
     return (
         <div style={{

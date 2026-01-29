@@ -317,6 +317,27 @@ const IngestPage = () => {
     }))
   };
 
+  // Calculate columns for preview, excluding unwanted internal fields
+  const previewColumns = React.useMemo(() => {
+    if (!previewData || previewData.length === 0) return null;
+
+    // Get all available keys from the first record
+    const allKeys = Object.keys(previewData[0]);
+
+    // Define columns to hide
+    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key'];
+
+    // Filter available keys
+    const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
+
+    // Map to column objects expected by ExcelPreviewModal
+    return visibleKeys.map(key => ({
+      title: key,
+      dataIndex: key,
+      key: key
+    }));
+  }, [previewData]);
+
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
       {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1> */}
@@ -582,6 +603,7 @@ const IngestPage = () => {
         onClose={() => setPreviewModalVisible(false)}
         title="Extraction Results"
         data={previewData}
+        columns={previewColumns}
         sessionId={sessionId}
         onDownload={() => {
           if (sessionId) {
