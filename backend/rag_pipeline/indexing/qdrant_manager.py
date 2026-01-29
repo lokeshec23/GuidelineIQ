@@ -27,12 +27,37 @@ class QdrantManager:
     Manages Qdrant collection for mortgage guidelines
     """
     _client_instance = None
+    _write_lock = asyncio.Lock()  # Class-level lock for shared client
     
     def __init__(self):
         self.config = RAGConfig
         self.client = None
         self.collection_name = self.config.QDRANT_COLLECTION
         self._initialize_client()
+    
+    # ... (skipping _initialize_client code as it's not changing, inferred context)
+
+    # ... (skipping create_collection code)
+
+    # ... (skipping index_chunks code)
+
+    async def index_chunks_async(
+        self,
+        chunks: List[Chunk],
+        document_payload: DocumentPayload,
+        batch_size: int = 100
+    ):
+        """
+        Asynchronously index chunks to Qdrant
+        serialized with a lock to prevent SQLite concurrency issues.
+        """
+        async with self._write_lock:
+            await asyncio.to_thread(
+                self.index_chunks,
+                chunks,
+                document_payload,
+                batch_size
+            )
     
     def _initialize_client(self):
         """Initialize Qdrant client (Singleton)"""
