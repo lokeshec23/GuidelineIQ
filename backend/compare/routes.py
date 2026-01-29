@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPExce
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from compare.schemas import CompareResponse, ComparisonStatus, CompareFromDBRequest
 from compare.processor import process_comparison_background
+from compare.qdrant_compare_processor import process_qdrant_comparison_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
@@ -153,6 +154,77 @@ async def compare_guidelines(
         message="Comparison started",
         session_id=session_id
     )
+
+
+@router.post("/qdrant", response_model=CompareResponse)
+async def compare_with_qdrant(
+    background_tasks: BackgroundTasks,
+    file1: UploadFile = File(...),
+    file2: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id_from_token)
+):
+    """
+    Upload two Excel files and compare them using Qdrant vector search.
+    This method chunks the Excel data, stores it in Qdrant, and uses hybrid search
+    to find matching rows between the two files.
+    """
+    
+    logger.info(f"Qdrant comparison request: File1={file1.filename}, File2={file2.filename}, UserID={user_id}")
+    
+    # Validate file types
+    for file in [file1, file2]:
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            logger.warning(f"Invalid file type for Qdrant comparison: {file.filename}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only Excel files (.xlsx, .xls) are supported. Got: {file.filename}"
+            )
+    
+    # Generate session ID
+    session_id = str(uuid.uuid4())
+    logger.info(f"Qdrant comparison session: {session_id}")
+    
+    # Save Excel files temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp1:
+        content1 = await file1.read()
+        tmp1.write(content1)
+        file1_path = tmp1.name
+        logger.info(f"File 1 saved: {len(content1) / 1024:.2f} KB")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp2:
+        content2 = await file2.read()
+        tmp2.write(content2)
+        file2_path = tmp2.name
+        logger.info(f"File 2 saved: {len(content2) / 1024:.2f} KB")
+    
+    # Get current user's info for history tracking
+    from database import db_manager
+    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
+    if not current_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Initialize progress
+    from utils.progress import update_progress
+    update_progress(session_id, 0, "Starting Qdrant comparison...")
+    
+    # Start background processing
+    background_tasks.add_task(
+        process_qdrant_comparison_background,
+        session_id=session_id,
+        file1_path=file1_path,
+        file2_path=file2_path,
+        file1_name=file1.filename,
+        file2_name=file2.filename,
+        user_id=user_id,
+        username=current_user.get("email", "Unknown"),
+    )
+    
+    return CompareResponse(
+        status="processing",
+        message="Qdrant comparison started",
+        session_id=session_id
+    )
+
 
 
 @router.post("/from-db", response_model=CompareResponse)

@@ -13,6 +13,7 @@ class ChunkType(str, Enum):
     NARRATIVE = "narrative"
     TABLE = "table"
     HEADING = "heading"
+    EXCEL_ROW = "excel_row"  # For Excel comparison chunks
 
 
 class ProgramType(str, Enum):
