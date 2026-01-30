@@ -140,8 +140,8 @@ class RAGPipeline:
                         prefer_tables=prefer_tables
                     )
                     
-                    # Extract using summarization
-                    extraction_result = await self.extractor.summarize(
+                    # Extract using NQMF-specific prompt format
+                    extraction_result = await self.extractor.extract_nqmf(
                         parameter=parameter,
                         evidence_chunks=evidence_chunks,
                         context={
