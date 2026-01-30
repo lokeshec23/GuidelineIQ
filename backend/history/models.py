@@ -65,7 +65,7 @@ async def get_user_ingest_history(user_id: str) -> List[Dict]:
             "page_range": doc.get("page_range"),
             "guideline_type": doc.get("guideline_type"),
             "program_type": doc.get("program_type"),
-            "created_at": doc["created_at"]
+            "created_at": doc.get("created_at", datetime.utcnow())
         })
     return history
 
@@ -106,7 +106,7 @@ async def get_user_compare_history(user_id: str) -> List[Dict]:
             "uploadedFile2": doc.get("uploaded_file2", ""),
             "extractedFile": doc.get("extracted_file", ""),
             "preview_data": doc.get("preview_data", []),
-            "created_at": doc["created_at"]
+            "created_at": doc.get("created_at", datetime.utcnow())
         })
     return history
 
