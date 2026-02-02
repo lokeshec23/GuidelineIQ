@@ -9,7 +9,8 @@ from openpyxl.utils import get_column_letter
 def dynamic_json_to_excel(
     json_data: List[Dict], 
     output_path: str, 
-    header_map: Optional[Dict[str, str]] = None
+    header_map: Optional[Dict[str, str]] = None,
+    hidden_columns: Optional[List[str]] = None
 ) -> str:
     """
     Dynamically converts a list of JSON objects (dictionaries) into a
@@ -21,6 +22,7 @@ def dynamic_json_to_excel(
         output_path: The full path where the Excel file will be saved.
         header_map: An optional dictionary to rename columns. 
                     Example: {'guideline_1_summary': 'Old Guideline.xlsx'}
+        hidden_columns: An optional list of column keys to exclude from the Excel file.
 
     Returns:
         The path to the created Excel file.
@@ -42,23 +44,32 @@ def dynamic_json_to_excel(
     except (IndexError, AttributeError):
         return dynamic_json_to_excel([], output_path) # Handle empty/invalid data
 
+    hidden_columns = hidden_columns or []
+
     # ✅ Define preferred column order for ingestion results
     preferred_order = ["category", "sub_category", "page_number", "guideline_summary"]
     
     # Order columns: preferred fields first, then any additional fields
     original_headers = []
     for field in preferred_order:
-        if field in original_headers_raw:
+        if field in original_headers_raw and field not in hidden_columns:
             original_headers.append(field)
     
     # Add any remaining fields not in the preferred order
     for field in original_headers_raw:
-        if field not in original_headers:
+        if field not in original_headers and field not in hidden_columns:
             original_headers.append(field)
 
     # Create final headers, renaming if a map is provided
     header_map = header_map or {}
-    final_headers = [header_map.get(h, h.replace("_", " ").title()) for h in original_headers]
+    final_headers = []
+
+    for h in original_headers:
+        # Check for specific renaming logic matching frontend
+        if h.lower() == "hard_soft_classification":
+            final_headers.append("PPE FIELD TYPE")
+        else:
+             final_headers.append(header_map.get(h, h.replace("_", " ").title()))
     
     print(f"   - Inferred Columns: {original_headers}")
     print(f"   - Final Excel Headers: {final_headers}")

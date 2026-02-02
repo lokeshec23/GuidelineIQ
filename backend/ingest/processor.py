@@ -326,7 +326,9 @@ async def process_guideline_background(
             prefix=f"extraction_{session_id[:8]}_"
         ).name
 
-        dynamic_json_to_excel(results, excel_path)
+        # Match frontend hidden columns
+        hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
+        dynamic_json_to_excel(results, excel_path, hidden_columns=hidden_columns)
 
         update_progress(session_id, 100, "Processing complete.")
         logger.info("PROCESSING COMPLETE")

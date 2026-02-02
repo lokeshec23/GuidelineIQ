@@ -316,7 +316,9 @@ async def download_result(session_id: str):
                 try:
                     # Generate temp Excel file
                     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                    dynamic_json_to_excel(record["preview_data"], tmp.name)
+                    # Match frontend hidden columns
+                    hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
+                    dynamic_json_to_excel(record["preview_data"], tmp.name, hidden_columns=hidden_columns)
                     
                     filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
                     
