@@ -160,7 +160,7 @@ const ExcelPreviewModal = ({
     };
 
     const getColumns = () => {
-        const generateColumn = (key) => {
+        const generateColumn = (key, customTitle = null) => {
             // ✅ Set appropriate default width based on column type
             let defaultWidth = 250;
             if (key === "page_number") {
@@ -170,6 +170,8 @@ const ExcelPreviewModal = ({
             }
 
             const currentWidth = columnWidths[key] || defaultWidth;
+            const displayTitle = customTitle || key.replace(/_/g, " ").toUpperCase();
+
             return {
                 title: (
                     <div
@@ -179,7 +181,7 @@ const ExcelPreviewModal = ({
                             alignItems: "center",
                         }}
                     >
-                        <span>{key.replace(/_/g, " ").toUpperCase()}</span>
+                        <span>{displayTitle}</span>
                         <div
                             onMouseDown={handleMouseDown(key, currentWidth)}
                             style={{
@@ -424,7 +426,7 @@ const ExcelPreviewModal = ({
         let dataColumns = [];
         if (columns) {
             dataColumns = columns.map((col) => {
-                const generatedCol = generateColumn(col.dataIndex);
+                const generatedCol = generateColumn(col.dataIndex, col.title);
                 // Pass the key so render function knows which column it is
                 return {
                     ...generatedCol,
