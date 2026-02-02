@@ -360,13 +360,23 @@ const DashboardPage = () => {
             if (!previewData || previewData.length === 0) return null;
 
             const allKeys = Object.keys(previewData[0]);
-            const hiddenColumns = ['Classification', 'Notes', '_verification', 'key'];
+            const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type'];
             const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
 
-            return visibleKeys.map(key => ({
-                dataIndex: key,
-                key: key
-            }));
+            return visibleKeys.map(key => {
+                // Rename Hard_Soft_Classification to PPE FIELD TYPE
+                if (key.toLowerCase() === 'hard_soft_classification') {
+                    return {
+                        title: "PPE FIELD TYPE",
+                        dataIndex: key,
+                        key: key
+                    };
+                }
+                return {
+                    dataIndex: key,
+                    key: key
+                };
+            });
         }
 
         // For Compare tab, we keep the specific columns
