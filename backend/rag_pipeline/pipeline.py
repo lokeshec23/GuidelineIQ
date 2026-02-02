@@ -121,7 +121,7 @@ class RAGPipeline:
         # Process parameters concurrently (with semaphore for rate limiting)
         semaphore = asyncio.Semaphore(5)
         
-        async def extract_one(param_config: Dict) -> Dict:
+        async def extract_one(param_config: Dict) -> List[Dict]:
             async with semaphore:
                 parameter = param_config["parameter"]
                 
@@ -140,7 +140,7 @@ class RAGPipeline:
                         prefer_tables=prefer_tables
                     )
                     
-                    # Extract using NQMF-specific prompt format
+                    # Extract using NQMF-specific prompt format (with classification)
                     extraction_result = await self.extractor.extract_nqmf(
                         parameter=parameter,
                         evidence_chunks=evidence_chunks,
@@ -151,51 +151,89 @@ class RAGPipeline:
                         }
                     )
                     
-                    # Verify (optional)
+                    # Verify (optional) - skip for now as it's legacy
                     verification_result = None
-                    if enable_verification and not extraction_result.needs_clarification:
-                        verification_result = await self.verifier.verify(
-                            extraction_result,
-                            evidence_chunks
-                        )
-                        
-                        # Apply fix if verification failed
-                        if not verification_result.verified and verification_result.suggested_fix:
-                            logger.info(f"Applying verification fix for {parameter}")
-                            extraction_result.value = verification_result.suggested_fix
+                    # if enable_verification and not extraction_result.needs_clarification:
+                    #     verification_result = await self.verifier.verify(
+                    #         extraction_result,
+                    #         evidence_chunks
+                    #     )
                     
-                    # Format result
-                    return {
-                        "DSCR_Parameters": parameter,
-                        "Variance_Category": param_config.get("category", "General"),
-                        "SubCategory": param_config.get("subcategory", "General"),
-                        "PPE_Field_Type": param_config.get("ppe_field", "Text"),
-                        "NQMF Investor DSCR": extraction_result.value,
-                        "Classification": (
-                            "Clarification Required" if extraction_result.needs_clarification
-                            else "Extracted"
-                        ),
-                        "Notes": self._format_citations(extraction_result.citations),
-                        "_verification": verification_result.to_dict() if verification_result else None
-                    }
+                    # Generate rows based on classification
+                    rows = []
+                    
+                    # Create HARD row if hard bullets exist
+                    if extraction_result.hard_value:
+                        rows.append({
+                            "DSCR_Parameters": parameter,
+                            "Variance_Category": param_config.get("category", "General"),
+                            "SubCategory": param_config.get("subcategory", "General"),
+                            "PPE_Field_Type": param_config.get("ppe_field", "Text"),
+                            "Hard_Soft_Classification": "HARD",
+                            "NQMF Investor DSCR": extraction_result.hard_value,
+                            "Classification": "Extracted",
+                            "Notes": self._format_citations(extraction_result.hard_citations),
+                            "_verification": verification_result.to_dict() if verification_result else None
+                        })
+                    
+                    # Create SOFT row if soft bullets exist
+                    if extraction_result.soft_value:
+                        rows.append({
+                            "DSCR_Parameters": parameter,
+                            "Variance_Category": param_config.get("category", "General"),
+                            "SubCategory": param_config.get("subcategory", "General"),
+                            "PPE_Field_Type": param_config.get("ppe_field", "Text"),
+                            "Hard_Soft_Classification": "SOFT",
+                            "NQMF Investor DSCR": extraction_result.soft_value,
+                            "Classification": "Extracted",
+                            "Notes": self._format_citations(extraction_result.soft_citations),
+                            "_verification": verification_result.to_dict() if verification_result else None
+                        })
+                    
+                    # If no bullets at all, create single "NA" row
+                    if not rows:
+                        rows.append({
+                            "DSCR_Parameters": parameter,
+                            "Variance_Category": param_config.get("category", "General"),
+                            "SubCategory": param_config.get("subcategory", "General"),
+                            "PPE_Field_Type": param_config.get("ppe_field", "Text"),
+                            "Hard_Soft_Classification": "",
+                            "NQMF Investor DSCR": "NA",
+                            "Classification": "Not Found",
+                            "Notes": "",
+                            "_verification": None
+                        })
+                    
+                    return rows
                 
                 except Exception as e:
                     logger.error(f"Extraction failed for {parameter}: {e}")
-                    return {
+                    return [{
                         "DSCR_Parameters": parameter,
                         "Variance_Category": param_config.get("category", "General"),
                         "SubCategory": param_config.get("subcategory", "General"),
                         "PPE_Field_Type": param_config.get("ppe_field", "Text"),
+                        "Hard_Soft_Classification": "",
                         "NQMF Investor DSCR": "Error during extraction",
                         "Classification": "Clarification Required",
-                        "Notes": f"Error: {str(e)}"
-                    }
+                        "Notes": f"Error: {str(e)}",
+                        "_verification": None
+                    }]
+        
         
         # Execute all extractions
         tasks = [extract_one(config) for config in parameters_config]
-        results = await asyncio.gather(*tasks)
+        extraction_results = await asyncio.gather(*tasks)
         
-        logger.info(f"Extraction complete: {len(results)} parameters processed")
+        # Flatten list of lists (each parameter can return multiple rows)
+        results = []
+        for row_list in extraction_results:
+            results.extend(row_list)
+        
+        logger.info(
+            f"Extraction complete: {len(parameters_config)} parameters processed, "
+            f"{len(results)} total rows generated"
+        )
         return results
     
     def _build_query(self, param_config: Dict) -> str:

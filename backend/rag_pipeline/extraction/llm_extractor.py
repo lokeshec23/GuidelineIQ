@@ -460,8 +460,8 @@ Return JSON:
         context: Dict = None
     ) -> ExtractionResult:
         """
-        Extract parameter value using NQMF-specific prompt format.
-        Returns bullet-formatted underwriting rules for Excel Column E.
+        Extract parameter value using NQMF-specific prompt format with hard/soft classification.
+        Returns classified bullet-formatted underwriting rules for Excel output.
         
         Args:
             parameter: Parameter name to extract
@@ -469,15 +469,19 @@ Return JSON:
             context: Additional context (category, subcategory, ppe_field)
         
         Returns:
-            ExtractionResult with bullet-formatted value or "NA"
+            ExtractionResult with classified hard_value and soft_value
         """
         if not evidence_chunks:
             return ExtractionResult(
                 parameter=parameter,
                 value="NA",
+                hard_value="",
+                soft_value="",
                 needs_clarification=False,
                 clarification_reason=None,
-                citations=[]
+                citations=[],
+                hard_citations=[],
+                soft_citations=[]
             )
         
         # Build NQMF-specific prompts
@@ -492,22 +496,65 @@ Return JSON:
                 user_prompt
             )
             
-            # Parse NQMF JSON response
+            # Parse NQMF JSON response (now with classification)
             extraction_data = self._parse_nqmf_response(response)
             
-            # Extract the NQMF-specific value
-            nqmf_value = extraction_data.get("NQMF Investor DSCR", "NA")
+            # Extract classified bullets
+            hard_bullets = extraction_data.get("hard_bullets", [])
+            soft_bullets = extraction_data.get("soft_bullets", [])
+            hard_citation_indices = extraction_data.get("hard_citation_indices", [])
+            soft_citation_indices = extraction_data.get("soft_citation_indices", [])
             
-            # Create ExtractionResult
+            # Build hard_value and soft_value strings
+            hard_value = "\n".join(hard_bullets) if hard_bullets else ""
+            soft_value = "\n".join(soft_bullets) if soft_bullets else ""
+            
+            # Build citations for hard bullets
+            hard_citations = []
+            for idx in hard_citation_indices:
+                if 0 <= idx < len(evidence_chunks):
+                    chunk = evidence_chunks[idx].chunk
+                    hard_citations.append(Citation(
+                        page=chunk.page_start,
+                        excerpt=chunk.text[:150],  # First 150 chars
+                        source_file=chunk.metadata.get('filename')
+                    ))
+            
+            # Build citations for soft bullets
+            soft_citations = []
+            for idx in soft_citation_indices:
+                if 0 <= idx < len(evidence_chunks):
+                    chunk = evidence_chunks[idx].chunk
+                    soft_citations.append(Citation(
+                        page=chunk.page_start,
+                        excerpt=chunk.text[:150],  # First 150 chars
+                        source_file=chunk.metadata.get('filename')
+                    ))
+            
+            # Combined value for legacy support
+            combined_value = hard_value
+            if soft_value:
+                combined_value += ("\n" if combined_value else "") + soft_value
+            if not combined_value:
+                combined_value = "NA"
+            
+            # Create ExtractionResult with classification
             result = ExtractionResult(
                 parameter=parameter,
-                value=nqmf_value,
-                needs_clarification=False,  # NQMF doesn't use clarification flags
+                value=combined_value,  # Legacy field
+                hard_value=hard_value,
+                soft_value=soft_value,
+                needs_clarification=False,
                 clarification_reason=None,
-                citations=[]  # Citations handled separately in Notes column
+                citations=hard_citations + soft_citations,  # Combined for legacy
+                hard_citations=hard_citations,
+                soft_citations=soft_citations
             )
             
-            logger.info(f"NQMF extracted {parameter}: {result.value[:50]}...")
+            logger.info(
+                f"NQMF extracted {parameter}: "
+                f"HARD={len(hard_bullets)} bullets, SOFT={len(soft_bullets)} bullets"
+            )
             return result
         
         except Exception as e:
@@ -515,13 +562,17 @@ Return JSON:
             return ExtractionResult(
                 parameter=parameter,
                 value="NA",
+                hard_value="",
+                soft_value="",
                 needs_clarification=False,
                 clarification_reason=None,
-                citations=[]
+                citations=[],
+                hard_citations=[],
+                soft_citations=[]
             )
 
     def _build_nqmf_system_prompt(self) -> str:
-        """Build NQMF-specific system prompt (Claude-hardened)"""
+        """Build NQMF-specific system prompt (Claude-hardened) with hard/soft classification"""
         return """SYSTEM ROLE (STRICT):
 
 You are generating underwriting guideline text
@@ -608,6 +659,39 @@ CONTENT RULES (NON-NEGOTIABLE)
    (Exactly "NA", no bullets, no explanation.)
 
 ================================================
+CLASSIFICATION RULES (CRITICAL)
+================================================
+
+After extracting bullets, classify EACH bullet as either:
+
+**HARD** = Strict requirement that MUST be followed
+   Indicators:
+   • Keywords: must, required, not permitted, prohibited, not allowed, shall, cannot
+   • Contains specific numeric limits (maximum, minimum, exact values)
+   • Absolute statements without qualifiers
+   • Definitive restrictions or exclusions
+   
+   Examples:
+   • Maximum LTV is limited to 70%.
+   • Texas 50(a)(6) loans are not permitted.
+   • Minimum FICO score required is 680.
+
+**SOFT** = Flexible guideline with potential exceptions
+   Indicators:
+   • Keywords: may, typically, generally, usually, can
+   • Phrases: exceptions, subject to approval, at lender's discretion, case-by-case
+   • Manual review or underwriter approval required
+   • Conditional or flexible statements
+   
+   Examples:
+   • Exceptions may be considered with approval.
+   • Subject to underwriter review.
+   • Additional documentation may be requested.
+
+**DEFAULT RULE:**
+If classification is ambiguous, default to HARD.
+
+================================================
 PROHIBITED OUTPUT
 ================================================
 
@@ -617,8 +701,8 @@ You MUST NOT:
 • Add interpretations or recommendations
 • Explain rationale
 • Add headings
-• Add markdown
-• Add extra keys
+• Add markdown (except in bullet content)
+• Add extra keys beyond what's specified
 • Add chain-of-thought
 
 ================================================
@@ -628,22 +712,38 @@ OUTPUT FORMAT (ABSOLUTE)
 Return ONLY valid JSON:
 
 {
-  "NQMF Investor DSCR": "• Bullet 1\\n• Bullet 2\\n• Bullet 3\\n• Bullet 4\\n..."
+  "hard_bullets": ["• Bullet 1", "• Bullet 2"],
+  "soft_bullets": ["• Bullet 1"],
+  "hard_citation_indices": [0, 1, 2],
+  "soft_citation_indices": [3]
 }
 
+OR if no bullets found:
+
+{
+  "hard_bullets": [],
+  "soft_bullets": []
+}
+
+Rules:
 • Bullets must start with "• "
-• New lines separated by \\n
+• New lines separated by \\n within each bullet if needed
+• citation_indices refer to the evidence chunk numbers (0-indexed)
+• If all bullets are one type, the other array can be empty
 • No trailing commentary
+• If NO evidence found, return empty arrays (not "NA" in this format)
 
 ================================================
 FINAL ENFORCEMENT
 ================================================
 
 If evidence is weak → fewer bullets.
-If evidence is absent → NA.
-If evidence conflicts → multiple bullets with attribution.
+If evidence is absent → empty arrays.
+If evidence conflicts → classify each conflicting value.
+If ambiguous classification → default to HARD.
 
 Execute with maximum restraint."""
+
 
     def _build_nqmf_user_prompt(
         self,
@@ -694,24 +794,28 @@ TASK
 
 Extract the underwriting rules for "{parameter}" from the evidence above.
 
-Output ONLY the JSON with the "NQMF Investor DSCR" key containing:
-• All relevant bullet points (each starting with "• ")
-• Each bullet on a separate line
-• OR exactly "NA" if not found
+Classify each extracted bullet as HARD or SOFT based on the classification rules.
 
+Output ONLY the JSON with these keys:
+• "hard_bullets": array of HARD requirement bullets
+• "soft_bullets": array of SOFT guideline bullets
+• "hard_citation_indices": array of evidence indices (0-based) for hard bullets
+• "soft_citation_indices": array of evidence indices (0-based) for soft bullets
+
+If no evidence found, return empty arrays.
 No explanations. No extra keys. No commentary. No source filenames."""
         
         return prompt
 
     def _parse_nqmf_response(self, response: str) -> Dict:
         """
-        Parse and validate NQMF-specific JSON response
+        Parse and validate NQMF-specific JSON response with hard/soft classification
         
         Args:
             response: LLM response text
         
         Returns:
-            Parsed dictionary with "NQMF Investor DSCR" key
+            Parsed dictionary with hard_bullets and soft_bullets arrays
         """
         try:
             # Clean response
@@ -725,19 +829,46 @@ No explanations. No extra keys. No commentary. No source filenames."""
             # Parse JSON
             data = json.loads(cleaned)
             
-            # Validate NQMF-specific key
-            if "NQMF Investor DSCR" not in data:
-                logger.warning("Missing 'NQMF Investor DSCR' key in LLM response")
-                return {"NQMF Investor DSCR": "NA"}
+            # Validate new classification format
+            if "hard_bullets" not in data or "soft_bullets" not in data:
+                logger.warning("Missing hard_bullets or soft_bullets in LLM response")
+                # Default to empty arrays if not found
+                return {
+                    "hard_bullets": [],
+                    "soft_bullets": [],
+                    "hard_citation_indices": [],
+                    "soft_citation_indices": []
+                }
             
-            # Validate value is not empty
-            value = data["NQMF Investor DSCR"]
-            if not value or not value.strip():
-                return {"NQMF Investor DSCR": "NA"}
+            # Ensure arrays exist
+            hard_bullets = data.get("hard_bullets", [])
+            soft_bullets = data.get("soft_bullets", [])
+            hard_citation_indices = data.get("hard_citation_indices", [])
+            soft_citation_indices = data.get("soft_citation_indices", [])
             
-            return data
+            # Validate arrays are actually lists
+            if not isinstance(hard_bullets, list):
+                hard_bullets = []
+            if not isinstance(soft_bullets, list):
+                soft_bullets = []
+            if not isinstance(hard_citation_indices, list):
+                hard_citation_indices = []
+            if not isinstance(soft_citation_indices, list):
+                soft_citation_indices = []
+            
+            return {
+                "hard_bullets": hard_bullets,
+                "soft_bullets": soft_bullets,
+                "hard_citation_indices": hard_citation_indices,
+                "soft_citation_indices": soft_citation_indices
+            }
         
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse NQMF LLM response as JSON: {e}")
             logger.error(f"Response: {response[:200]}...")
-            return {"NQMF Investor DSCR": "NA"}
+            return {
+                "hard_bullets": [],
+                "soft_bullets": [],
+                "hard_citation_indices": [],
+                "soft_citation_indices": []
+            }

@@ -484,7 +484,7 @@ def create_dscr_excel_multi_pdf(
     # === METADATA SECTION ===
     # Title row
     ws.append([f"Multi-PDF DSCR Extraction Report - {len(pdf_filenames)} Documents"])
-    ws.merge_cells('A1:E1')
+    ws.merge_cells('A1:E1')  # Updated for 5 columns
     title_cell = ws['A1']
     title_cell.font = Font(bold=True, size=14, color="FFFFFF")
     title_cell.fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
@@ -511,7 +511,7 @@ def create_dscr_excel_multi_pdf(
         "DSCR Parameters\n(Investor / Business Purpose Loans)", 
         "Variance Categories", 
         "SubCategories", 
-        "PPE Field Type", 
+        "PPE Field Type",  # Header name (content is Hard/Soft classification)
         f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)"
     ]
     
@@ -528,9 +528,9 @@ def create_dscr_excel_multi_pdf(
         cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
         if col_num == 1:
             cell.fill = header_fill_blue
-        elif col_num in [2, 3, 4]:
+        elif col_num in [2, 3, 4]:  # Column 4 is now Hard/Soft
             cell.fill = header_fill_orange
-        else:  # Content column
+        else:  # Content column (column 5)
             cell.fill = header_fill_blue
 
     thin_border = Border(left=Side(style='thin'), 
@@ -547,7 +547,7 @@ def create_dscr_excel_multi_pdf(
             item['DSCR_Parameters'],
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
-            item.get('PPE_Field_Type', ''),
+            item.get('Hard_Soft_Classification', ''),  # Replaced PPE_Field_Type
             item['NQMF Investor DSCR']
         ]
         ws.append(row)
@@ -561,17 +561,17 @@ def create_dscr_excel_multi_pdf(
             # Fill colors based on column
             if col_idx in [1, 2, 3]:
                 cell.fill = fill_light_green 
-            elif col_idx == 4:
-                pass
-            elif col_idx == 5:
+            elif col_idx == 4:  # Hard/Soft column
+                cell.fill = fill_light_yellow
+            elif col_idx == 5:  # NQMF Investor DSCR column
                 cell.fill = fill_light_yellow
 
     # Column Widths
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 25
     ws.column_dimensions['C'].width = 25
-    ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 80
+    ws.column_dimensions['D'].width = 12  # Hard/Soft column
+    ws.column_dimensions['E'].width = 80  # NQMF Investor DSCR column
     
     # File Path
     filename = f"DSCR_MultiPDF_{investor}_{version}_{session_id[:8]}.xlsx"

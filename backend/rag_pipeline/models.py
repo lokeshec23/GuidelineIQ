@@ -94,14 +94,20 @@ class DocumentPayload:
 @dataclass
 class ExtractionResult:
     """
-    Result from LLM extraction
+    Result from LLM extraction with hard/soft classification support
     """
     parameter: str
-    value: str
+    value: str  # Legacy field - combined bullets
     needs_clarification: bool
     clarification_reason: Optional[str]
     citations: List[Citation]
     confidence_score: float = 0.0
+    
+    # New fields for hard/soft classification
+    hard_value: str = ""  # HARD bullets only
+    soft_value: str = ""  # SOFT bullets only
+    hard_citations: List[Citation] = field(default_factory=list)
+    soft_citations: List[Citation] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -110,7 +116,11 @@ class ExtractionResult:
             "needs_clarification": self.needs_clarification,
             "clarification_reason": self.clarification_reason,
             "citations": [c.to_dict() for c in self.citations],
-            "confidence_score": self.confidence_score
+            "confidence_score": self.confidence_score,
+            "hard_value": self.hard_value,
+            "soft_value": self.soft_value,
+            "hard_citations": [c.to_dict() for c in self.hard_citations],
+            "soft_citations": [c.to_dict() for c in self.soft_citations]
         }
 
 
