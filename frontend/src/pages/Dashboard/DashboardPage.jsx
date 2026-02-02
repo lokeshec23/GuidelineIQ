@@ -382,7 +382,7 @@ const DashboardPage = () => {
         // For Compare tab, we keep the specific columns
         return [
             {
-                title: "Rule ID",
+                title: "DSCR PARAMETERS",
                 dataIndex: "rule_id",
                 key: "rule_id",
                 width: "10%",

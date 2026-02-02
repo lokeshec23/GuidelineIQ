@@ -170,7 +170,15 @@ const ExcelPreviewModal = ({
             }
 
             const currentWidth = columnWidths[key] || defaultWidth;
-            const displayTitle = customTitle || key.replace(/_/g, " ").toUpperCase();
+            let displayTitle = customTitle;
+
+            if (!displayTitle) {
+                if (key === "rule_id") {
+                    displayTitle = "DSCR PARAMETERS";
+                } else {
+                    displayTitle = key.replace(/_/g, " ").toUpperCase();
+                }
+            }
 
             return {
                 title: (
