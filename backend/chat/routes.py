@@ -214,13 +214,22 @@ async def chat_with_session(
         
         # ✅ Enhanced: Add strict summarization instructions
         enhanced_instructions = instructions or ""
+
+        # Define mode-specific context instructions
+        mode_instruction = ""
+        if mode == "excel":
+            mode_instruction = "You are analyzing specific mortgage guidelines extracted into an Excel format. Answer strictly based on the provided rules."
+        else:
+             mode_instruction = "You are analyzing a mortgage guideline PDF document. Answer strictly based on the provided text."
+
         if text_context and text_context != "No relevant info found in the document index.":
-            citation_instruction = """
+            citation_instruction = f"""
             
 STRICT INSTRUCTIONS:
-1. Answer ONLY based on the provided context. Do NOT use your general knowledge.
-2. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the uploaded documents."
-3. If the user query is a broad topic (e.g., "income", "credit", "assets"), provide a comprehensive summary of all requirements found in the context. Organize the summary logically (e.g., using bullet points or sections).
+1. {mode_instruction}
+2. Answer ONLY based on the provided context. Do NOT use your general knowledge or training data.
+3. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the provided content."
+4. If the user query is a broad topic (e.g., "income", "credit", "assets"), provide a comprehensive summary of all requirements found in the context. Organize the summary logically (e.g., using bullet points or sections).
 
 IMPORTANT: Provide direct, clear answers without referencing source documents or page numbers.
 """
