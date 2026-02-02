@@ -239,19 +239,16 @@ const ComparePage = () => {
         fd.append("file1", files[0]);
         fd.append("file2", files[1]);
 
-        // Add investor and version if provided
-        const investor = values.investor || "";
-        const version = values.version || "";
+        // Add model provider and model name for LLM comparison
+        fd.append("model_provider", modelProvider);
+        fd.append("model_name", modelName);
 
-        if (investor) {
-          fd.append("investor", investor);
-        }
-        if (version) {
-          fd.append("version", version);
-        }
+        // Add prompts for LLM comparison
+        fd.append("system_prompt", systemPrompt);
+        fd.append("user_prompt", userPrompt);
 
-        // Use Qdrant comparison for faster processing
-        res = await compareAPI.compareWithQdrant(fd);
+        // Use DSCR template comparison processor (same as DB comparison)
+        res = await compareAPI.compareGuidelines(fd);
       }
 
       const { session_id } = res.data;
