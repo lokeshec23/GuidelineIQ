@@ -331,6 +331,7 @@ async def perform_comparison_search(
                 matched_indices_file2.add(chunk2.metadata.get("row_index"))
                 
                 comparison_results.append({
+                    "rule_id": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
                     "category": row1.get("category", row1.get("Category", "")),
                     "sub_category": row1.get("sub_category", row1.get("Sub Category", "")),
                     "guideline_1": json.dumps(row1, ensure_ascii=False),
@@ -341,6 +342,7 @@ async def perform_comparison_search(
         else:
             # No match found
             comparison_results.append({
+                "rule_id": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
                 "category": row1.get("category", row1.get("Category", "")),
                 "sub_category": row1.get("sub_category", row1.get("Sub Category", "")),
                 "guideline_1": json.dumps(row1, ensure_ascii=False),
@@ -355,6 +357,7 @@ async def perform_comparison_search(
         if row_index not in matched_indices_file2:
             row2 = chunk2.metadata.get("original_row", {})
             comparison_results.append({
+                "rule_id": row2.get("DSCR_Parameters", row2.get("DSCR Parameters", "")),
                 "category": row2.get("category", row2.get("Category", "")),
                 "sub_category": row2.get("sub_category", row2.get("Sub Category", "")),
                 "guideline_1": "Not present in File 1",

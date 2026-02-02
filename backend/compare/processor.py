@@ -183,6 +183,7 @@ async def run_parallel_comparison_with_validation(
         chunk_json = json.dumps(
             [
                 {
+                    "rule_id": (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
                     "guideline_1": block["guideline1"] if block["guideline1"] else {"status": "Not present in Guideline 1"},
                     "guideline_2": block["guideline2"] if block["guideline2"] else {"status": "Not present in Guideline 2"},
                 }
@@ -198,13 +199,14 @@ async def run_parallel_comparison_with_validation(
 
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have exactly these keys:
+- "rule_id" (string, copy exactly from input "rule_id")
 - "category" (string)
 - "sub_category" (string)
 - "guideline_1" (string)
 - "guideline_2" (string)
 - "comparison_notes" (string)
 
-Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "rule_id"."""
+Start with '[' and end with ']'. No markdown, no explanations."""
 
         try:
             response = await asyncio.to_thread(
@@ -274,9 +276,8 @@ def parse_and_validate_comparison_response(response: str, chunk_num: int) -> Lis
         for item in data:
             if not isinstance(item, dict):
                 continue
-                
-            if "rule_id" in item:
-                del item["rule_id"]
+
+            # Allow "rule_id" if present, do not delete it
             
             if required_keys.issubset(item.keys()):
                 valid_items.append(item)
