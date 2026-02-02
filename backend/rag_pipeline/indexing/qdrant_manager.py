@@ -16,7 +16,7 @@ from qdrant_client.models import (
     MatchValue
 )
 
-from rag_pipeline.models import Chunk, DocumentPayload
+from rag_pipeline.models import Chunk, DocumentPayload, ChunkType
 from rag_pipeline.config import RAGConfig
 
 logger = logging.getLogger(__name__)
@@ -289,6 +289,67 @@ class QdrantManager:
             top_k,
             filter_conditions
         )
+
+    def get_all_chunks(self, filter_conditions: Optional[Dict[str, str]] = None) -> List[Chunk]:
+        """
+        Retrieve all chunks matching the filter conditions.
+        """
+        try:
+            # Build filter
+            query_filter = None
+            if filter_conditions:
+                must_conditions = [
+                    FieldCondition(
+                        key=key,
+                        match=MatchValue(value=value)
+                    )
+                    for key, value in filter_conditions.items()
+                ]
+                query_filter = Filter(must=must_conditions)
+
+            all_points = []
+            next_offset = None
+
+            while True:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    scroll_filter=query_filter,
+                    offset=next_offset,
+                    limit=100,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                all_points.extend(points)
+                if next_offset is None:
+                    break
+
+            # Convert points to Chunks
+            chunks = []
+
+            for point in all_points:
+                payload = point.payload
+                # Safely handle chunk_type string to Enum conversion
+                chunk_type_str = payload.get("chunk_type", "narrative")
+                try:
+                    chunk_type = ChunkType(chunk_type_str)
+                except ValueError:
+                    chunk_type = ChunkType.NARRATIVE
+
+                chunks.append(Chunk(
+                    id=payload.get("chunk_id", ""),
+                    text=payload.get("text", ""),
+                    chunk_type=chunk_type,
+                    section_path=payload.get("section_path", "General"),
+                    page_start=payload.get("page_start", 0),
+                    page_end=payload.get("page_end", 0),
+                    metadata={k: v for k, v in payload.items() if k not in ["chunk_id", "text", "chunk_type", "section_path", "page_start", "page_end"]}
+                ))
+
+            return chunks
+
+        except Exception as e:
+            logger.error(f"Failed to get all chunks: {e}")
+            return []
     
     def delete_by_document(self, gridfs_file_id: str):
         """

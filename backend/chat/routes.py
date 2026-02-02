@@ -9,8 +9,7 @@ from settings.models import get_user_settings
 from auth.middleware import get_admin_user
 import database
 from chat.service import chat_with_gemini, chat_with_openai, upload_pdf_with_cache
-from chat.rag_service import RAGService  # ✅ RAG Support
-rag_service = RAGService()
+from rag_pipeline.retrieval.hybrid_retriever import HybridRetriever  # ✅ RAG Support
 
 from chat.models import (
     save_chat_message, get_chat_history,
@@ -137,16 +136,21 @@ async def chat_with_session(
     
     if mode == "excel":
         # ✅ For Excel mode, filter by investor+version to find DSCR rules
-        filter_metadata["type"] = "excel_rule"
+        # Note: Depending on ingestion, type might be 'excel_row' or 'narrative'.
+        # Assuming we want to search everything related to the investor/version.
+        # But user said "do bm25 and sematic serach in opne excel".
+        # If the extracted data is stored as chunks, we can search it.
+        # If extraction logic stored chunks with type 'excel_row', we filter by that.
+        # But 'RAGPipeline' stores chunks as 'narrative' or 'table' mostly.
+        # Let's trust the metadata filters.
         if investor:
-            filter_metadata["investor"] = investor
+            filter_metadata["lender"] = investor
         if version:
             filter_metadata["version"] = version
     elif mode == "pdf":
         # ✅ For PDF mode, search ALL PDF chunks for this investor/version
-        filter_metadata["type"] = "pdf_chunk"
         if investor:
-            filter_metadata["investor"] = investor
+            filter_metadata["lender"] = investor
         if version:
             filter_metadata["version"] = version
     else:
@@ -156,37 +160,48 @@ async def chat_with_session(
     logger.info(f"RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
 
     
-    # Perform Vector Search
-    results = await rag_service.search(
+    # Initialize HybridRetriever
+    hybrid_retriever = HybridRetriever()
+
+    # Load context for BM25
+    hybrid_retriever.load_context(filter_metadata)
+
+    # Perform Search
+    results = await hybrid_retriever.search(
         query=message,
-        provider=provider, # Dynamic provider
-        api_key=api_key,
-        n_results=20,  # ✅ INCREASED: Capture more context for broad queries
-        filter_metadata=filter_metadata,
-        **azure_params # Pass Azure params if any
+        filter_conditions=filter_metadata,
+        top_k=20
     )
     
     text_context = ""
-    file_uris = [] # Not used in RAG mode usually, unless we mix strategies
     
     if not results:
         logger.warning(f"RAG search returned 0 results for query: '{message}'")
-        text_context = "No relevant info found in the document index."
+        # Requirement: "if result not found means show Result not found!"
+        reply = "Result not found!"
+        await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
+        await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
+
+        # Return immediate response
+        updated_history = await get_conversation_messages(conversation_id, limit=20)
+        return {
+            "reply": reply,
+            "history": updated_history,
+            "mode": mode,
+            "conversation_id": conversation_id
+        }
 
     else:
         context_parts = []
         for res in results:
-            # res has 'text', 'metadata', 'distance'
-            meta = res['metadata']
-            source_type = meta.get('type', 'unknown')
-            # ✅ Enhanced: Include filename in source attribution
+            # res is RetrievalResult object
+            chunk = res.chunk
+            # res.chunk.metadata has info
+            meta = chunk.metadata
             filename = meta.get('filename', 'Unknown')
-            page_info = f"Page {meta.get('page')}" if meta.get('page') else "Unknown"
+            page_info = f"Page {chunk.page_start}" if chunk.page_start else "Unknown"
             
-            if source_type == 'excel_rule':
-                context_parts.append(f"--- [Rule | {filename} - {page_info}] ---\n{res['text']}\n")
-            else:
-                context_parts.append(f"--- [Text | {filename} - {page_info}] ---\n{res['text']}\n")
+            context_parts.append(f"--- [Text | {filename} - {page_info}] ---\n{chunk.text}\n")
         
         text_context = "\n".join(context_parts)
         logger.info(f"RAG found {len(results)} items.")

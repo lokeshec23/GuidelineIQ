@@ -39,6 +39,19 @@ class HybridRetriever:
         self.bm25_retriever.index_chunks(chunks)
         
         logger.info("Chunks indexed for hybrid retrieval")
+
+    def load_context(self, filter_conditions: Optional[Dict[str, str]] = None):
+        """
+        Load chunks from Qdrant into BM25 index matching filter conditions
+        """
+        logger.info(f"Loading context for BM25 with filters: {filter_conditions}")
+        chunks = self.qdrant_manager.get_all_chunks(filter_conditions)
+
+        if chunks:
+            self.index_chunks(chunks)
+            logger.info(f"Loaded {len(chunks)} chunks into context")
+        else:
+            logger.warning("No chunks found for the given context")
     
     async def search(
         self,
