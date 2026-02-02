@@ -170,7 +170,7 @@ async def chat_with_session(
     results = await hybrid_retriever.search(
         query=message,
         filter_conditions=filter_metadata,
-        top_k=20
+        top_k=100  # ✅ Fetch more results to capture "all" chunks for broad queries
     )
     
     text_context = ""
@@ -220,6 +220,7 @@ async def chat_with_session(
 STRICT INSTRUCTIONS:
 1. Answer ONLY based on the provided context. Do NOT use your general knowledge.
 2. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the uploaded documents."
+3. If the user query is a broad topic (e.g., "income", "credit", "assets"), provide a comprehensive summary of all requirements found in the context. Organize the summary logically (e.g., using bullet points or sections).
 
 IMPORTANT: Provide direct, clear answers without referencing source documents or page numbers.
 """

@@ -78,16 +78,20 @@ class HybridRetriever:
         # Generate query embedding
         query_vector = await self.embedder.generate_embedding_async(query)
         
+        # Use top_k for candidates as well to ensure we have enough results for fusion
+        # (Using same k for candidates as final result count is a safe simple strategy)
+        candidate_k = top_k if top_k > self.config.TOP_K_BM25 else self.config.TOP_K_BM25
+
         # BM25 search
         bm25_results = self.bm25_retriever.search(
             query=query,
-            top_k=self.config.TOP_K_BM25
+            top_k=candidate_k
         )
         
         # Vector search
         vector_results = await self.qdrant_manager.search_async(
             query_vector=query_vector,
-            top_k=self.config.TOP_K_VECTOR,
+            top_k=candidate_k,
             filter_conditions=filter_conditions
         )
         
