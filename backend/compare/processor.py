@@ -198,13 +198,14 @@ async def run_parallel_comparison_with_validation(
 
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have exactly these keys:
+- "rule_id" (string) - Use the DSCR Parameter or SubCategory as the ID
 - "category" (string)
 - "sub_category" (string)
 - "guideline_1" (string)
 - "guideline_2" (string)
 - "comparison_notes" (string)
 
-Start with '[' and end with ']'. No markdown, no explanations. DO NOT include "rule_id"."""
+Start with '[' and end with ']'. No markdown, no explanations."""
 
         try:
             response = await asyncio.to_thread(
@@ -269,14 +270,11 @@ def parse_and_validate_comparison_response(response: str, chunk_num: int) -> Lis
             return []
         
         valid_items = []
-        required_keys = {"category", "sub_category", "guideline_1", "guideline_2", "comparison_notes"}
+        required_keys = {"rule_id", "category", "sub_category", "guideline_1", "guideline_2", "comparison_notes"}
         
         for item in data:
             if not isinstance(item, dict):
                 continue
-                
-            if "rule_id" in item:
-                del item["rule_id"]
             
             if required_keys.issubset(item.keys()):
                 valid_items.append(item)
