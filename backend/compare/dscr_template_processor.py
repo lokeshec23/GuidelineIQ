@@ -17,6 +17,29 @@ from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from ingest.dscr_config import DSCR_GUIDELINES
 
+# Excel Export Configuration
+DSCR_EXPORT_HEADER_MAP = {
+    "s_no": "S.No",
+    "dscr_parameters": "DSCR PARAMETERS",
+    "category": "Category",
+    "sub_category": "Sub Category",
+    "guideline_1": "Guideline 1",
+    "guideline_2": "Guideline 2",
+    "comparison_notes": "Comparison Notes"
+}
+
+DSCR_EXPORT_COLUMN_ORDER = [
+    "s_no",
+    "dscr_parameters",
+    "category",
+    "sub_category",
+    "guideline_1",
+    "guideline_2",
+    "comparison_notes"
+]
+
+DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id", "ppe_field_type"]
+
 
 async def process_dscr_template_comparison(
     session_id: str,
@@ -132,38 +155,13 @@ async def process_dscr_template_comparison(
             prefix=f"dscr_comparison_{session_id[:8]}_"
         ).name
 
-        # Use custom header mapping for DSCR comparison
-        # Requested: S.No, DSCR PARAMETERS, Category, Sub Category, Guideline 1, Guideline 2 and Comparison Notes
-        header_map = {
-            "s_no": "S.No",
-            "dscr_parameters": "DSCR PARAMETERS",
-            "category": "Category",
-            "sub_category": "Sub Category",
-            "guideline_1": "Guideline 1",
-            "guideline_2": "Guideline 2",
-            "comparison_notes": "Comparison Notes"
-        }
-
-        # Define preferred column order
-        column_order = [
-            "s_no",
-            "dscr_parameters",
-            "category",
-            "sub_category",
-            "guideline_1",
-            "guideline_2",
-            "comparison_notes"
-        ]
-
-        # Hide internal fields from Excel
-        hidden_columns = ["rule_id", "ppe_field_type"]
-
+        # Use centralized configuration for Excel generation
         dynamic_json_to_excel(
             results,
             excel_path,
-            header_map=header_map,
-            hidden_columns=hidden_columns,
-            column_order=column_order
+            header_map=DSCR_EXPORT_HEADER_MAP,
+            hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
+            column_order=DSCR_EXPORT_COLUMN_ORDER
         )
 
         update_progress(session_id, 100, "Comparison complete.")
