@@ -484,6 +484,19 @@ Return JSON:
                 soft_citations=[]
             )
         
+        # Limit evidence chunks to prevent context overflow
+        # Keep only the top-ranked chunks (they're already sorted by relevance score)
+        MAX_CHUNKS_FOR_NQMF = 30
+        if len(evidence_chunks) > MAX_CHUNKS_FOR_NQMF:
+            logger.warning(
+                f"{parameter} to prevent context overflow"
+            )
+            # logger.warning(
+            #     f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "
+            #     f"for parameter '{parameter}' to prevent context overflow"
+            # )
+            evidence_chunks = evidence_chunks[:MAX_CHUNKS_FOR_NQMF]
+        
         # Build NQMF-specific prompts
         system_prompt = self._build_nqmf_system_prompt()
         user_prompt = self._build_nqmf_user_prompt(parameter, evidence_chunks, context)
@@ -766,18 +779,26 @@ Subcategory: {context.get('subcategory', 'N/A')}
 PPE Field Type: {context.get('ppe_field', 'N/A')} (already fixed)
 """
         
-        # Format evidence chunks
+        # Format evidence chunks with truncation to prevent context overflow
         evidence_str = ""
+        max_chunk_length = self.config.MAX_EVIDENCE_CHUNK_LENGTH
+        
         for idx, result in enumerate(evidence_chunks, 1):
             chunk = result.chunk
             source_file = chunk.metadata.get('filename', 'Unknown')
+            
+            # Truncate chunk text if it exceeds max length
+            chunk_text = chunk.text
+            if len(chunk_text) > max_chunk_length:
+                chunk_text = chunk_text[:max_chunk_length] + "... [truncated]"
+            
             evidence_str += f"""
 --- Evidence {idx} ---
 Source: {source_file}
 Pages: {chunk.page_start}-{chunk.page_end}
 Section: {chunk.section_path}
 
-{chunk.text}
+{chunk_text}
 
 """
         

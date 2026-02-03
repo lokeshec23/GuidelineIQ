@@ -47,9 +47,12 @@ class RAGConfig:
     TOP_K_BM25: int = 10
     TOP_K_VECTOR: int = 10
     TOP_K_FINAL: int = 5
-    TOP_K_COMPREHENSIVE: int = 1000  # "All" matches
+    TOP_K_COMPREHENSIVE: int = 50  # Reduced from 1000 to prevent context overflow
     BM25_WEIGHT: float = 0.3
     VECTOR_WEIGHT: float = 0.7
+    
+    # Evidence Text Limits (to prevent context overflow)
+    MAX_EVIDENCE_CHUNK_LENGTH: int = 1500  # Max characters per chunk in LLM prompt
     
     # Table Detection Keywords
     TABLE_KEYWORDS: list = [
