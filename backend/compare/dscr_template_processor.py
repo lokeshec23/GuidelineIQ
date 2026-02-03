@@ -17,6 +17,29 @@ from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from ingest.dscr_config import DSCR_GUIDELINES
 
+# Excel Export Configuration
+DSCR_EXPORT_HEADER_MAP = {
+    "s_no": "S.No",
+    "dscr_parameters": "DSCR PARAMETERS",
+    "category": "Category",
+    "sub_category": "Sub Category",
+    "guideline_1": "Guideline 1",
+    "guideline_2": "Guideline 2",
+    "comparison_notes": "Comparison Notes"
+}
+
+DSCR_EXPORT_COLUMN_ORDER = [
+    "s_no",
+    "dscr_parameters",
+    "category",
+    "sub_category",
+    "guideline_1",
+    "guideline_2",
+    "comparison_notes"
+]
+
+DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id", "ppe_field_type"]
+
 
 async def process_dscr_template_comparison(
     session_id: str,
@@ -132,22 +155,14 @@ async def process_dscr_template_comparison(
             prefix=f"dscr_comparison_{session_id[:8]}_"
         ).name
 
-        # Use custom header mapping for DSCR comparison
-        # Requested: S.No, DSCR PARAMETERS, Category, Sub Category, Guideline 1, Guideline 2 and Comparsion Notes
-        header_map = {
-            "s_no": "S.No",
-            "dscr_parameters": "DSCR PARAMETERS",
-            "variance_category": "Category",
-            "sub_category": "Sub Category",
-            # "ppe_field_type": "PPE FIELD TYPE", # User didn't ask for this, but maybe good to keep? User listed specific cols. I'll omit if not asked, or keep at end.
-            # User request: "I want those coolumns with values..."
-            # Let's stick to their list + PPE if not harmful, but strict compliance means:
-            "guideline_1": "Guideline 1",
-            "guideline_2": "Guideline 2",
-            "comparison_notes": "Comparsion Notes"
-        }
-
-        dynamic_json_to_excel(results, excel_path, header_map=header_map)
+        # Use centralized configuration for Excel generation
+        dynamic_json_to_excel(
+            results,
+            excel_path,
+            header_map=DSCR_EXPORT_HEADER_MAP,
+            hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
+            column_order=DSCR_EXPORT_COLUMN_ORDER
+        )
 
         update_progress(session_id, 100, "Comparison complete.")
 
@@ -500,14 +515,10 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
                 # ✅ Always use template data for these fields (never trust LLM to copy them)
                 "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
                 "dscr_parameters": template_item["dscr_parameters"],
-                "variance_category": template_item["variance_category"],
+                "category": template_item["variance_category"], # Renamed from variance_category
                 "sub_category": template_item["sub_category"],
                 "ppe_field_type": template_item["ppe_field_type"],
                 
-                # ✅ Get LLM-generated values (with fallbacks for key variations)
-                "guideline_1_value": g1_val,
-                "guideline_2_value": g2_val,
-
                 # ✅ Duplicate as 'guideline_1'/'guideline_2' for frontend table compatibility
                 "guideline_1": g1_val,
                 "guideline_2": g2_val,

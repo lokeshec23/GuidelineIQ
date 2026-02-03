@@ -569,7 +569,31 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
             try:
                 # Generate temp Excel file
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                dynamic_json_to_excel(record["preview_data"], tmp.name)
+                preview_data = record["preview_data"]
+
+                # Check if this is a DSCR Template Comparison (based on structure)
+                # DSCR results will have 'dscr_parameters' key
+                is_dscr_template = False
+                if preview_data and len(preview_data) > 0:
+                     if "dscr_parameters" in preview_data[0]:
+                         is_dscr_template = True
+
+                if is_dscr_template:
+                    from compare.dscr_template_processor import (
+                        DSCR_EXPORT_HEADER_MAP,
+                        DSCR_EXPORT_COLUMN_ORDER,
+                        DSCR_EXPORT_HIDDEN_COLUMNS
+                    )
+                    dynamic_json_to_excel(
+                        preview_data,
+                        tmp.name,
+                        header_map=DSCR_EXPORT_HEADER_MAP,
+                        hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
+                        column_order=DSCR_EXPORT_COLUMN_ORDER
+                    )
+                else:
+                    # Fallback for Qdrant or other comparison types
+                    dynamic_json_to_excel(preview_data, tmp.name)
                 
                 filename = f"comparison_{session_id[:8]}.xlsx"
                 
