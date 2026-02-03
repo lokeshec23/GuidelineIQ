@@ -168,6 +168,7 @@ async def process_dscr_template_comparison(
                 await save_compare_history({
                     "user_id": user_id,
                     "username": username,
+                    "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
                     "uploaded_file1": file1_name,
                     "uploaded_file2": file2_name,
                     "extracted_file": (
@@ -486,6 +487,7 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
             # Build final item with template data (guaranteed to be correct) + LLM analysis
             merged_item = {
                 # ✅ Always use template data for these fields (never trust LLM to copy them)
+                "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
                 "dscr_parameters": template_item["dscr_parameters"],
                 "variance_category": template_item["variance_category"],
                 "sub_category": template_item["sub_category"],
