@@ -76,6 +76,7 @@ async def save_compare_history(data: dict) -> str:
     history_data = {
         "user_id": data["user_id"],
         "username": data.get("username", "Unknown"),
+        "session_id": data.get("session_id"),  # ✅ Store UUID session_id for lookup
         "investor": data.get("investor", "Unknown Investor"),
         "version": data.get("version", "v1"),
         "uploaded_file1": data["uploaded_file1"],

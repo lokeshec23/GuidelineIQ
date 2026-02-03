@@ -122,6 +122,10 @@ async def process_dscr_template_comparison(
         # STEP 6 — Save Excel
         update_progress(session_id, 90, "Generating DSCR comparison Excel...")
 
+        # ✅ Add S.No to results
+        for idx, item in enumerate(results, 1):
+            item["s_no"] = idx
+
         excel_path = tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".xlsx",
@@ -129,14 +133,18 @@ async def process_dscr_template_comparison(
         ).name
 
         # Use custom header mapping for DSCR comparison
+        # Requested: S.No, DSCR PARAMETERS, Category, Sub Category, Guideline 1, Guideline 2 and Comparsion Notes
         header_map = {
+            "s_no": "S.No",
             "dscr_parameters": "DSCR PARAMETERS",
-            "variance_category": "VARIANCE CATEGORIES",
-            "sub_category": "SUB CATEGORY",
-            "ppe_field_type": "PPE FIELD TYPE",
-            "guideline_1_value": file1_name,
-            "guideline_2_value": file2_name,
-            "comparison_notes": "COMPARISON NOTES"
+            "variance_category": "Category",
+            "sub_category": "Sub Category",
+            # "ppe_field_type": "PPE FIELD TYPE", # User didn't ask for this, but maybe good to keep? User listed specific cols. I'll omit if not asked, or keep at end.
+            # User request: "I want those coolumns with values..."
+            # Let's stick to their list + PPE if not harmful, but strict compliance means:
+            "guideline_1": "Guideline 1",
+            "guideline_2": "Guideline 2",
+            "comparison_notes": "Comparsion Notes"
         }
 
         dynamic_json_to_excel(results, excel_path, header_map=header_map)
@@ -168,6 +176,7 @@ async def process_dscr_template_comparison(
                 await save_compare_history({
                     "user_id": user_id,
                     "username": username,
+                    "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
                     "uploaded_file1": file1_name,
                     "uploaded_file2": file2_name,
                     "extracted_file": (
@@ -202,6 +211,64 @@ async def process_dscr_template_comparison(
                 print("Temporary file cleaned up.")
 
 
+def detect_parameter_column(data: List[Dict]) -> Optional[str]:
+    """
+    Identify the column that likely contains DSCR parameters.
+    Checks for standard names and content overlap.
+    """
+    if not data:
+        return None
+
+    # Get all column names from first row
+    columns = list(data[0].keys())
+
+    # 1. Check for standard names (priority order)
+    standard_names = [
+        "DSCR_Parameters", "DSCR Parameters", "dscr_parameters",
+        "Parameter", "parameter", "Rule Name", "Rule", "Topic",
+        "Guideline", "Field", "Description"
+    ]
+
+    # First pass: check if any standard name exists exactly
+    for name in standard_names:
+        if name in columns:
+            return name
+
+    # 2. Check content overlap with DSCR_GUIDELINES
+    # We want to find a column that contains values like "Purchase", "Cash-Out Refinance"
+    best_col = None
+    max_overlap = 0
+
+    # Create set of normalized template parameters
+    template_params = {str(p["parameter"]).strip().lower() for p in DSCR_GUIDELINES}
+
+    for col in columns:
+        matches = 0
+        # Check first 50 rows (or all if less)
+        for row in data[:50]:
+            val = str(row.get(col, "")).strip().lower()
+            if val in template_params:
+                matches += 1
+
+        # Calculate percentage of overlap if we have data
+        current_overlap = matches
+        if current_overlap > max_overlap:
+            max_overlap = current_overlap
+            best_col = col
+
+    if max_overlap > 0:
+        return best_col
+
+    # Fallback: if we still haven't found a column, try case-insensitive match on standard names
+    for name in standard_names:
+        name_lower = name.lower()
+        for col in columns:
+            if col.lower() == name_lower:
+                return col
+
+    return None
+
+
 def build_dscr_template_comparison(
     data1: List[Dict],
     data2: List[Dict],
@@ -212,61 +279,70 @@ def build_dscr_template_comparison(
     Build comparison data using DSCR_GUIDELINES as template.
     
     For each DSCR parameter in the template:
-    1. Find matching row(s) in data1
-    2. Find matching row(s) in data2
+    1. Find matching row(s) in data1 using fuzzy matching
+    2. Find matching row(s) in data2 using fuzzy matching
     3. Create a comparison entry
-    
-    Returns:
-        List of dicts with structure:
-        {
-            "dscr_parameters": "Purchase",
-            "variance_category": "Eligible Transactions",
-            "sub_category": "Feature Eligibility",
-            "ppe_field_type": "Hard",
-            "guideline_1_data": {...},
-            "guideline_2_data": {...}
-        }
     """
+    import difflib
     template_comparison = []
     
-    # Normalize function for fuzzy matching
     def normalize(s):
         return str(s).strip().lower()
-    
-    # Build lookup maps for both guidelines
-    # Key: normalized parameter name
-    def build_lookup(data: List[Dict]) -> Dict[str, Dict]:
-        lookup = {}
+
+    # Helper to find the best matching row in a dataset for a given template parameter
+    def find_best_match(data: List[Dict], param_name: str, col_name: str) -> Optional[Dict]:
+        if not col_name or not data:
+            return None
+
+        param_norm = normalize(param_name)
+
+        # 1. Exact Match (Fast)
         for row in data:
-            # Try multiple possible column names for parameter
-            param = (
-                row.get("DSCR_Parameters") or 
-                row.get("DSCR Parameters") or 
-                row.get("dscr_parameters") or 
-                row.get("Parameter") or 
-                row.get("parameter") or
-                ""
-            )
-            if param:
-                key = normalize(param)
-                # Store the full row data
-                lookup[key] = row
-        return lookup
+            val = normalize(row.get(col_name, ""))
+            if val == param_norm:
+                return row
+
+        # 2. Fuzzy Match (Slower but more robust)
+        best_row = None
+        best_score = 0.0
+
+        # Threshold for fuzzy matching
+        FUZZY_THRESHOLD = 0.85
+
+        for row in data:
+            val = normalize(row.get(col_name, ""))
+            if not val:
+                continue
+
+            ratio = difflib.SequenceMatcher(None, param_norm, val).ratio()
+
+            # Boost for containment (if one is substring of other)
+            # This helps with "Purchase" vs "Purchase Transactions"
+            if len(val) > 3 and len(param_norm) > 3:
+                if val in param_norm or param_norm in val:
+                    # Boost ratio to at least 0.9 if contained
+                    ratio = max(ratio, 0.9)
+
+            if ratio > best_score and ratio >= FUZZY_THRESHOLD:
+                best_score = ratio
+                best_row = row
+
+        return best_row
+
+    # Detect columns
+    col1 = detect_parameter_column(data1)
+    col2 = detect_parameter_column(data2)
     
-    lookup1 = build_lookup(data1)
-    lookup2 = build_lookup(data2)
-    
-    print(f"📋 Guideline 1 parameter map: {len(lookup1)} entries")
-    print(f"📋 Guideline 2 parameter map: {len(lookup2)} entries")
+    print(f"📋 Detected parameter column for {file1_name}: {col1}")
+    print(f"📋 Detected parameter column for {file2_name}: {col2}")
     
     # Process each DSCR template parameter
     for template_param in DSCR_GUIDELINES:
         param_name = template_param["parameter"]
-        param_key = normalize(param_name)
         
         # Find matching data from both guidelines
-        guideline1_row = lookup1.get(param_key)
-        guideline2_row = lookup2.get(param_key)
+        guideline1_row = find_best_match(data1, param_name, col1)
+        guideline2_row = find_best_match(data2, param_name, col2)
         
         # Create comparison entry
         comparison_entry = {
@@ -417,16 +493,25 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
                 continue
             
             # Build final item with template data (guaranteed to be correct) + LLM analysis
+            g1_val = llm_item.get("guideline_1_value") or llm_item.get("guideline_1") or "Not present"
+            g2_val = llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present"
+
             merged_item = {
                 # ✅ Always use template data for these fields (never trust LLM to copy them)
+                "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
                 "dscr_parameters": template_item["dscr_parameters"],
                 "variance_category": template_item["variance_category"],
                 "sub_category": template_item["sub_category"],
                 "ppe_field_type": template_item["ppe_field_type"],
                 
                 # ✅ Get LLM-generated values (with fallbacks for key variations)
-                "guideline_1_value": llm_item.get("guideline_1_value") or llm_item.get("guideline_1") or "Not present",
-                "guideline_2_value": llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present",
+                "guideline_1_value": g1_val,
+                "guideline_2_value": g2_val,
+
+                # ✅ Duplicate as 'guideline_1'/'guideline_2' for frontend table compatibility
+                "guideline_1": g1_val,
+                "guideline_2": g2_val,
+
                 "comparison_notes": llm_item.get("comparison_notes", "No analysis available")
             }
             

@@ -108,8 +108,16 @@ async def chat_with_session(
         if not record:
             record = await db_manager.compare_history.find_one({"_id": ObjectId(session_id)})
     
+    # ✅ Fallback: Try looking up by 'session_id' field (UUID) if not an ObjectId
     if not record:
-        raise HTTPException(status_code=404, detail="Session not found")
+        if db_manager.compare_history is not None:
+             record = await db_manager.compare_history.find_one({"session_id": session_id})
+
+        if not record and db_manager.ingest_history is not None:
+             record = await db_manager.ingest_history.find_one({"session_id": session_id})
+
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
     
     # 3. Handle conversation creation
     is_new_conversation = False
