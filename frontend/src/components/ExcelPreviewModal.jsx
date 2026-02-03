@@ -464,10 +464,9 @@ const ExcelPreviewModal = ({
             ];
         }
 
-        // Filter out rule_id and "S NO" columns in comparison mode
+        // Filter out "S NO" columns in comparison mode (rule_id is PRESERVED as it holds the DSCR Parameter Name)
         if (isComparisonMode) {
             dataColumns = dataColumns.filter(col =>
-                col.dataIndex !== 'rule_id' &&
                 col.dataIndex !== 'S NO' &&
                 col.dataIndex !== 's_no' &&
                 col.dataIndex !== 'sno'
