@@ -122,6 +122,10 @@ async def process_dscr_template_comparison(
         # STEP 6 — Save Excel
         update_progress(session_id, 90, "Generating DSCR comparison Excel...")
 
+        # ✅ Add S.No to results
+        for idx, item in enumerate(results, 1):
+            item["s_no"] = idx
+
         excel_path = tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".xlsx",
@@ -129,14 +133,18 @@ async def process_dscr_template_comparison(
         ).name
 
         # Use custom header mapping for DSCR comparison
+        # Requested: S.No, DSCR PARAMETERS, Category, Sub Category, Guideline 1, Guideline 2 and Comparsion Notes
         header_map = {
+            "s_no": "S.No",
             "dscr_parameters": "DSCR PARAMETERS",
-            "variance_category": "VARIANCE CATEGORIES",
-            "sub_category": "SUB CATEGORY",
-            "ppe_field_type": "PPE FIELD TYPE",
-            "guideline_1_value": file1_name,
-            "guideline_2_value": file2_name,
-            "comparison_notes": "COMPARISON NOTES"
+            "variance_category": "Category",
+            "sub_category": "Sub Category",
+            # "ppe_field_type": "PPE FIELD TYPE", # User didn't ask for this, but maybe good to keep? User listed specific cols. I'll omit if not asked, or keep at end.
+            # User request: "I want those coolumns with values..."
+            # Let's stick to their list + PPE if not harmful, but strict compliance means:
+            "guideline_1": "Guideline 1",
+            "guideline_2": "Guideline 2",
+            "comparison_notes": "Comparsion Notes"
         }
 
         dynamic_json_to_excel(results, excel_path, header_map=header_map)
