@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Body
 from typing import List, Dict, Optional
 from bson import ObjectId
 import os
+import json
 
 from settings.models import get_user_settings
 from auth.middleware import get_admin_user
@@ -134,72 +135,74 @@ async def chat_with_session(
     
     # 5. Prepare context using RAG (for BOTH modes)
     gridfs_file_id = record.get("gridfs_file_id")
+    preview_data = record.get("preview_data")
     investor = record.get("investor", "")
     version = record.get("version", "")
     
-    if not gridfs_file_id:
+    # Validation: strict for ingestion (needs file), loose for comparison (needs data)
+    if not gridfs_file_id and not preview_data and not record.get("extracted_file"):
          raise HTTPException(status_code=400, detail="No source file found for this session.")
 
-    filter_metadata = {}
-    
-    if mode == "excel":
-        # ✅ For Excel mode, filter by investor+version to find DSCR rules
-        # Note: Depending on ingestion, type might be 'excel_row' or 'narrative'.
-        # Assuming we want to search everything related to the investor/version.
-        # But user said "do bm25 and sematic serach in opne excel".
-        # If the extracted data is stored as chunks, we can search it.
-        # If extraction logic stored chunks with type 'excel_row', we filter by that.
-        # But 'RAGPipeline' stores chunks as 'narrative' or 'table' mostly.
-        # Let's trust the metadata filters.
-        if investor:
-            filter_metadata["lender"] = investor
-        if version:
-            filter_metadata["version"] = version
-    elif mode == "pdf":
-        # ✅ For PDF mode, search ALL PDF chunks for this investor/version
-        if investor:
-            filter_metadata["lender"] = investor
-        if version:
-            filter_metadata["version"] = version
-    else:
-        raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
- 
-    
-    logger.info(f"RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
-
-    
-    # Initialize HybridRetriever
-    hybrid_retriever = HybridRetriever()
-
-    # Load context for BM25
-    hybrid_retriever.load_context(filter_metadata)
-
-    # Perform Search
-    results = await hybrid_retriever.search(
-        query=message,
-        filter_conditions=filter_metadata,
-        top_k=100  # ✅ Fetch more results to capture "all" chunks for broad queries
-    )
-    
     text_context = ""
     
-    if not results:
-        logger.warning(f"RAG search returned 0 results for query: '{message}'")
-        # Requirement: "if result not found means show Result not found!"
-        reply = "Result not found!"
-        await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
-        await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
+    # STRATEGY 1: Comparison Session (Use direct preview_data)
+    # Comparison sessions don't have gridfs_file_id, but have preview_data
+    if not gridfs_file_id and preview_data:
+        logger.info(f"Using embedded preview_data for context ({len(preview_data)} items)")
+        try:
+             text_context = json.dumps(preview_data, indent=2, default=str)
+        except Exception as e:
+             logger.error(f"Failed to serialize preview_data: {e}")
+             text_context = str(preview_data)
 
-        # Return immediate response
-        updated_history = await get_conversation_messages(conversation_id, limit=20)
-        return {
-            "reply": reply,
-            "history": updated_history,
-            "mode": mode,
-            "conversation_id": conversation_id
-        }
+    # STRATEGY 2: Ingestion Session (Use RAG)
+    elif gridfs_file_id:
+        filter_metadata = {}
+        
+        if mode == "excel":
+            if investor:
+                filter_metadata["lender"] = investor
+            if version:
+                filter_metadata["version"] = version
+        elif mode == "pdf":
+            if investor:
+                filter_metadata["lender"] = investor
+            if version:
+                filter_metadata["version"] = version
+        else:
+            raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
+     
+        logger.info(f"RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
+        
+        # Initialize HybridRetriever
+        hybrid_retriever = HybridRetriever()
 
-    else:
+        # Load context for BM25
+        hybrid_retriever.load_context(filter_metadata)
+
+        # Perform Search
+        results = await hybrid_retriever.search(
+            query=message,
+            filter_conditions=filter_metadata,
+            top_k=100  # ✅ Fetch more results to capture "all" chunks for broad queries
+        )
+        
+        if not results:
+            logger.warning(f"RAG search returned 0 results for query: '{message}'")
+            # Requirement: "if result not found means show Result not found!"
+            reply = "Result not found!"
+            await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
+            await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
+
+            # Return immediate response
+            updated_history = await get_conversation_messages(conversation_id, limit=20)
+            return {
+                "reply": reply,
+                "history": updated_history,
+                "mode": mode,
+                "conversation_id": conversation_id
+            }
+
         context_parts = []
         for res in results:
             # res is RetrievalResult object
@@ -213,7 +216,6 @@ async def chat_with_session(
         
         text_context = "\n".join(context_parts)
         logger.info(f"RAG found {len(results)} items.")
-
 
 
     # 6. Call LLM (Gemini or OpenAI)
