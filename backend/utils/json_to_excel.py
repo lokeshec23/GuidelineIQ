@@ -10,7 +10,8 @@ def dynamic_json_to_excel(
     json_data: List[Dict], 
     output_path: str, 
     header_map: Optional[Dict[str, str]] = None,
-    hidden_columns: Optional[List[str]] = None
+    hidden_columns: Optional[List[str]] = None,
+    column_order: Optional[List[str]] = None
 ) -> str:
     """
     Dynamically converts a list of JSON objects (dictionaries) into a
@@ -23,6 +24,7 @@ def dynamic_json_to_excel(
         header_map: An optional dictionary to rename columns. 
                     Example: {'guideline_1_summary': 'Old Guideline.xlsx'}
         hidden_columns: An optional list of column keys to exclude from the Excel file.
+        column_order: An optional list of column keys to specify the order of columns.
 
     Returns:
         The path to the created Excel file.
@@ -46,8 +48,8 @@ def dynamic_json_to_excel(
 
     hidden_columns = hidden_columns or []
 
-    # ✅ Define preferred column order for ingestion results
-    preferred_order = ["category", "sub_category", "page_number", "guideline_summary"]
+    # ✅ Define preferred column order for ingestion results (fallback if column_order not provided)
+    preferred_order = column_order or ["category", "sub_category", "page_number", "guideline_summary"]
     
     # Order columns: preferred fields first, then any additional fields
     original_headers = []
