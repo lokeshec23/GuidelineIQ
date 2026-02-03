@@ -485,6 +485,9 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
                 continue
             
             # Build final item with template data (guaranteed to be correct) + LLM analysis
+            g1_val = llm_item.get("guideline_1_value") or llm_item.get("guideline_1") or "Not present"
+            g2_val = llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present"
+
             merged_item = {
                 # ✅ Always use template data for these fields (never trust LLM to copy them)
                 "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
@@ -494,8 +497,13 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
                 "ppe_field_type": template_item["ppe_field_type"],
                 
                 # ✅ Get LLM-generated values (with fallbacks for key variations)
-                "guideline_1_value": llm_item.get("guideline_1_value") or llm_item.get("guideline_1") or "Not present",
-                "guideline_2_value": llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present",
+                "guideline_1_value": g1_val,
+                "guideline_2_value": g2_val,
+
+                # ✅ Duplicate as 'guideline_1'/'guideline_2' for frontend table compatibility
+                "guideline_1": g1_val,
+                "guideline_2": g2_val,
+
                 "comparison_notes": llm_item.get("comparison_notes", "No analysis available")
             }
             
