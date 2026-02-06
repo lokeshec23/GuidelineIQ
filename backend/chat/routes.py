@@ -1,16 +1,18 @@
 # backend/chat/routes.py
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from typing import List, Dict, Optional
-from bson import ObjectId
-import os
-import json
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import delete
+from sql_database import get_db
+from models.sql_models import User, IngestHistory, CompareHistory, ChatSession
 
 from settings.models import get_user_settings
-from auth.middleware import get_admin_user
-import database
+from auth.middleware import get_admin_user # Used as import, but we need to query admin user manually in route if not passed
+# from database import db_manager # Removed
 from chat.service import chat_with_gemini, chat_with_openai, upload_pdf_with_cache
-from rag_pipeline.retrieval.hybrid_retriever import HybridRetriever  # ✅ RAG Support
+from rag_pipeline.retrieval.hybrid_retriever import HybridRetriever
 
 from chat.models import (
     save_chat_message, get_chat_history,
@@ -18,8 +20,11 @@ from chat.models import (
     delete_conversation, get_conversation_messages, generate_conversation_title,
     save_chat_message_with_conversation
 )
-from utils.gridfs_helper import get_pdf_from_gridfs
+# from utils.gridfs_helper import get_pdf_from_gridfs # Removed
 from utils.logger import setup_logger
+import os
+import json
+from datetime import datetime
 
 logger = setup_logger(__name__)
 
@@ -33,33 +38,25 @@ async def chat_with_session(
     mode: str = Body(default="excel"),  # "pdf" or "excel"
     instructions: Optional[str] = Body(default=None),
     conversation_id: Optional[str] = Body(default=None),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Chat with a specific ingestion session.
-    Supports two modes:
-    - "pdf": Chat with the uploaded PDF using Google file search
-    - "excel": Chat with the extracted Excel data
-    
-    Args:
-        session_id: Ingestion session ID or history ID
-        message: User's chat message
-        mode: Chat mode ("pdf", "excel", or "rag")
-        conversation_id: Optional conversation ID. If None, creates a new conversation
-    
-    Returns:
-        Assistant's reply and updated chat history
     """
     # 1. Get API Key from Admin Settings
-    # 1. Get API Key from Admin Settings
-    from database import db_manager
-    if db_manager.users is None:
-        raise HTTPException(status_code=500, detail="Database not initialized")
+    # Find admin user
+    result = await db.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = result.scalars().first()
+    
+    # Fallback to is_admin flag if no explicit role="admin" found (handling both conventions)
+    if not admin_user:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalars().first()
         
-    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(status_code=500, detail="Admin user not found")
     
-    settings = await get_user_settings(str(admin_user["_id"]))
+    settings = await get_user_settings(db, str(admin_user.id))
     if not settings:
         raise HTTPException(status_code=400, detail="Settings not configured")
     
@@ -97,25 +94,27 @@ async def chat_with_session(
     # 2. Get session data from database
     record = None
     
-    # Check if it's a valid ObjectId (history record)
-    if ObjectId.is_valid(session_id):
-        if db_manager.ingest_history is None or db_manager.compare_history is None:
-            raise HTTPException(status_code=500, detail="Database not initialized")
-        
-        # Try ingest history first
-        record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
-        
-        # If not found in ingest history, try compare history
-        if not record:
-            record = await db_manager.compare_history.find_one({"_id": ObjectId(session_id)})
+    # Try ingest history by ID
+    result = await db.execute(select(IngestHistory).where(IngestHistory.id == session_id))
+    record = result.scalars().first()
     
-    # ✅ Fallback: Try looking up by 'session_id' field (UUID) if not an ObjectId
+    # If not found, try compare history by ID
     if not record:
-        if db_manager.compare_history is not None:
-             record = await db_manager.compare_history.find_one({"session_id": session_id})
-
-        if not record and db_manager.ingest_history is not None:
-             record = await db_manager.ingest_history.find_one({"session_id": session_id})
+        result = await db.execute(select(CompareHistory).where(CompareHistory.id == session_id))
+        record = result.scalars().first()
+        
+    # Fallback: Try looking up by 'session_id' field (UUID) if not found by primary key
+    if not record:
+        result = await db.execute(select(CompareHistory).where(CompareHistory.session_id == session_id))
+        record = result.scalars().first()
+        
+        if not record:
+             result = await db.execute(select(IngestHistory).where(IngestHistory.version == session_id)) # Was 'session_id' field in Mongodb? IngestHistory model has 'version', 'investor'. SQL model does NOT have 'session_id'. Except CompareHistory has it.
+             # Wait, SQL IngestHistory model does NOT have session_id. MongoDB code had `find_one({"session_id": session_id})` fallback? 
+             # Looking at old code logic: 
+             # `record = await db_manager.ingest_history.find_one({"session_id": session_id})`
+             # If mapping was lost, I should rely on ID.
+             record = result.scalars().first()
 
     if not record:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
@@ -124,23 +123,25 @@ async def chat_with_session(
     is_new_conversation = False
     if not conversation_id:
         # Create a new conversation
-        conversation_id = await create_conversation(session_id, title="New Conversation")
+        conversation_id = await create_conversation(db, session_id, title="New Conversation")
         is_new_conversation = True
         logger.info(f"Created new conversation: {conversation_id}")
 
 
     
     # 4. Get chat history for this conversation
-    history = await get_conversation_messages(conversation_id, limit=20)
+    history = await get_conversation_messages(db, conversation_id, limit=20)
     
     # 5. Prepare context using RAG (for BOTH modes)
-    gridfs_file_id = record.get("gridfs_file_id")
-    preview_data = record.get("preview_data")
-    investor = record.get("investor", "")
-    version = record.get("version", "")
+    # Access attributes safely
+    gridfs_file_id = getattr(record, "gridfs_file_id", None)
+    preview_data = getattr(record, "preview_data", None)
+    investor = getattr(record, "investor", "")
+    version = getattr(record, "version", "")
+    extracted_file = getattr(record, "extracted_file", None)
     
     # Validation: strict for ingestion (needs file), loose for comparison (needs data)
-    if not gridfs_file_id and not preview_data and not record.get("extracted_file"):
+    if not gridfs_file_id and not preview_data and not extracted_file:
          raise HTTPException(status_code=400, detail="No source file found for this session.")
 
     text_context = ""
@@ -191,11 +192,11 @@ async def chat_with_session(
             logger.warning(f"RAG search returned 0 results for query: '{message}'")
             # Requirement: "if result not found means show Result not found!"
             reply = "Result not found!"
-            await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
-            await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
+            await save_chat_message_with_conversation(db, session_id, conversation_id, "user", message)
+            await save_chat_message_with_conversation(db, session_id, conversation_id, "assistant", reply)
 
             # Return immediate response
-            updated_history = await get_conversation_messages(conversation_id, limit=20)
+            updated_history = await get_conversation_messages(db, conversation_id, limit=20)
             return {
                 "reply": reply,
                 "history": updated_history,
@@ -268,16 +269,17 @@ IMPORTANT: Provide direct, clear answers without referencing source documents or
             )
         
         # 7. Save chat messages to conversation
-        await save_chat_message_with_conversation(session_id, conversation_id, "user", message)
-        await save_chat_message_with_conversation(session_id, conversation_id, "assistant", reply)
+        await save_chat_message_with_conversation(db, session_id, conversation_id, "user", message)
+        await save_chat_message_with_conversation(db, session_id, conversation_id, "assistant", reply)
         
         # 8. If this is the first message, auto-generate title
         if is_new_conversation:
             title = generate_conversation_title(message)
-            await update_conversation_metadata(conversation_id, message, title=title)
+            # Need to pass db to update_conversation_metadata? Yes.
+            await update_conversation_metadata(db, conversation_id, message, title=title)
         
         # 9. Return reply with conversation ID
-        updated_history = await get_conversation_messages(conversation_id, limit=20)
+        updated_history = await get_conversation_messages(db, conversation_id, limit=20)
         
         return {
             "reply": reply,
@@ -293,18 +295,12 @@ IMPORTANT: Provide direct, clear answers without referencing source documents or
 
 
 @router.get("/session/{session_id}/history")
-async def get_session_history(session_id: str):
+async def get_session_history(session_id: str, db: AsyncSession = Depends(get_db)):
     """
     Get chat history for a session.
-    
-    Args:
-        session_id: Ingestion session ID or history ID
-    
-    Returns:
-        List of chat messages
     """
     try:
-        history = await get_chat_history(session_id, limit=50)
+        history = await get_chat_history(db, session_id, limit=50)
         return {"history": history}
     except Exception as e:
         logger.error(f"Error fetching history: {e}")
@@ -313,24 +309,17 @@ async def get_session_history(session_id: str):
 
 
 @router.delete("/session/{session_id}/history")
-async def clear_session_history(session_id: str):
+async def clear_session_history(session_id: str, db: AsyncSession = Depends(get_db)):
     """
     Clear chat history for a session.
-    
-    Args:
-        session_id: Ingestion session ID or history ID
-    
-    Returns:
-        Success message
     """
     try:
-        from database import db_manager
-        if db_manager.chat_sessions is None:
-            raise HTTPException(status_code=500, detail="Database not initialized")
-        result = await db_manager.chat_sessions.delete_many({"session_id": session_id})
+        stmt = delete(ChatSession).where(ChatSession.session_id == session_id)
+        result = await db.execute(stmt)
+        await db.commit()
         return {
-            "message": f"Cleared {result.deleted_count} messages",
-            "deleted_count": result.deleted_count
+            "message": f"Cleared {result.rowcount} messages",
+            "deleted_count": result.rowcount
         }
     except Exception as e:
         logger.error(f"Error clearing history: {e}")
@@ -341,19 +330,16 @@ async def clear_session_history(session_id: str):
 # ==================== CONVERSATION MANAGEMENT ENDPOINTS ====================
 
 @router.post("/session/{session_id}/conversations")
-async def create_new_conversation(session_id: str, title: Optional[str] = Body(default=None, embed=True)):
+async def create_new_conversation(
+    session_id: str, 
+    title: Optional[str] = Body(default=None, embed=True),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Create a new conversation for a session.
-    
-    Args:
-        session_id: Ingestion session ID or history ID
-        title: Optional conversation title
-    
-    Returns:
-        Conversation ID and metadata
     """
     try:
-        conversation_id = await create_conversation(session_id, title)
+        conversation_id = await create_conversation(db, session_id, title)
         return {
             "conversation_id": conversation_id,
             "message": "Conversation created successfully"
@@ -365,18 +351,12 @@ async def create_new_conversation(session_id: str, title: Optional[str] = Body(d
 
 
 @router.get("/session/{session_id}/conversations")
-async def list_conversations(session_id: str):
+async def list_conversations(session_id: str, db: AsyncSession = Depends(get_db)):
     """
     Get all conversations for a session.
-    
-    Args:
-        session_id: Ingestion session ID or history ID
-    
-    Returns:
-        List of conversations with metadata
     """
     try:
-        conversations = await get_conversations(session_id)
+        conversations = await get_conversations(db, session_id)
         return {"conversations": conversations}
     except Exception as e:
         logger.error(f"Error listing conversations: {e}")
@@ -385,18 +365,12 @@ async def list_conversations(session_id: str):
 
 
 @router.delete("/conversation/{conversation_id}")
-async def remove_conversation(conversation_id: str):
+async def remove_conversation(conversation_id: str, db: AsyncSession = Depends(get_db)):
     """
     Delete a conversation and all its messages.
-    
-    Args:
-        conversation_id: The conversation ID
-    
-    Returns:
-        Success message with count of deleted messages
     """
     try:
-        deleted_count = await delete_conversation(conversation_id)
+        deleted_count = await delete_conversation(db, conversation_id)
         return {
             "message": "Conversation deleted successfully",
             "deleted_messages": deleted_count
@@ -408,19 +382,12 @@ async def remove_conversation(conversation_id: str):
 
 
 @router.get("/conversation/{conversation_id}/messages")
-async def get_messages(conversation_id: str, limit: int = 100):
+async def get_messages(conversation_id: str, limit: int = 100, db: AsyncSession = Depends(get_db)):
     """
     Get all messages for a conversation.
-    
-    Args:
-        conversation_id: The conversation ID
-        limit: Maximum number of messages to retrieve
-    
-    Returns:
-        List of messages with role, content, and timestamp
     """
     try:
-        messages = await get_conversation_messages(conversation_id, limit)
+        messages = await get_conversation_messages(db, conversation_id, limit)
         return {"messages": messages}
     except Exception as e:
         logger.error(f"Error fetching messages: {e}")

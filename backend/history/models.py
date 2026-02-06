@@ -1,19 +1,17 @@
 # backend/history/models.py
 
-from database import db_manager
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import delete, desc
+from models.sql_models import IngestHistory, CompareHistory
 from typing import List, Dict
 from datetime import datetime
-from bson import ObjectId
 
-async def _ensure_db():
-    if db_manager.client is None:
-        await db_manager.connect()
-
-async def save_ingest_history(data: dict) -> str:
+async def save_ingest_history(db: AsyncSession, data: dict) -> str:
     """Save ingest job to history"""
-    await _ensure_db()
     
-    history_data = {
+    # Clean data keys to match model
+    model_data = {
         "user_id": data["user_id"],
         "username": data.get("username", "Unknown"),
         "investor": data["investor"],
@@ -23,60 +21,69 @@ async def save_ingest_history(data: dict) -> str:
         "preview_data": data.get("preview_data", []),
         "effective_date": data.get("effective_date"),
         "expiry_date": data.get("expiry_date"),
-        "gridfs_file_id": data.get("gridfs_file_id"),  # ✅ Keep for backward compatibility
-        "pdf_files": data.get("pdf_files", []),  # ✅ NEW: Store array of PDF metadata
+        "gridfs_file_id": data.get("gridfs_file_id"),  
+        "pdf_files": data.get("pdf_files", []), 
         "created_at": datetime.utcnow()
     }
     
-    result = await db_manager.ingest_history.insert_one(history_data)
-    print(f"✅ Saved ingest history: {result.inserted_id}")
-    return str(result.inserted_id)
+    # Add optional keys if present
+    if "page_range" in data: model_data["page_range"] = data["page_range"]
+    if "guideline_type" in data: model_data["guideline_type"] = data["guideline_type"]
+    if "program_type" in data: model_data["program_type"] = data["program_type"]
+    
+    history_entry = IngestHistory(**model_data)
+    db.add(history_entry)
+    await db.commit()
+    await db.refresh(history_entry)
+    
+    print(f"✅ Saved ingest history: {history_entry.id}")
+    return str(history_entry.id)
 
-async def get_user_ingest_history(user_id: str) -> List[Dict]:
+async def get_user_ingest_history(db: AsyncSession, user_id: str) -> List[IngestHistory]:
     """Fetch user's ingest history sorted by most recent first"""
-    await _ensure_db()
+    result = await db.execute(
+        select(IngestHistory)
+        .where(IngestHistory.user_id == user_id)
+        .order_by(desc(IngestHistory.created_at))
+    )
+    history = result.scalars().all()
+    
+    # Post-process for backward compatibility (converting old structure to new)
+    # SQLAlchemy objects are mutable, but changes here won't persist unless commited.
+    # We just want to ensure 'pdf_files' is populated for response.
+    # The JSON column handles deserialization.
+    
+    # We will let the route/schema handle serialization, 
+    # but the logic for "old record with single PDF" needs to be handled somewhere.
+    # Ideally in the Pydantic schema validator or here by returning a list of dicts.
+    # Returning objects is cleaner if we fix the data presentation layer.
+    
+    processed_history = []
+    for doc in history:
+        # Clone attributes to not mess with DB session object state if unnecessary
+        # OR just attach a property.
+        # Let's populate the object's pdf_files if missing and gridfs_id exists, 
+        # but treating it as a transient fix.
         
-    cursor = db_manager.ingest_history.find({"user_id": user_id}).sort("created_at", -1)
-    history = []
-    async for doc in cursor:
-        # ✅ Handle backward compatibility: convert old single PDF to array format
-        pdf_files = doc.get("pdf_files", [])
-        if not pdf_files and doc.get("gridfs_file_id"):
-            # Old record with single PDF - convert to new format
-            pdf_files = [{
+        pdf_files = doc.pdf_files or []
+        if not pdf_files and doc.gridfs_file_id:
+             pdf_files = [{
                 "file_index": 0,
-                "filename": doc.get("uploaded_file", "document.pdf"),
-                "gridfs_file_id": doc.get("gridfs_file_id")
+                "filename": doc.uploaded_file or "document.pdf",
+                "gridfs_file_id": doc.gridfs_file_id
             }]
-        
-        history.append({
-            "id": str(doc["_id"]),
-            "user_id": doc["user_id"],
-            "username": doc.get("username", "Unknown"),
-            "investor": doc.get("investor", ""),
-            "version": doc.get("version", ""),
-            "uploadedFile": doc.get("uploaded_file", ""),
-            "extractedFile": doc.get("extracted_file", ""),
-            "preview_data": doc.get("preview_data", []),
-            "effective_date": doc.get("effective_date"),
-            "expiry_date": doc.get("expiry_date"),
-            "gridfs_file_id": doc.get("gridfs_file_id"),  # ✅ Keep for backward compatibility
-            "pdf_files": pdf_files,  # ✅ NEW: Return array of PDF metadata
-            "page_range": doc.get("page_range"),
-            "guideline_type": doc.get("guideline_type"),
-            "program_type": doc.get("program_type"),
-            "created_at": doc.get("created_at", datetime.utcnow())
-        })
-    return history
+        # We can assign it back to the object temporarily or return a wrapper
+        doc.pdf_files = pdf_files 
+        processed_history.append(doc)
 
-async def save_compare_history(data: dict) -> str:
+    return processed_history
+
+async def save_compare_history(db: AsyncSession, data: dict) -> str:
     """Save comparison job to history"""
-    await _ensure_db()
-
     history_data = {
         "user_id": data["user_id"],
         "username": data.get("username", "Unknown"),
-        "session_id": data.get("session_id"),  # ✅ Store UUID session_id for lookup
+        "session_id": data.get("session_id"), 
         "investor": data.get("investor", "Unknown Investor"),
         "version": data.get("version", "v1"),
         "uploaded_file1": data["uploaded_file1"],
@@ -86,79 +93,70 @@ async def save_compare_history(data: dict) -> str:
         "created_at": datetime.utcnow()
     }
     
-    result = await db_manager.compare_history.insert_one(history_data)
-    print(f"✅ Saved compare history: {result.inserted_id}")
-    return str(result.inserted_id)
+    history_entry = CompareHistory(**history_data)
+    db.add(history_entry)
+    await db.commit()
+    await db.refresh(history_entry) # get ID
+    
+    print(f"✅ Saved compare history: {history_entry.id}")
+    return str(history_entry.id)
 
-async def get_user_compare_history(user_id: str) -> List[Dict]:
+async def get_user_compare_history(db: AsyncSession, user_id: str) -> List[CompareHistory]:
     """Fetch user's comparison history"""
-    await _ensure_db()
-        
-    cursor = db_manager.compare_history.find({"user_id": user_id}).sort("created_at", -1)
-    history = []
-    async for doc in cursor:
-        history.append({
-            "id": str(doc["_id"]),
-            "user_id": doc["user_id"],
-            "username": doc.get("username", "Unknown"),
-            "investor": doc.get("investor", "Unknown Investor"),
-            "version": doc.get("version", "v1"),
-            "uploadedFile1": doc.get("uploaded_file1", ""),
-            "uploadedFile2": doc.get("uploaded_file2", ""),
-            "extractedFile": doc.get("extracted_file", ""),
-            "preview_data": doc.get("preview_data", []),
-            "created_at": doc.get("created_at", datetime.utcnow())
-        })
-    return history
+    result = await db.execute(
+        select(CompareHistory)
+        .where(CompareHistory.user_id == user_id)
+        .order_by(desc(CompareHistory.created_at))
+    )
+    return result.scalars().all()
 
-async def check_duplicate_ingestion(investor: str, version: str, user_id: str) -> bool:
+async def check_duplicate_ingestion(db: AsyncSession, investor: str, version: str, user_id: str) -> bool:
     """Check if an ingestion with the same investor and version already exists for the user."""
-    await _ensure_db()
-        
-    existing = await db_manager.ingest_history.find_one({
-        "user_id": user_id,
-        "investor": investor,
-        "version": version
-    })
-    return existing is not None
+    result = await db.execute(
+        select(IngestHistory).where(
+            IngestHistory.user_id == user_id,
+            IngestHistory.investor == investor,
+            IngestHistory.version == version
+        )
+    )
+    return result.scalars().first() is not None
 
-async def delete_ingest_history(history_id: str, user_id: str) -> bool:
+async def delete_ingest_history(db: AsyncSession, history_id: str, user_id: str) -> bool:
     """Delete an ingestion history record."""
-    await _ensure_db()
-        
-    result = await db_manager.ingest_history.delete_one({
-        "_id": ObjectId(history_id),
-        "user_id": user_id
-    })
-    return result.deleted_count > 0
+    result = await db.execute(
+        select(IngestHistory).where(IngestHistory.id == history_id, IngestHistory.user_id == user_id)
+    )
+    record = result.scalars().first()
+    if record:
+        await db.delete(record)
+        await db.commit()
+        return True
+    return False
 
-async def delete_compare_history(history_id: str, user_id: str) -> bool:
+async def delete_compare_history(db: AsyncSession, history_id: str, user_id: str) -> bool:
     """Delete a comparison history record."""
-    await _ensure_db()
-        
-    result = await db_manager.compare_history.delete_one({
-        "_id": ObjectId(history_id),
-        "user_id": user_id
-    })
-    return result.deleted_count > 0
+    result = await db.execute(
+        select(CompareHistory).where(CompareHistory.id == history_id, CompareHistory.user_id == user_id)
+    )
+    record = result.scalars().first()
+    if record:
+        await db.delete(record)
+        await db.commit()
+        return True
+    return False
 
-async def delete_all_ingest_history(user_id: str) -> int:
+async def delete_all_ingest_history(db: AsyncSession, user_id: str) -> int:
     """Delete all ingest history records for a user."""
-    await _ensure_db()
-    
-    # Optional: Delete associated GridFS files if needed
-    # This example only deletes the history records
-    
-    result = await db_manager.ingest_history.delete_many({
-        "user_id": user_id
-    })
-    return result.deleted_count
+    # This might be simpler with delete().where()
+    # But to return count, we execute delete
+    stmt = delete(IngestHistory).where(IngestHistory.user_id == user_id)
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount
 
-async def delete_all_compare_history(user_id: str) -> int:
+async def delete_all_compare_history(db: AsyncSession, user_id: str) -> int:
     """Delete all comparison history records for a user."""
-    await _ensure_db()
-        
-    result = await db_manager.compare_history.delete_many({
-        "user_id": user_id
-    })
-    return result.deleted_count
+    stmt = delete(CompareHistory).where(CompareHistory.user_id == user_id)
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount

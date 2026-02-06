@@ -112,11 +112,12 @@ USER MESSAGE:
         raise
 
 
-async def upload_pdf_with_cache(api_key: str, gridfs_file_id: str, pdf_content: bytes, filename: str):
+async def upload_pdf_with_cache(db, api_key: str, gridfs_file_id: str, pdf_content: bytes, filename: str):
     """
     Upload PDF to Gemini with caching support.
     
     Args:
+        db: Database session
         api_key: Gemini API key
         gridfs_file_id: GridFS file ID for caching
         pdf_content: PDF file content as bytes
@@ -128,7 +129,7 @@ async def upload_pdf_with_cache(api_key: str, gridfs_file_id: str, pdf_content: 
     from chat.models import get_cached_file_uri, cache_gemini_file_uri
     
     # Check cache first
-    cached = await get_cached_file_uri(gridfs_file_id)
+    cached = await get_cached_file_uri(db, gridfs_file_id)
     if cached:
         print(f"✅ Using cached Gemini file: {cached['gemini_name']}")
         return {
@@ -153,6 +154,7 @@ async def upload_pdf_with_cache(api_key: str, gridfs_file_id: str, pdf_content: 
         
         # Cache the result
         await cache_gemini_file_uri(
+            db=db,
             gridfs_file_id=gridfs_file_id,
             gemini_uri=uploaded_file.uri,
             gemini_name=uploaded_file.name,

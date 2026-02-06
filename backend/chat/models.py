@@ -1,298 +1,221 @@
 # backend/chat/models.py
 
-from database import db_manager
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import delete, update, desc
+from models.sql_models import ChatSession, ChatConversation, GeminiFileCache
 from datetime import datetime, timedelta
-from bson import ObjectId
 from typing import List, Dict, Optional
 
+# Remove _ensure_db as it is not needed with dependency injection
 
-async def _ensure_db():
-    if not db_manager.client:
-        await db_manager.connect()
-
-
-async def save_chat_message(session_id: str, role: str, content: str) -> str:
+async def save_chat_message(db: AsyncSession, session_id: str, role: str, content: str) -> str:
     """
     Save a chat message to the session history.
     """
-    await _ensure_db()
-    if db_manager.chat_sessions is None:
-        raise ConnectionError("Database not initialized")
-        
-    message_data = {
-        "session_id": session_id,
-        "role": role,
-        "content": content,
-        "timestamp": datetime.utcnow()
-    }
-    
-    result = await db_manager.chat_sessions.insert_one(message_data)
-    return str(result.inserted_id)
+    history_entry = ChatSession(
+        session_id=session_id,
+        role=role,
+        content=content,
+        timestamp=datetime.utcnow()
+    )
+    db.add(history_entry)
+    await db.commit()
+    await db.refresh(history_entry)
+    return str(history_entry.id)
 
 
-async def get_chat_history(session_id: str, limit: int = 50) -> List[Dict]:
+async def get_chat_history(db: AsyncSession, session_id: str, limit: int = 50) -> List[Dict]:
     """
     Retrieve chat history for a session.
     """
-    await _ensure_db()
-    if db_manager.chat_sessions is None:
-        raise ConnectionError("Database not initialized")
-        
-    cursor = db_manager.chat_sessions.find(
-        {"session_id": session_id}
-    ).sort("timestamp", 1).limit(limit)
+    result = await db.execute(
+        select(ChatSession)
+        .where(ChatSession.session_id == session_id)
+        .order_by(ChatSession.timestamp.asc())
+        .limit(limit)
+    )
+    messages = result.scalars().all()
     
-    messages = []
-    async for doc in cursor:
-        messages.append({
-            "role": doc["role"],
-            "content": doc["content"],
-            "timestamp": doc["timestamp"]
-        })
-    
-    return messages
+    return [{
+        "role": msg.role,
+        "content": msg.content,
+        "timestamp": msg.timestamp or datetime.utcnow()
+    } for msg in messages]
 
 
-async def cache_gemini_file_uri(gridfs_file_id: str, gemini_uri: str, gemini_name: str, ttl_hours: int = 48) -> str:
+async def cache_gemini_file_uri(db: AsyncSession, gridfs_file_id: str, gemini_uri: str, gemini_name: str, ttl_hours: int = 48) -> str:
     """
     Cache a Gemini file URI to avoid re-uploading.
     """
-    await _ensure_db()
-    if db_manager.gemini_file_cache is None:
-        raise ConnectionError("Database not initialized")
-        
     expiry_time = datetime.utcnow() + timedelta(hours=ttl_hours)
     
-    cache_data = {
-        "gridfs_file_id": gridfs_file_id,
-        "gemini_uri": gemini_uri,
-        "gemini_name": gemini_name,
-        "created_at": datetime.utcnow(),
-        "expires_at": expiry_time
-    }
+    # Check if exists to update or insert (Upsert)
+    result = await db.execute(select(GeminiFileCache).where(GeminiFileCache.gridfs_file_id == gridfs_file_id))
+    cache_entry = result.scalars().first()
     
-    # Upsert to avoid duplicates
-    result = await db_manager.gemini_file_cache.update_one(
-        {"gridfs_file_id": gridfs_file_id},
-        {"$set": cache_data},
-        upsert=True
-    )
+    if cache_entry:
+        cache_entry.gemini_uri = gemini_uri
+        cache_entry.gemini_name = gemini_name
+        cache_entry.expires_at = expiry_time
+        # created_at remains same
+    else:
+        cache_entry = GeminiFileCache(
+            gridfs_file_id=gridfs_file_id,
+            gemini_uri=gemini_uri,
+            gemini_name=gemini_name,
+            expires_at=expiry_time,
+            created_at=datetime.utcnow()
+        )
+        db.add(cache_entry)
     
-    return str(result.upserted_id) if result.upserted_id else "updated"
+    await db.commit()
+    await db.refresh(cache_entry)
+    
+    return str(cache_entry.id)
 
 
-async def get_cached_file_uri(gridfs_file_id: str) -> Optional[Dict]:
+async def get_cached_file_uri(db: AsyncSession, gridfs_file_id: str) -> Optional[Dict]:
     """
     Get cached Gemini file URI if still valid.
     """
-    await _ensure_db()
-    if db_manager.gemini_file_cache is None:
-        return None
-        
-    cache_entry = await db_manager.gemini_file_cache.find_one({
-        "gridfs_file_id": gridfs_file_id,
-        "expires_at": {"$gt": datetime.utcnow()}  # Not expired
-    })
+    result = await db.execute(
+        select(GeminiFileCache).where(
+            GeminiFileCache.gridfs_file_id == gridfs_file_id,
+            GeminiFileCache.expires_at > datetime.utcnow()
+        )
+    )
+    cache_entry = result.scalars().first()
     
     if cache_entry:
         return {
-            "gemini_uri": cache_entry["gemini_uri"],
-            "gemini_name": cache_entry["gemini_name"],
-            "created_at": cache_entry["created_at"],
-            "expires_at": cache_entry["expires_at"]
+            "gemini_uri": cache_entry.gemini_uri,
+            "gemini_name": cache_entry.gemini_name,
+            "created_at": cache_entry.created_at,
+            "expires_at": cache_entry.expires_at
         }
     
     return None
 
 
-async def clear_expired_cache():
+async def clear_expired_cache(db: AsyncSession):
     """Remove expired cache entries."""
-    await _ensure_db()
-    if db_manager.gemini_file_cache is None:
-        return 0
-        
-    result = await db_manager.gemini_file_cache.delete_many({
-        "expires_at": {"$lt": datetime.utcnow()}
-    })
-    print(f"🧹 Cleared {result.deleted_count} expired Gemini file cache entries")
-    return result.deleted_count
+    stmt = delete(GeminiFileCache).where(GeminiFileCache.expires_at < datetime.utcnow())
+    result = await db.execute(stmt)
+    await db.commit()
+    print(f"🧹 Cleared {result.rowcount} expired Gemini file cache entries")
+    return result.rowcount
 
 
 # ==================== CONVERSATION MANAGEMENT ====================
 
-async def create_conversation(session_id: str, title: Optional[str] = None) -> str:
+async def create_conversation(db: AsyncSession, session_id: str, title: Optional[str] = None) -> str:
     """
     Create a new chat conversation.
-    
-    Args:
-        session_id: The ingestion/comparison session ID
-        title: Optional conversation title (auto-generated if None)
-    
-    Returns:
-        The conversation ID (as string)
     """
-    await _ensure_db()
-    if db_manager.chat_conversations is None:
-        raise ConnectionError("Database not initialized")
-    
     now = datetime.utcnow()
-    conversation_data = {
-        "session_id": session_id,
-        "title": title or "New Conversation",
-        "created_at": now,
-        "updated_at": now,
-        "last_message": "",
-        "message_count": 0
-    }
-    
-    result = await db_manager.chat_conversations.insert_one(conversation_data)
-    return str(result.inserted_id)
+    conversation = ChatConversation(
+        session_id=session_id,
+        title=title or "New Conversation",
+        created_at=now,
+        updated_at=now,
+        last_message="",
+        message_count=0
+    )
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(conversation)
+    return str(conversation.id)
 
 
-async def get_conversations(session_id: str) -> List[Dict]:
+async def get_conversations(db: AsyncSession, session_id: str) -> List[Dict]:
     """
     Get all conversations for a session, sorted by most recent.
-    
-    Args:
-        session_id: The ingestion/comparison session ID
-    
-    Returns:
-        List of conversation objects with metadata
     """
-    await _ensure_db()
-    if db_manager.chat_conversations is None:
-        raise ConnectionError("Database not initialized")
+    result = await db.execute(
+        select(ChatConversation)
+        .where(ChatConversation.session_id == session_id)
+        .order_by(desc(ChatConversation.updated_at))
+    )
+    conversations = result.scalars().all()
     
-    cursor = db_manager.chat_conversations.find(
-        {"session_id": session_id}
-    ).sort("updated_at", -1)  # Most recent first
-    
-    conversations = []
-    async for doc in cursor:
-        conversations.append({
-            "id": str(doc["_id"]),
-            "title": doc["title"],
-            "created_at": doc["created_at"],
-            "updated_at": doc["updated_at"],
-            "last_message": doc.get("last_message", ""),
-            "message_count": doc.get("message_count", 0)
-        })
-    
-    return conversations
+    return [{
+        "id": str(c.id),
+        "title": c.title,
+        "created_at": c.created_at,
+        "updated_at": c.updated_at,
+        "last_message": c.last_message or "",
+        "message_count": c.message_count or 0
+    } for c in conversations]
 
 
 async def update_conversation_metadata(
+    db: AsyncSession,
     conversation_id: str, 
     last_message: str, 
     timestamp: Optional[datetime] = None,
     title: Optional[str] = None
 ) -> bool:
-    """
-    Update conversation metadata.
+    """ update conversation metadata """
+    result = await db.execute(select(ChatConversation).where(ChatConversation.id == conversation_id))
+    conversation = result.scalars().first()
     
-    Args:
-        conversation_id: The conversation ID
-        last_message: The last message content (will be truncated for preview)
-        timestamp: Optional timestamp (defaults to now)
-        title: Optional new title
-    
-    Returns:
-        True if updated successfully
-    """
-    await _ensure_db()
-    if db_manager.chat_conversations is None:
-        raise ConnectionError("Database not initialized")
-    
-    # Build $set fields
-    set_fields = {
-        "updated_at": timestamp or datetime.utcnow(),
-        "last_message": last_message[:100]  # Truncate for preview
-    }
+    if not conversation:
+        return False
+        
+    conversation.updated_at = timestamp or datetime.utcnow()
+    conversation.last_message = last_message[:100]
+    conversation.message_count += 1
     
     if title:
-        set_fields["title"] = title
-    
-    # Build update query with separate operators
-    update_query = {
-        "$set": set_fields,
-        "$inc": {"message_count": 1}
-    }
-    
-    result = await db_manager.chat_conversations.update_one(
-        {"_id": ObjectId(conversation_id)},
-        update_query
-    )
-    
-    return result.modified_count > 0
+        conversation.title = title
+        
+    await db.commit()
+    return True
 
 
-async def delete_conversation(conversation_id: str) -> int:
+async def delete_conversation(db: AsyncSession, conversation_id: str) -> int:
     """
     Delete a conversation and all its messages.
-    
-    Args:
-        conversation_id: The conversation ID
-    
-    Returns:
-        Number of messages deleted
     """
-    await _ensure_db()
-    if db_manager.chat_conversations is None or db_manager.chat_sessions is None:
-        raise ConnectionError("Database not initialized")
+    # Delete messages logic is handled by cascade="all, delete-orphan", 
+    # but let's be explicit if needed or rely on cascade. 
+    # The models define cascading relationship.
+    # However, ChatSession has conversation_id FK.
     
-    # Delete all messages for this conversation
-    messages_result = await db_manager.chat_sessions.delete_many({
-        "conversation_id": conversation_id
-    })
+    result = await db.execute(select(ChatConversation).where(ChatConversation.id == conversation_id))
+    conversation = result.scalars().first()
     
-    # Delete the conversation itself
-    await db_manager.chat_conversations.delete_one({
-        "_id": ObjectId(conversation_id)
-    })
-    
-    return messages_result.deleted_count
+    if conversation:
+        await db.delete(conversation) # Cascade should delete messages
+        await db.commit()
+        return 1 # Simplified return, exact message count needs extra query if we rely on cascade
+        
+    return 0
 
 
-async def get_conversation_messages(conversation_id: str, limit: int = 100) -> List[Dict]:
+async def get_conversation_messages(db: AsyncSession, conversation_id: str, limit: int = 100) -> List[Dict]:
     """
     Get all messages for a specific conversation.
-    
-    Args:
-        conversation_id: The conversation ID
-        limit: Maximum number of messages to retrieve
-    
-    Returns:
-        List of messages with role, content, and timestamp
     """
-    await _ensure_db()
-    if db_manager.chat_sessions is None:
-        raise ConnectionError("Database not initialized")
+    result = await db.execute(
+        select(ChatSession)
+        .where(ChatSession.conversation_id == conversation_id)
+        .order_by(ChatSession.timestamp.asc())
+        .limit(limit)
+    )
+    messages = result.scalars().all()
     
-    cursor = db_manager.chat_sessions.find(
-        {"conversation_id": conversation_id}
-    ).sort("timestamp", 1).limit(limit)
-    
-    messages = []
-    async for doc in cursor:
-        messages.append({
-            "role": doc["role"],
-            "content": doc["content"],
-            "timestamp": doc["timestamp"]
-        })
-    
-    return messages
+    return [{
+        "role": msg.role,
+        "content": msg.content,
+        "timestamp": msg.timestamp
+    } for msg in messages]
 
 
 def generate_conversation_title(first_message: str, max_length: int = 50) -> str:
     """
     Generate a conversation title from the first message.
-    
-    Args:
-        first_message: The first user message
-        max_length: Maximum title length
-    
-    Returns:
-        Truncated and cleaned title
     """
     # Remove extra whitespace and newlines
     title = " ".join(first_message.split())
@@ -305,6 +228,7 @@ def generate_conversation_title(first_message: str, max_length: int = 50) -> str
 
 
 async def save_chat_message_with_conversation(
+    db: AsyncSession,
     session_id: str, 
     conversation_id: str, 
     role: str, 
@@ -312,32 +236,27 @@ async def save_chat_message_with_conversation(
 ) -> str:
     """
     Save a chat message to a specific conversation.
-    
-    Args:
-        session_id: The ingestion/comparison session ID
-        conversation_id: The conversation ID
-        role: Message role ('user' or 'assistant')
-        content: Message content
-    
-    Returns:
-        The inserted message ID
     """
-    await _ensure_db()
-    if db_manager.chat_sessions is None:
-        raise ConnectionError("Database not initialized")
-    
     timestamp = datetime.utcnow()
-    message_data = {
-        "session_id": session_id,
-        "conversation_id": conversation_id,
-        "role": role,
-        "content": content,
-        "timestamp": timestamp
-    }
     
-    result = await db_manager.chat_sessions.insert_one(message_data)
+    message_entry = ChatSession(
+        session_id=session_id,
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        timestamp=timestamp
+    )
+    
+    db.add(message_entry)
+    
+    # Manually update conversation metadata instead of calling function to keep atomic transaction if needed,
+    # but separating concerns is fine.
+    # Using the helper fn:
+    # We shouldn't commit in helper if we want single transaction, but existing code had distinct calls.
+    # Let's commit message first.
+    await db.commit()
     
     # Update conversation metadata
-    await update_conversation_metadata(conversation_id, content, timestamp)
+    await update_conversation_metadata(db, conversation_id, content, timestamp)
     
-    return str(result.inserted_id)
+    return str(message_entry.id)

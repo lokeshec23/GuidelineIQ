@@ -1,13 +1,25 @@
 # backend/config.py
-# Reload trigger
-
 import os
 from datetime import timedelta
 from typing import Dict
 
-# --- MongoDB Configuration ---
-MONGO_URI: str = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-DB_NAME: str = os.getenv("DB_NAME", "guidelineiq_db")
+# --- SQL Server Configuration ---
+DB_SERVER = os.getenv("DB_SERVER", "localhost")
+DB_PORT = os.getenv("DB_PORT", "1433")
+DB_USER = os.getenv("DB_USER", "sa")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "Loandna@2026")
+DB_NAME = os.getenv("DB_NAME", "guidelineiq_db")
+
+# URL-encode the password for the connection URI
+from urllib.parse import quote_plus
+encoded_password = quote_plus(DB_PASSWORD)
+
+# Construct the SQL_SERVER_URI
+# Note: Using TrustServerCertificate=yes for local development with ODBC Driver 18
+SQL_SERVER_URI = os.getenv(
+    "SQL_SERVER_URI",
+    f"mssql+aioodbc://{DB_USER}:{encoded_password}@{DB_SERVER}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+)
 
 # --- JWT Authentication ---
 JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "a-very-secret-key-that-should-be-changed")

@@ -1,36 +1,58 @@
 # backend/settings/models.py
 
-from database import db_manager
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from models.sql_models import UserSettings
 from typing import Optional, Dict
 from datetime import datetime
 
-async def _ensure_db():
-    if not db_manager.client:
-        await db_manager.connect()
-
-async def get_user_settings(user_id: str) -> Optional[Dict]:
+async def get_user_settings(db: AsyncSession, user_id: str) -> Optional[Dict]:
     """Fetch settings for a specific user"""
-    await _ensure_db()
-    if db_manager.settings is None:
-        return None
-    return await db_manager.settings.find_one({"user_id": user_id})
-
-async def create_or_update_settings(user_id: str, settings: dict):
-    """Update or create settings for a user"""
-    await _ensure_db()
+    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+    user_settings = result.scalars().first()
     
-    # Always add the updated_at timestamp
-    settings["updated_at"] = datetime.utcnow()
-        
-    await db_manager.settings.update_one(
-        {"user_id": user_id},
-        {"$set": settings},
-        upsert=True
-    )
-    return await get_user_settings(user_id)
+    if not user_settings:
+        return None
+    
+    # Return merged dict: settings_json + metadata
+    data = user_settings.settings_json or {}
+    data["user_id"] = user_settings.user_id
+    data["updated_at"] = user_settings.updated_at
+    return data
 
-async def delete_user_settings(user_id: str):
+async def create_or_update_settings(db: AsyncSession, user_id: str, settings: dict):
+    """Update or create settings for a user"""
+    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+    user_settings = result.scalars().first()
+    
+    if not user_settings:
+        user_settings = UserSettings(user_id=user_id)
+        db.add(user_settings)
+    
+    # Update settings_json
+    # We should merge with existing if partial update is needed, but typically settings update sends full payload or we want to overwrite.
+    # The routes usage suggests model_dump(exclude_unset=True) so it might be partial.
+    # If partial, we need to merge.
+    
+    current_data = user_settings.settings_json or {}
+    current_data.update(settings)
+    user_settings.settings_json = current_data
+    
+    # Explicitly touch updated_at (though onupdate might handle it, manual update ensures it changes even if content is same)
+    user_settings.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(user_settings)
+    
+    return await get_user_settings(db, user_id)
+
+async def delete_user_settings(db: AsyncSession, user_id: str):
     """Delete settings for a user"""
-    await _ensure_db()
-        
-    return await db_manager.settings.delete_one({"user_id": user_id})
+    result = await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
+    user_settings = result.scalars().first()
+    
+    if user_settings:
+        await db.delete(user_settings)
+        await db.commit()
+        return True
+    return False

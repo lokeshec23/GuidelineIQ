@@ -5,22 +5,24 @@ import uuid
 import tempfile
 import asyncio
 import json
-from bson import ObjectId
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Header, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sql_database import get_db
+from models.sql_models import User, IngestHistory, CompareHistory # Import CompareHistory if needed
 
 # Local utilities
 from ingest.schemas import IngestResponse, ProcessingStatus
 from ingest.processor import process_guideline_background
 from settings.models import get_user_settings
 from auth.utils import verify_token
+# from auth.middleware import get_current_user # Used but we have custom dependency below?
 from utils.progress import update_progress, get_progress, delete_progress, progress_store, progress_lock
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 from utils.json_to_excel import dynamic_json_to_excel
-from utils.json_to_excel import dynamic_json_to_excel
-from typing import List
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -64,7 +66,8 @@ async def ingest_guideline(
     page_range: str = Form(None),
     guideline_type: str = Form(None),
     program_type: str = Form(None),
-    user_id: str = Depends(get_current_user_id_from_token)
+    user_id: str = Depends(get_current_user_id_from_token),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Endpoint to upload one or more PDFs and process them asynchronously.
@@ -83,36 +86,40 @@ async def ingest_guideline(
                 detail=f"Invalid file type for '{file.filename}'. Only PDF files are supported."
             )
 
-
     if model_provider not in SUPPORTED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {model_provider}")
     
     if model_name not in SUPPORTED_MODELS.get(model_provider, []):
         raise HTTPException(status_code=400, detail=f"Unsupported model '{model_name}' for '{model_provider}'")
     
-    from database import db_manager
-    if db_manager.users is None:
-        raise HTTPException(status_code=500, detail="Database not initialized")
+    # Check Admin Settings
+    # Find admin user (Query DB)
+    result = await db.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = result.scalars().first()
+    if not admin_user:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalars().first()
         
-    admin_user = await db_manager.users.find_one({"role": "admin"})
     if not admin_user:
         raise HTTPException(
             status_code=500, 
             detail="System configuration error. No admin user found."
         )
     
-    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    admin_settings = await get_user_settings(db, str(admin_user.id))
     if not admin_settings:
         raise HTTPException(
             status_code=403, 
             detail="API keys not configured. Please contact the administrator to configure API keys."
         )
 
-    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
+    # Find Current User
+    result_user = await db.execute(select(User).where(User.id == user_id))
+    current_user = result_user.scalars().first()
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if await check_duplicate_ingestion(investor, version, user_id):
+    if await check_duplicate_ingestion(db, investor, version, user_id):
         raise HTTPException(
             status_code=400, 
             detail=f"Duplicate ingestion: Guidelines for Investor '{investor}' and Version '{version}' already exist."
@@ -123,7 +130,7 @@ async def ingest_guideline(
     # Initialize progress
     update_progress(session_id, 0, "Initializing ingestion...")
     
-    # Save multiple PDFs to GridFS
+    # Save multiple PDFs to SQL (via helper)
     gridfs_file_ids = []
     filenames = []
     
@@ -133,7 +140,9 @@ async def ingest_guideline(
         for idx, file in enumerate(files):
             content = await file.read()
             
+            # Helper renamed/updated to use SQL `File` table
             gridfs_file_id = await save_pdf_to_gridfs(
+                db=db, # Pass DB session
                 file_content=content,
                 filename=file.filename,
                 metadata={
@@ -141,7 +150,7 @@ async def ingest_guideline(
                     "version": version,
                     "session_id": session_id,
                     "user_id": user_id,
-                    "uploaded_by": current_user.get("email", "Unknown"),
+                    "uploaded_by": current_user.email, # Use attribute
                     "page_range": page_range,
                     "guideline_type": guideline_type,
                     "program_type": program_type,
@@ -152,12 +161,14 @@ async def ingest_guideline(
             gridfs_file_ids.append(gridfs_file_id)
             filenames.append(file.filename)
             
-        logger.info(f"Stored {len(gridfs_file_ids)} PDF(s) in GridFS")
+        logger.info(f"Stored {len(gridfs_file_ids)} PDF(s) in Database")
     except Exception as e:
-
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded files: {str(e)}")
 
     # Start background processing
+    # NOTE: Background tasks run after dependency cleanup (session closing).
+    # So process_guideline_background must create its OWN session.
+    # We pass IDs (strings) which is safe.
     background_tasks.add_task(
         process_guideline_background,
         session_id=session_id,
@@ -171,7 +182,7 @@ async def ingest_guideline(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         user_id=user_id,
-        username=current_user.get("email", "Unknown"),
+        username=current_user.email,
         effective_date=effective_date,
         expiry_date=expiry_date,
         page_range=page_range,
@@ -192,8 +203,6 @@ async def progress_stream(session_id: str):
     async def event_generator() -> AsyncGenerator[str, None]:
         last_progress = -1
         retry_count = 0
-        max_retries = 600
-        
         max_retries = 600
         
         logger.info(f"SSE connected: {session_id[:8]}")
@@ -220,13 +229,9 @@ async def progress_stream(session_id: str):
             await asyncio.sleep(0.5)
             retry_count += 1
         
-            await asyncio.sleep(0.5)
-            retry_count += 1
-        
         logger.info(f"SSE closed: {session_id[:8]}")
     
     return StreamingResponse(
-
         event_generator(),
         media_type="text/event-stream",
         headers={
@@ -255,7 +260,7 @@ async def get_status(session_id: str):
 
 
 @router.get("/preview/{session_id}")
-async def get_preview(session_id: str):
+async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
     """Endpoint to get the JSON data for the frontend preview table."""
     # 1. Try to get from in-memory store (active/recent jobs)
     with progress_lock:
@@ -270,26 +275,29 @@ async def get_preview(session_id: str):
 
     # 2. If not found, try to get from database (historical records)
     try:
-        if ObjectId.is_valid(session_id):
-            from database import db_manager
-            if db_manager.ingest_history is not None:
-                record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
-                if record and "preview_data" in record:
-                    # When fetching from DB, the session_id IS the history_id
-                    response_data = {
-                        "data": record["preview_data"],
-                        "history_id": str(record["_id"])
-                    }
-                    return JSONResponse(content=response_data)
+        # Query DB using session_id as Primary Key (if ID match) or query by something else?
+        # IngestHistory id is UUID (String). session_id is also UUID.
+        # If accessing by historical session, session_id == id.
+        
+        result = await db.execute(select(IngestHistory).where(IngestHistory.id == session_id))
+        record = result.scalars().first()
+        
+        if record and record.preview_data:
+             response_data = {
+                 "data": record.preview_data, # JSON field
+                 "history_id": str(record.id)
+             }
+             return JSONResponse(content=response_data)
+             
     except Exception as e:
-        logger.error(f"Error fetching preview from DB: {e}")
+        logger.error(f"Error fetching preview from DB: {e}", exc_info=True)
 
     raise HTTPException(status_code=404, detail="Preview data not found or job is not complete.")
 
 
 
 @router.get("/download/{session_id}")
-async def download_result(session_id: str):
+async def download_result(session_id: str, db: AsyncSession = Depends(get_db)):
     """Endpoint to download the final Excel file."""
     
     # 1. Try to get from in-memory store (active/recent jobs)
@@ -307,29 +315,32 @@ async def download_result(session_id: str):
                 )
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
-    if ObjectId.is_valid(session_id):
-        from database import db_manager
-        if db_manager.ingest_history is not None:
-            record = await db_manager.ingest_history.find_one({"_id": ObjectId(session_id)})
-            
-            if record and "preview_data" in record:
-                try:
-                    # Generate temp Excel file
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                    # Match frontend hidden columns
-                    hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
-                    dynamic_json_to_excel(record["preview_data"], tmp.name, hidden_columns=hidden_columns)
-                    
-                    filename = f"{record.get('investor', 'Unknown')}_{record.get('version', 'v1')}.xlsx"
-                    
-                    return FileResponse(
-                        tmp.name,
-                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        filename=filename
-                    )
-                except Exception as e:
-                    logger.error(f"Error regenerating Excel from DB: {e}")
-                    raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
+    # Check DB
+    try:
+         result = await db.execute(select(IngestHistory).where(IngestHistory.id == session_id))
+         record = result.scalars().first()
+
+         if record and record.preview_data:
+            try:
+                # Generate temp Excel file
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                # Match frontend hidden columns
+                hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
+                dynamic_json_to_excel(record.preview_data, tmp.name, hidden_columns=hidden_columns)
+                
+                filename = f"{record.investor or 'Unknown'}_{record.version or 'v1'}.xlsx"
+                
+                return FileResponse(
+                    tmp.name,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename=filename
+                )
+            except Exception as e:
+                logger.error(f"Error regenerating Excel from DB: {e}")
+                raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
+                
+    except Exception as e:
+         logger.error(f"Error fetching result from DB: {e}")
 
     raise HTTPException(status_code=404, detail="Result file not found or already downloaded.")
 

@@ -4,8 +4,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from config import JWT_SECRET_KEY, JWT_ALGORITHM
-import database
-from bson import ObjectId
+# import database # Removed
+# from bson import ObjectId # Removed
+from sqlalchemy.ext.asyncio import AsyncSession
+from sql_database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -24,9 +26,9 @@ async def get_current_user_id(token: str = Depends(oauth2_scheme)) -> str:
     except JWTError:
         raise credentials_exception
 
-async def get_current_user(user_id: str = Depends(get_current_user_id)):
+async def get_current_user(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
     from auth.models import get_user_by_id
-    user = await get_user_by_id(user_id)
+    user = await get_user_by_id(db, user_id)
     
     if user is None:
         raise HTTPException(
@@ -35,8 +37,9 @@ async def get_current_user(user_id: str = Depends(get_current_user_id)):
         )
     return user
 
-async def get_admin_user(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
+async def get_admin_user(current_user = Depends(get_current_user)):
+    # Check role or is_admin flag
+    if current_user.role != "admin" and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Operation not permitted"
