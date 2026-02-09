@@ -16,6 +16,7 @@ from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from ingest.dscr_config import DSCR_GUIDELINES
+from sql_database import AsyncSessionLocal
 
 # Excel Export Configuration
 DSCR_EXPORT_HEADER_MAP = {
@@ -188,18 +189,19 @@ async def process_dscr_template_comparison(
         if user_id:
             try:
                 from history.models import save_compare_history
-                await save_compare_history({
-                    "user_id": user_id,
-                    "username": username,
-                    "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
-                    "uploaded_file1": file1_name,
-                    "uploaded_file2": file2_name,
-                    "extracted_file": (
-                        f"DSCR_Comparison_{os.path.splitext(file1_name)[0]}_vs_"
-                        f"{os.path.splitext(file2_name)[0]}.xlsx"
-                    ),
-                    "preview_data": results
-                })
+                async with AsyncSessionLocal() as db:
+                    await save_compare_history(db, {
+                        "user_id": user_id,
+                        "username": username,
+                        "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
+                        "uploaded_file1": file1_name,
+                        "uploaded_file2": file2_name,
+                        "extracted_file": (
+                            f"DSCR_Comparison_{os.path.splitext(file1_name)[0]}_vs_"
+                            f"{os.path.splitext(file2_name)[0]}.xlsx"
+                        ),
+                        "preview_data": results
+                    })
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
@@ -512,14 +514,13 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
             g2_val = llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present"
 
             merged_item = {
-                # ✅ Always use template data for these fields (never trust LLM to copy them)
-                "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
+                # ✅ Use template data for these fields to ensure consistency
                 "dscr_parameters": template_item["dscr_parameters"],
-                "category": template_item["variance_category"], # Renamed from variance_category
+                "category": template_item["variance_category"],
                 "sub_category": template_item["sub_category"],
                 "ppe_field_type": template_item["ppe_field_type"],
                 
-                # ✅ Duplicate as 'guideline_1'/'guideline_2' for frontend table compatibility
+                # ✅ Map to 'guideline_1'/'guideline_2' for Excel/UI consistency
                 "guideline_1": g1_val,
                 "guideline_2": g2_val,
 

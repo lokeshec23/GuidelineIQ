@@ -67,13 +67,7 @@ def dynamic_json_to_excel(
     final_headers = []
 
     for h in original_headers:
-        # Check for specific renaming logic matching frontend
-        if h.lower() == "hard_soft_classification":
-            final_headers.append("PPE FIELD TYPE")
-        elif h.lower() == "rule_id":
-             final_headers.append("DSCR PARAMETERS")
-        else:
-             final_headers.append(header_map.get(h, h.replace("_", " ").title()))
+        final_headers.append(header_map.get(h, h.replace("_", " ").title()))
     
     print(f"   - Inferred Columns: {original_headers}")
     print(f"   - Final Excel Headers: {final_headers}")

@@ -1,17 +1,19 @@
-# backend/compare/routes.py
 import os
 import uuid
 import tempfile
 import json
-from bson import ObjectId
-from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Header
+from fastapi import APIRouter, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from compare.schemas import CompareResponse, ComparisonStatus, CompareFromDBRequest
 from compare.processor import process_comparison_background
 from compare.qdrant_compare_processor import process_qdrant_comparison_background
 from compare.dscr_template_processor import process_dscr_template_comparison
 from settings.models import get_user_settings
-from auth.utils import verify_token
+from auth.middleware import get_current_user
+from models.sql_models import User, IngestHistory, CompareHistory
+from sql_database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
 from config import SUPPORTED_MODELS
 import asyncio
@@ -23,24 +25,6 @@ logger = setup_logger(__name__)
 
 router = APIRouter(prefix="/compare", tags=["Compare Guidelines"])
 
-
-async def get_current_user_id_from_token(authorization: str = Header(...)) -> str:
-    """Extract and validate user ID from JWT token"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    
-    token = authorization.split(" ")[1]
-    payload = verify_token(token)
-    
-    if not payload or payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Invalid or expired access token")
-    
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Token does not contain a user ID")
-        
-    return user_id
-
 @router.post("/guidelines", response_model=CompareResponse)
 async def compare_guidelines(
     background_tasks: BackgroundTasks,
@@ -50,15 +34,13 @@ async def compare_guidelines(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
-    user_id: str = Depends(get_current_user_id_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Upload two Excel files and compare them using LLM"""
     
-    """Upload two Excel files and compare them using LLM"""
-    
-    logger.info(f"Comparison request received: File1={file1.filename}, File2={file2.filename}, Provider={model_provider}, Model={model_name}, UserID={user_id}")
+    logger.info(f"Comparison request received: File1={file1.filename}, File2={file2.filename}, Provider={model_provider}, Model={model_name}, UserID={current_user.id}")
 
-    
     # Validate model
     if model_provider not in SUPPORTED_MODELS:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {model_provider}")
@@ -70,20 +52,24 @@ async def compare_guidelines(
         )
     
     # Fetch admin's settings
-    # Fetch admin's settings
-    from database import db_manager
-    admin_user = await db_manager.users.find_one({"role": "admin"})
+    result = await db.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = result.scalars().first()
+    
+    if not admin_user:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalars().first()
+
     if not admin_user:
         raise HTTPException(
             status_code=500, 
             detail="System configuration error. No admin user found."
         )
     
-    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    admin_settings = await get_user_settings(db, str(admin_user.id))
     if not admin_settings:
         raise HTTPException(
             status_code=403, 
-            detail="API keys not configured. Please contact the administrator to configure API keys."
+            detail="API keys not configured. Please contact the administrator."
         )
     
     # Validate file types
@@ -95,48 +81,28 @@ async def compare_guidelines(
                 detail=f"Only Excel files (.xlsx, .xls) are supported. Got: {file.filename}"
             )
 
-    
     # Generate session ID
     session_id = str(uuid.uuid4())
-    
-    # Generate session ID
-    session_id = str(uuid.uuid4())
-    
     logger.info(f"Session: {session_id}")
 
-    
     # Save Excel files temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp1:
         content1 = await file1.read()
         tmp1.write(content1)
         file1_path = tmp1.name
-        tmp1.write(content1)
-        file1_path = tmp1.name
         logger.info(f"File 1 saved: {len(content1) / 1024:.2f} KB")
 
-    
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp2:
         content2 = await file2.read()
         tmp2.write(content2)
         file2_path = tmp2.name
-        tmp2.write(content2)
-        file2_path = tmp2.name
         logger.info(f"File 2 saved: {len(content2) / 1024:.2f} KB")
 
-    
-    # ✅ NEW: Get current user's info for history tracking
-    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
-    if not current_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
     # Initialize progress
     from utils.progress import update_progress
     update_progress(session_id, 0, "Starting comparison...")
     
     # Start background processing
-    # UPDATED: Use DSCR template processor by default to ensure parameters are populated
-    from compare.dscr_template_processor import process_dscr_template_comparison
-    
     background_tasks.add_task(
         process_dscr_template_comparison,
         session_id=session_id,
@@ -149,8 +115,8 @@ async def compare_guidelines(
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        user_id=user_id,  # ✅ NEW: Pass user_id for history
-        username=current_user.get("email", "Unknown"),  # ✅ NEW: Pass username for history
+        user_id=str(current_user.id),
+        username=current_user.email or "Unknown",
     )
     
     return CompareResponse(
@@ -159,7 +125,6 @@ async def compare_guidelines(
         session_id=session_id
     )
 
-
 @router.post("/qdrant", response_model=CompareResponse)
 async def compare_with_qdrant(
     background_tasks: BackgroundTasks,
@@ -167,15 +132,12 @@ async def compare_with_qdrant(
     file2: UploadFile = File(...),
     investor: str = Form(None),
     version: str = Form(None),
-    user_id: str = Depends(get_current_user_id_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
-    """
-    Upload two Excel files and compare them using Qdrant vector search.
-    This method chunks the Excel data, stores it in Qdrant, and uses hybrid search
-    to find matching rows between the two files.
-    """
+    """Upload two Excel files and compare them using Qdrant vector search."""
     
-    logger.info(f"Qdrant comparison request: File1={file1.filename}, File2={file2.filename}, UserID={user_id}")
+    logger.info(f"Qdrant comparison request: File1={file1.filename}, File2={file2.filename}, UserID={current_user.id}")
     
     # Validate file types
     for file in [file1, file2]:
@@ -203,12 +165,6 @@ async def compare_with_qdrant(
         file2_path = tmp2.name
         logger.info(f"File 2 saved: {len(content2) / 1024:.2f} KB")
     
-    # Get current user's info for history tracking
-    from database import db_manager
-    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
-    if not current_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
     # Set defaults if not provided
     investor = investor or "Unknown Investor"
     version = version or "v1"
@@ -227,8 +183,8 @@ async def compare_with_qdrant(
         file2_name=file2.filename,
         investor=investor,
         version=version,
-        user_id=user_id,
-        username=current_user.get("email", "Unknown"),
+        user_id=str(current_user.id),
+        username=current_user.email or "Unknown",
     )
     
     return CompareResponse(
@@ -236,9 +192,6 @@ async def compare_with_qdrant(
         message="Qdrant comparison started",
         session_id=session_id
     )
-
-
-
 
 @router.post("/dscr-template", response_model=CompareResponse)
 async def compare_with_dscr_template(
@@ -249,26 +202,12 @@ async def compare_with_dscr_template(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
-    user_id: str = Depends(get_current_user_id_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
-    """
-    Compare two DSCR guideline Excel files using the DSCR_GUIDELINES template.
+    """Compare two DSCR guideline Excel files using the DSCR_GUIDELINES template."""
     
-    This endpoint:
-    1. Uses the fixed 46 DSCR parameters from dscr_config.py as the template
-    2. Matches values from both uploaded guidelines to each parameter
-    3. Generates a structured comparison with all parameters
-    4. Creates Excel output with columns:
-       - DSCR PARAMETERS
-       - VARIANCE CATEGORIES
-       - SUB CATEGORY
-       - PPE FIELD TYPE
-       - [File1 Name] (Guideline 1 values)
-       - [File2 Name] (Guideline 2 values)
-       - COMPARISON NOTES
-    """
-    
-    logger.info(f"DSCR Template comparison request: File1={file1.filename}, File2={file2.filename}, Provider={model_provider}, Model={model_name}, UserID={user_id}")
+    logger.info(f"DSCR Template comparison request: File1={file1.filename}, File2={file2.filename}, Provider={model_provider}, Model={model_name}, UserID={current_user.id}")
 
     # Validate model
     if model_provider not in SUPPORTED_MODELS:
@@ -281,15 +220,20 @@ async def compare_with_dscr_template(
         )
     
     # Fetch admin's settings
-    from database import db_manager
-    admin_user = await db_manager.users.find_one({"role": "admin"})
+    result = await db.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = result.scalars().first()
+    
+    if not admin_user:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalars().first()
+
     if not admin_user:
         raise HTTPException(
             status_code=500, 
             detail="System configuration error. No admin user found."
         )
     
-    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    admin_settings = await get_user_settings(db, str(admin_user.id))
     if not admin_settings:
         raise HTTPException(
             status_code=403, 
@@ -322,11 +266,6 @@ async def compare_with_dscr_template(
         file2_path = tmp2.name
         logger.info(f"File 2 saved: {len(content2) / 1024:.2f} KB")
 
-    # Get current user's info for history tracking
-    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
-    if not current_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
     # Initialize progress
     from utils.progress import update_progress
     update_progress(session_id, 0, "Starting DSCR template comparison...")
@@ -344,8 +283,8 @@ async def compare_with_dscr_template(
         model_name=model_name,
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        user_id=user_id,
-        username=current_user.get("email", "Unknown"),
+        user_id=str(current_user.id),
+        username=current_user.email or "Unknown",
     )
     
     return CompareResponse(
@@ -354,13 +293,12 @@ async def compare_with_dscr_template(
         session_id=session_id
     )
 
-
-
 @router.post("/from-db", response_model=CompareResponse)
 async def compare_from_db(
     request: CompareFromDBRequest,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_current_user_id_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Compare two guidelines selected from ingestion history"""
     
@@ -368,15 +306,13 @@ async def compare_from_db(
         raise HTTPException(status_code=400, detail="Exactly 2 guidelines must be selected for comparison")
 
     # Fetch history records
-    # Fetch history records
-    from database import db_manager
-    
     records = []
     for record_id in request.ingest_ids:
-        record = await db_manager.ingest_history.find_one({
-            "_id": ObjectId(record_id),
-            "user_id": user_id
-        })
+        result = await db.execute(select(IngestHistory).where(
+            IngestHistory.id == record_id,
+            IngestHistory.user_id == str(current_user.id)
+        ))
+        record = result.scalars().first()
         if not record:
             raise HTTPException(status_code=404, detail=f"Record {record_id} not found")
         records.append(record)
@@ -390,9 +326,9 @@ async def compare_from_db(
     
     try:
         for record in records:
-            preview_data = record.get("preview_data", [])
+            preview_data = record.preview_data or []
             if not preview_data:
-                raise HTTPException(status_code=400, detail=f"No data found for record {record['_id']}")
+                raise HTTPException(status_code=400, detail=f"No data found for record {record.id}")
             
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
@@ -400,8 +336,8 @@ async def compare_from_db(
             file_paths.append(tmp.name)
             
             # Construct filename
-            investor = record.get("investor", "Unknown")
-            version = record.get("version", "v1")
+            investor = record.investor or "Unknown"
+            version = record.version or "v1"
             file_names.append(f"{investor}_{version}.xlsx")
             
     except Exception as e:
@@ -412,26 +348,25 @@ async def compare_from_db(
         raise HTTPException(status_code=500, detail=f"Failed to prepare files: {str(e)}")
 
     # Fetch admin settings
-    # Fetch admin settings
-    from database import db_manager
-    admin_user = await db_manager.users.find_one({"role": "admin"})
+    result = await db.execute(select(User).where(User.role == "admin").limit(1))
+    admin_user = result.scalars().first()
+    
+    if not admin_user:
+        result = await db.execute(select(User).where(User.is_admin == True).limit(1))
+        admin_user = result.scalars().first()
+
     if not admin_user:
         raise HTTPException(status_code=500, detail="System configuration error")
         
-    admin_settings = await get_user_settings(str(admin_user["_id"]))
+    admin_settings = await get_user_settings(db, str(admin_user.id))
     if not admin_settings:
         raise HTTPException(status_code=403, detail="API keys not configured")
 
-    # Get current user info
-    current_user = await db_manager.users.find_one({"_id": ObjectId(user_id)})
-    
     # Start processing
     session_id = str(uuid.uuid4())
     update_progress(session_id, 0, "Initializing from DB...")
     
-    # UPDATED: Use DSCR template processor
-    from compare.dscr_template_processor import process_dscr_template_comparison
-
+    # Start background processing
     background_tasks.add_task(
         process_dscr_template_comparison,
         session_id=session_id,
@@ -444,8 +379,8 @@ async def compare_from_db(
         model_name=request.model_name,
         system_prompt=request.system_prompt,
         user_prompt=request.user_prompt,
-        user_id=user_id,
-        username=current_user.get("email", "Unknown"),
+        user_id=str(current_user.id),
+        username=current_user.email or "Unknown",
     )
     
     return CompareResponse(
@@ -453,7 +388,6 @@ async def compare_from_db(
         message="Comparison started from DB",
         session_id=session_id
     )
-
 
 @router.get("/progress/{session_id}")
 async def progress_stream(session_id: str):
@@ -463,11 +397,8 @@ async def progress_stream(session_id: str):
         retry_count = 0
         max_retries = 600
         
-        max_retries = 600
-        
         logger.info(f"SSE connected: {session_id[:8]}")
 
-        
         while retry_count < max_retries:
             with progress_lock:
                 progress_data = progress_store.get(session_id)
@@ -489,12 +420,8 @@ async def progress_stream(session_id: str):
             await asyncio.sleep(0.5)
             retry_count += 1
         
-            await asyncio.sleep(0.5)
-            retry_count += 1
-        
         logger.info(f"SSE closed: {session_id[:8]}")
 
-    
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -504,7 +431,6 @@ async def progress_stream(session_id: str):
             "X-Accel-Buffering": "no",
         }
     )
-
 
 @router.get("/status/{session_id}", response_model=ComparisonStatus)
 async def get_status(session_id: str):
@@ -522,7 +448,6 @@ async def get_status(session_id: str):
             result_url=f"/compare/download/{session_id}" if data.get("excel_path") else None
         )
 
-
 @router.get("/preview/{session_id}")
 async def get_preview(session_id: str):
     """Get JSON preview data"""
@@ -539,9 +464,8 @@ async def get_preview(session_id: str):
         
         return JSONResponse(content=preview_data)
 
-
 @router.get("/download/{session_id}")
-async def download_result(session_id: str, background_tasks: BackgroundTasks):
+async def download_result(session_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Download the comparison Excel file and cleanup"""
     
     # 1. Try to get from in-memory store
@@ -561,64 +485,62 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks):
                 )
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
-    if ObjectId.is_valid(session_id):
-        from database import db_manager
-        record = await db_manager.compare_history.find_one({"_id": ObjectId(session_id)})
+    try:
+        result = await db.execute(select(CompareHistory).where(CompareHistory.id == session_id))
+        record = result.scalars().first()
         
-        if record and "preview_data" in record:
-            try:
-                # Generate temp Excel file
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                preview_data = record["preview_data"]
+        # Fallback for old sessions that used session_id instead of primary key
+        if not record:
+            result = await db.execute(select(CompareHistory).where(CompareHistory.session_id == session_id))
+            record = result.scalars().first()
+        
+        if record and record.preview_data:
+            # Generate temp Excel file
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+            preview_data = record.preview_data
 
-                # Check if this is a DSCR Template Comparison (based on structure)
-                # DSCR results will have 'dscr_parameters' key
-                is_dscr_template = False
-                if preview_data and len(preview_data) > 0:
-                     if "dscr_parameters" in preview_data[0]:
-                         is_dscr_template = True
+            # Check if this is a DSCR Template Comparison (based on structure)
+            is_dscr_template = False
+            if preview_data and len(preview_data) > 0:
+                 if "dscr_parameters" in preview_data[0]:
+                     is_dscr_template = True
 
-                if is_dscr_template:
-                    from compare.dscr_template_processor import (
-                        DSCR_EXPORT_HEADER_MAP,
-                        DSCR_EXPORT_COLUMN_ORDER,
-                        DSCR_EXPORT_HIDDEN_COLUMNS
-                    )
-                    dynamic_json_to_excel(
-                        preview_data,
-                        tmp.name,
-                        header_map=DSCR_EXPORT_HEADER_MAP,
-                        hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
-                        column_order=DSCR_EXPORT_COLUMN_ORDER
-                    )
-                else:
-                    # Fallback for Qdrant or other comparison types
-                    dynamic_json_to_excel(preview_data, tmp.name)
-                
-                filename = f"comparison_{session_id[:8]}.xlsx"
-                
-                background_tasks.add_task(cleanup_file, path=tmp.name)
-                
-                return FileResponse(
-                    tmp.name,
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
+            if is_dscr_template:
+                from compare.dscr_template_processor import (
+                    DSCR_EXPORT_HEADER_MAP,
+                    DSCR_EXPORT_COLUMN_ORDER,
+                    DSCR_EXPORT_HIDDEN_COLUMNS
                 )
-                return FileResponse(
+                dynamic_json_to_excel(
+                    preview_data,
                     tmp.name,
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
+                    header_map=DSCR_EXPORT_HEADER_MAP,
+                    hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
+                    column_order=DSCR_EXPORT_COLUMN_ORDER
                 )
-            except Exception as e:
-                logger.error(f"Error regenerating Excel from DB: {e}")
-                raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
-
+            else:
+                dynamic_json_to_excel(preview_data, tmp.name)
+            
+            # Construct filename
+            filename = f"comparison_{session_id[:8]}.xlsx"
+            if record.uploaded_file1 and record.uploaded_file2:
+                filename = f"comparison_{record.uploaded_file1}_vs_{record.uploaded_file2}.xlsx"
+            
+            background_tasks.add_task(cleanup_file, path=tmp.name)
+            
+            return FileResponse(
+                tmp.name,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename=filename
+            )
+    except Exception as e:
+        logger.error(f"Error regenerating Excel from DB: {e}")
+        raise HTTPException(status_code=500, detail="Failed to regenerate Excel file")
 
     raise HTTPException(
         status_code=404, 
         detail="Session not found. The file might have already been downloaded or the session expired."
     )
-
 
 def cleanup_file(path: str):
     """Background task to delete a file after download"""
@@ -628,4 +550,3 @@ def cleanup_file(path: str):
             logger.info(f"Cleaned up temporary file: {path}")
     except Exception as e:
         logger.error(f"Error cleaning up file {path}: {e}")
-
