@@ -30,8 +30,6 @@ from chat.routes import router as chat_router
 
 # Startup/Shutdown Management
 from contextlib import asynccontextmanager
-# Startup/Shutdown Management
-from contextlib import asynccontextmanager
 from sql_database import init_db, close_db
 
 @asynccontextmanager
@@ -41,6 +39,7 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
+    logger.info("Initializing database...")
     await init_db()
     logger.info("Application started successfully")
     
