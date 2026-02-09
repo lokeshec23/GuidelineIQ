@@ -16,9 +16,10 @@ encoded_password = quote_plus(DB_PASSWORD)
 
 # Construct the SQL_SERVER_URI
 # Note: Using TrustServerCertificate=yes for local development with ODBC Driver 18
+# Added MARS_Connection=Yes to avoid "Connection is busy" errors during concurrent operations
 SQL_SERVER_URI = os.getenv(
     "SQL_SERVER_URI",
-    f"mssql+aioodbc://{DB_USER}:{encoded_password}@{DB_SERVER}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
+    f"mssql+aioodbc://{DB_USER}:{encoded_password}@{DB_SERVER}:{DB_PORT}/{DB_NAME}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&MARS_Connection=Yes"
 )
 
 # --- JWT Authentication ---

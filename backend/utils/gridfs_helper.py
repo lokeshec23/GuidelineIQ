@@ -30,8 +30,7 @@ async def get_pdf_from_gridfs(db: AsyncSession, file_id: str) -> bytes:
     """
     Retrieve a PDF file from SQL Database by its ID.
     """
-    result = await db.execute(select(File).where(File.id == file_id))
-    file_record = result.scalars().first()
+    file_record = await db.get(File, file_id)
     
     if not file_record:
         raise ValueError(f"File not found: {file_id}")

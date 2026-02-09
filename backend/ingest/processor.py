@@ -89,9 +89,11 @@ async def process_guideline_background(
                     try:
                         logger.info(f"Processing PDF {idx}/{num_files}: {filename}")
                         
-                        # 1. Retrieve PDF from GridFS (using SQL DB)
+                        # 1. Retrieve PDF from GridFS - Use a dedicated session for each concurrent file retrieval
+                        # This prevents "Connection is busy" errors on SQL Server when processing multiple files.
                         from utils.gridfs_helper import get_pdf_from_gridfs
-                        pdf_content = await get_pdf_from_gridfs(db, gridfs_id)
+                        async with AsyncSessionLocal() as sub_db:
+                            pdf_content = await get_pdf_from_gridfs(sub_db, gridfs_id)
                         
                         # 2. Save to temp file
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=f"rag_{session_id[:8]}_{idx}_") as temp_file:
