@@ -78,7 +78,7 @@ async def seed_admin():
             settings_data = {
                 # API Keys
                 "gemini_api_key": os.getenv("GEMINI_API_KEY"),
-                "openai_api_key": os.getenv("OPENAI_API_KEY"),
+                "openai_api_key": os.getenv("AZURE_OPENAI_API_KEY"),
                 
                 # Azure OpenAI Configuration
                 "openai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
@@ -102,7 +102,7 @@ async def seed_admin():
                 "comparison_chunk_size": int(os.getenv("COMPARISON_CHUNK_SIZE", "10")),
                 "max_comparison_chunks": int(os.getenv("MAX_COMPARISON_CHUNKS", "0"))
             }
-            
+            print("Admin Settings", settings_data)
             # Use the settings model to save to user_settings table
             await create_or_update_settings(session, admin_id, settings_data)
             print("✅ Admin settings initialized successfully!")
