@@ -1,3 +1,4 @@
+
 # backend/sql_database.py
 import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -8,7 +9,8 @@ from sqlalchemy import text
 from config import SQL_SERVER_URI, DB_NAME
 
 # Configure logging
-logger = logging.getLogger(__name__)
+from utils.logger import setup_logger
+logger = setup_logger(__name__)
 
 def get_master_uri(uri: str, db_name: str) -> str:
     """Derives the master database URI from the main URI."""
@@ -65,11 +67,9 @@ async def init_db():
                 await conn.execute(text(f"CREATE DATABASE [{DB_NAME}]"))
                 logger.info(f"✅ Database '{DB_NAME}' created successfully.")
             else:
-                logger.info(f"Database '{DB_NAME}' already exists.")
+                logger.debug(f"Database '{DB_NAME}' already exists.")
     except Exception as e:
         logger.error(f"⚠️ Error checking/creating database: {e}")
-        # We continue anyway, as the main engine might still work if it was a false alarm
-        # or it will fail with a clearer error.
     finally:
         await master_engine.dispose()
 
@@ -78,6 +78,20 @@ async def init_db():
         async with engine.begin() as conn:
             # await conn.run_sync(Base.metadata.drop_all) # Uncomment to reset DB
             await conn.run_sync(Base.metadata.create_all)
+            
+            # --- Migration: Handle legacy 'upload_date' in 'files' table ---
+            try:
+                migration_sql = text("""
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE name = 'upload_date' AND object_id = OBJECT_ID('files'))
+                AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'created_at' AND object_id = OBJECT_ID('files'))
+                BEGIN
+                    EXEC sp_rename 'files.upload_date', 'created_at', 'COLUMN'
+                END
+                """)
+                await conn.execute(migration_sql)
+            except Exception as mig_err:
+                logger.warning(f"⚠️ Automatic column migration failed: {mig_err}")
+
         logger.info("✅ SQL Server tables initialized successfully.")
     except Exception as e:
         logger.error(f"❌ Failed to initialize SQL Server tables: {e}")

@@ -144,4 +144,4 @@ class File(Base):
     filename = Column(String(255), nullable=False)
     content_type = Column(String(255), nullable=True)
     content = Column(LargeBinary, nullable=False) # VARBINARY(MAX)
-    upload_date = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
