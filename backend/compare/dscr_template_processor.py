@@ -77,12 +77,35 @@ async def process_dscr_template_comparison(
     excel_path = None
 
     try:
+        # Load parameters from DB
+        from sql_database import AsyncSessionLocal
+        from models.sql_models import DSCRParameter
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(DSCRParameter))
+            db_params = result.scalars().all()
+            
+            db_guidelines = [
+                {
+                    "parameter": p.parameter,
+                    "category": p.category,
+                    "subcategory": p.subcategory,
+                    "ppe_field": p.ppe_field
+                }
+                for p in db_params
+            ]
+
+        if not db_guidelines:
+            from ingest.dscr_config import DSCR_GUIDELINES
+            db_guidelines = DSCR_GUIDELINES
+
         print(f"\n{'='*60}")
         print(f"DSCR Template Comparison started for session {session_id[:8]}")
         print(f"File 1: {file1_name}")
         print(f"File 2: {file2_name}")
         print(f"Model: {model_provider}/{model_name}")
-        print(f"Template: {len(DSCR_GUIDELINES)} DSCR parameters")
+        print(f"Template: {len(db_guidelines)} DSCR parameters")
         print(f"{'='*60}\n")
 
         # Validate prompts - Use defaults if empty
@@ -109,7 +132,7 @@ async def process_dscr_template_comparison(
         update_progress(session_id, 20, "Mapping to DSCR parameter template...")
 
         template_data = build_dscr_template_comparison(
-            data1, data2, file1_name, file2_name
+            data1, data2, file1_name, file2_name, db_guidelines
         )
 
         print(f"✅ Created template with {len(template_data)} DSCR parameters")
@@ -228,7 +251,7 @@ async def process_dscr_template_comparison(
                 print("Temporary file cleaned up.")
 
 
-def detect_parameter_column(data: List[Dict]) -> Optional[str]:
+def detect_parameter_column(data: List[Dict], current_guidelines: List[Dict]) -> Optional[str]:
     """
     Identify the column that likely contains DSCR parameters.
     Checks for standard names and content overlap.
@@ -251,13 +274,13 @@ def detect_parameter_column(data: List[Dict]) -> Optional[str]:
         if name in columns:
             return name
 
-    # 2. Check content overlap with DSCR_GUIDELINES
+    # 2. Check content overlap with DSCR template
     # We want to find a column that contains values like "Purchase", "Cash-Out Refinance"
     best_col = None
     max_overlap = 0
 
     # Create set of normalized template parameters
-    template_params = {str(p["parameter"]).strip().lower() for p in DSCR_GUIDELINES}
+    template_params = {str(p["parameter"]).strip().lower() for p in current_guidelines}
 
     for col in columns:
         matches = 0
@@ -290,7 +313,8 @@ def build_dscr_template_comparison(
     data1: List[Dict],
     data2: List[Dict],
     file1_name: str,
-    file2_name: str
+    file2_name: str,
+    current_guidelines: List[Dict]
 ) -> List[Dict]:
     """
     Build comparison data using DSCR_GUIDELINES as template.
@@ -347,14 +371,14 @@ def build_dscr_template_comparison(
         return best_row
 
     # Detect columns
-    col1 = detect_parameter_column(data1)
-    col2 = detect_parameter_column(data2)
+    col1 = detect_parameter_column(data1, current_guidelines)
+    col2 = detect_parameter_column(data2, current_guidelines)
     
     print(f"📋 Detected parameter column for {file1_name}: {col1}")
     print(f"📋 Detected parameter column for {file2_name}: {col2}")
     
     # Process each DSCR template parameter
-    for template_param in DSCR_GUIDELINES:
+    for template_param in current_guidelines:
         param_name = template_param["parameter"]
         
         # Find matching data from both guidelines

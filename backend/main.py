@@ -27,6 +27,7 @@ from compare.routes import router as compare_router
 from history.routes import router as history_router
 from prompts.routes import router as prompts_router
 from chat.routes import router as chat_router
+from settings.dscr_routes import router as dscr_params_router
 
 # Startup/Shutdown Management
 from contextlib import asynccontextmanager
@@ -79,6 +80,7 @@ app.include_router(compare_router)
 app.include_router(history_router)
 app.include_router(prompts_router)
 app.include_router(chat_router)
+app.include_router(dscr_params_router)
 
 # Health check
 @app.get("/")

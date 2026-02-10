@@ -145,3 +145,17 @@ class File(Base):
     content_type = Column(String(255), nullable=True)
     content = Column(LargeBinary, nullable=False) # VARBINARY(MAX)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class DSCRParameter(Base):
+    """
+    Model for DSCR Parameters configuration.
+    """
+    __tablename__ = "dscr_parameters"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    parameter = Column(String(255), nullable=False)
+    category = Column(String(255), nullable=False)
+    subcategory = Column(String(255), nullable=False)
+    ppe_field = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -290,19 +290,7 @@ class RAGPipeline:
         enable_verification: bool = True
     ) -> Tuple[List[Dict], int]:
         """
-        Complete pipeline: Ingest PDF + Extract DSCR parameters
-        
-        Args:
-            pdf_path: Path to PDF file
-            lender: Lender name
-            program: Program type (DSCR, FULL_ALT, etc.)
-            version: Version identifier
-            gridfs_file_id: Optional GridFS file ID
-            use_ocr_fallback: Whether to use OCR fallback
-            enable_verification: Whether to run verification pass
-        
-        Returns:
-            Tuple of (extraction_results, num_chunks_indexed)
+        Complete pipeline: Ingest PDF + Extract DSCR parameters (from DB)
         """
         logger.info(f"Processing DSCR guidelines for {lender} - {program} v{version}")
         
@@ -322,8 +310,31 @@ class RAGPipeline:
             use_ocr_fallback
         )
         
-        # Load DSCR_GUIDELINES configuration
-        from ingest.dscr_config import DSCR_GUIDELINES
+        # Load DSCR parameters from database
+        from sql_database import AsyncSessionLocal
+        from models.sql_models import DSCRParameter
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(DSCRParameter))
+            db_params = result.scalars().all()
+            
+            # Convert to list of dicts for the extractor
+            parameters_config = [
+                {
+                    "parameter": p.parameter,
+                    "category": p.category,
+                    "subcategory": p.subcategory,
+                    "ppe_field": p.ppe_field
+                }
+                for p in db_params
+            ]
+
+        # Fallback to static config if DB is empty (should not happen if seeded)
+        if not parameters_config:
+            logger.warning("No DSCR parameters found in DB, falling back to static config")
+            from ingest.dscr_config import DSCR_GUIDELINES
+            parameters_config = DSCR_GUIDELINES
         
         # Extract parameters
         filter_conditions = {
@@ -333,7 +344,7 @@ class RAGPipeline:
         }
         
         extraction_results = await self.extract_parameters(
-            parameters_config=DSCR_GUIDELINES,
+            parameters_config=parameters_config,
             filter_conditions=filter_conditions,
             enable_verification=enable_verification
         )

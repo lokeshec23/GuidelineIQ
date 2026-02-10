@@ -33,6 +33,29 @@ async def extract_dscr_parameters_safe(
     print(f"Starting RAG-Based DSCR Extraction for Session: {session_id[:8]}")
     print(f"{'='*60}\n")
     
+    # Load parameters from DB
+    from sql_database import AsyncSessionLocal
+    from models.sql_models import DSCRParameter
+    from sqlalchemy import select
+    
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(DSCRParameter))
+        db_params = result.scalars().all()
+        
+        current_guidelines = [
+            {
+                "parameter": p.parameter,
+                "category": p.category,
+                "subcategory": p.subcategory,
+                "ppe_field": p.ppe_field
+            }
+            for p in db_params
+        ]
+
+    if not current_guidelines:
+        from ingest.dscr_config import DSCR_GUIDELINES
+        current_guidelines = DSCR_GUIDELINES
+
     # Concurrency control
     semaphore = asyncio.Semaphore(10)
     
@@ -147,11 +170,11 @@ async def extract_dscr_parameters_safe(
                 }
 
     # Execute
-    tasks = [process_one(g) for g in DSCR_GUIDELINES]
+    tasks = [process_one(g) for g in current_guidelines]
     results = await asyncio.gather(*tasks)
     
     # Generate Excel
-    filepath = create_dscr_excel(results, session_id, investor, version)
+    filepath = create_dscr_excel(results, session_id, investor, version, current_guidelines)
     return filepath, results
 
 
@@ -168,25 +191,8 @@ async def extract_dscr_parameters_multi_pdf(
 ) -> Tuple[str, List[Dict]]:
     """
     Extracts DSCR parameters from multiple PDFs by searching across ALL PDFs.
-    
-    Extracts DSCR parameters using the production-grade RAG Pipeline.
-    
-    Args:
-        session_id: Session identifier
-        gridfs_file_ids: List of GridFS file IDs
-        filenames: List of filenames
-        rag_service: Legacy RAG service (unused in new pipeline)
-        llm: Legacy LLM provider (unused in new pipeline)
-        investor: Investor/Lender name
-        version: Guideline version
-        user_settings: User settings dict
-        pipeline: Existing RAGPipeline instance (optional)
-
-    Returns:
-        Tuple[str, List[Dict]]: (Path to Excel file, Extraction results)
     """
     from rag_pipeline.models import ProgramType
-    from ingest.dscr_config import DSCR_GUIDELINES
     
     logger.info(f"Starting RAG Pipeline DSCR Extraction for {len(filenames)} files")
     
@@ -198,9 +204,30 @@ async def extract_dscr_parameters_multi_pdf(
     else:
         logger.info("Using existing RAGPipeline instance for extraction")
     
+    # Load DSCR parameters from database
+    from sql_database import AsyncSessionLocal
+    from models.sql_models import DSCRParameter
+    from sqlalchemy import select
+    
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(DSCRParameter))
+        db_params = result.scalars().all()
+        
+        parameters_config = [
+            {
+                "parameter": p.parameter,
+                "category": p.category,
+                "subcategory": p.subcategory,
+                "ppe_field": p.ppe_field
+            }
+            for p in db_params
+        ]
+
+    if not parameters_config:
+        from ingest.dscr_config import DSCR_GUIDELINES
+        parameters_config = DSCR_GUIDELINES
+
     # Define filter conditions for Qdrant retrieval
-    # Note: We filter by lender and version. The pipeline will search across all 
-    # chunks matching these criteria, effectively aggregating from all ingested PDFs.
     filter_conditions = {
         "lender": investor,
         "version": version
@@ -209,14 +236,12 @@ async def extract_dscr_parameters_multi_pdf(
     # Add program type if available in settings, otherwise default to DSCR
     program_type = user_settings.get("program_type", "DSCR")
     if program_type:
-         # Map to Enum string value if valid, else keep original
-         # (Qdrant filter matches string values)
          filter_conditions["program"] = program_type
     
     try:
         # Execute Extraction with Verification
         final_results = await pipeline.extract_parameters(
-            parameters_config=DSCR_GUIDELINES,
+            parameters_config=parameters_config,
             filter_conditions=filter_conditions,
             enable_verification=True
         )
@@ -353,14 +378,14 @@ Be concise but complete. If information is consistent across PDFs, state it once
     ]
     final_results = await asyncio.gather(*tasks)
     
-    # Sort by parameter order from config
-    param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
+    # Sort by parameter order from current config
+    param_order = {item['parameter']: i for i, item in enumerate(aggregated_by_parameter.keys())}
     final_results.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
     
     print(f"Summarization complete for {len(final_results)} parameters")
     return final_results
 
-def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version: str) -> str:
+def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version: str, current_guidelines: List[Dict] = None) -> str:
     wb = Workbook()
     ws = wb.active
     ws.title = "DSCR 1-4 RAG Output"
@@ -394,9 +419,10 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
             cell.fill = header_fill_blue
 
     # Sort results to match config order
-    # Create a map of param -> index from config
-    param_order = {item['parameter']: i for i, item in enumerate(DSCR_GUIDELINES)}
-    data.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
+    # Create a map of param -> index from current guidelines
+    if current_guidelines:
+        param_order = {item['parameter']: i for i, item in enumerate(current_guidelines)}
+        data.sort(key=lambda x: param_order.get(x['DSCR_Parameters'], 999))
 
     thin_border = Border(left=Side(style='thin'), 
                          right=Side(style='thin'), 

@@ -130,6 +130,11 @@ const MainLayout = ({ children }) => {
         icon: <TeamOutlined />,
         label: "Management",
       },
+      {
+        key: "/config-parameters",
+        icon: <SettingOutlined />,
+        label: "Config Parameters",
+      },
     ];
 
     const accessibleItems = baseItems.filter(
@@ -137,7 +142,7 @@ const MainLayout = ({ children }) => {
         if (item.key === "/ingestion-prompt" || item.key === "/comparison-prompt") {
           return false;
         }
-        if (item.key === "/management" && !isAdmin) {
+        if ((item.key === "/management" || item.key === "/config-parameters") && !isAdmin) {
           return false;
         }
         return item.key !== "/settings" || isAdmin;
