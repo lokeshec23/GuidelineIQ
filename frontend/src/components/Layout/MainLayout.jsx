@@ -15,6 +15,7 @@ import {
   ArrowRightOutlined,
   EditOutlined,
   TeamOutlined,
+  SlidersOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -132,7 +133,7 @@ const MainLayout = ({ children }) => {
       },
       {
         key: "/config-parameters",
-        icon: <SettingOutlined />,
+        icon: <SlidersOutlined />,
         label: "Config Parameters",
       },
     ];
