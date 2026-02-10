@@ -69,7 +69,7 @@ async def process_guideline_background(
 
             # === STEP 1: Process Each PDF with RAG Pipeline ===
             from rag_pipeline.pipeline import RAGPipeline
-            from rag_pipeline.models import DocumentPayload, ProgramType
+            from rag_pipeline.models import DocumentPayload, ProgramType, Chunk, ChunkType
             
             # Initialize Pipeline
             pipeline = RAGPipeline()
@@ -277,19 +277,14 @@ async def process_guideline_background(
                             }
                         })
 
-                    print(f"📋 Found {len(dscr_results)} total DSCR parameters")
-                    print(f"📋 Prepared {len(items_to_embed)} rules for indexing (skipped NA/empty entries)")
+                    logger.info(f"📋 Found {len(dscr_results)} total DSCR parameters")
+                    logger.info(f"📋 Prepared {len(items_to_embed)} rules for indexing (skipped NA/empty entries)")
 
-                    # Helper for embedding (similar to PDF chunks)
+                    # Helper for embedding (consistent with PDF chunks)
                     async def embed_rule(item):
                         try:
-                            emb = await rag_service.get_embedding(
-                                item["text"], 
-                                rag_provider, 
-                                api_key,
-                                azure_endpoint=user_settings.get("openai_endpoint"),
-                                azure_embedding_deployment=user_settings.get("openai_embedding_deployment", "embedding-model")
-                            )
+                            # Use pipeline's embedder (AzureEmbedder) for consistency with search
+                            emb = await pipeline.embedder.generate_embedding_async(item["text"])
                             item["embedding"] = emb
                             return item
                         except Exception as e:
@@ -298,22 +293,53 @@ async def process_guideline_background(
 
 
                     # Generate embeddings in parallel
-                    print(f"🔄 Generating embeddings for {len(items_to_embed)} DSCR rules...")
+                    logger.info(f"🔄 Generating embeddings for {len(items_to_embed)} DSCR rules...")
                     embedded_rules = await asyncio.gather(*[embed_rule(item) for item in items_to_embed])
                     
                     # Filter out failures
                     valid_rules = [r for r in embedded_rules if r and r.get("embedding")]
                     
                     if valid_rules:
-                        print(f"💾 Storing {len(valid_rules)} rules to FAISS vector database...")
-                        await rag_service.add_documents_async(valid_rules, batch_size=100)
-                        print(f"✅ RAG: Stored {len(valid_rules)} derived DSCR rules in Vector DB.")
-                        print(f"✅ Excel mode search is now ENABLED for this session!")
+                        # Convert to Chunk objects for Qdrant/Hybrid indexing
+                        chunks_for_indexing = []
+                        for r in valid_rules:
+                            chunks_for_indexing.append(Chunk(
+                                id=r["id"],
+                                text=r["text"],
+                                chunk_type=ChunkType.EXCEL_ROW,
+                                section_path=f"{r['metadata'].get('investor')} > {r['metadata'].get('version')} > {r['metadata'].get('parameter')}",
+                                page_start=0,
+                                page_end=0,
+                                metadata=r["metadata"],
+                                embedding=r["embedding"]
+                            ))
+
+                        # Prepare doc payload for Qdrant indexing
+                        rule_payload = DocumentPayload(
+                            lender=investor,
+                            program=ProgramType.DSCR,
+                            version=version,
+                            filename="Extracted_Rules.xlsx",
+                            gridfs_file_id=gridfs_file_ids[0]
+                        )
+                        
+                        logger.info(f"💾 Storing {len(chunks_for_indexing)} rules to Qdrant vector database...")
+                        await pipeline.qdrant_manager.index_chunks_async(
+                            chunks_for_indexing,
+                            rule_payload,
+                            batch_size=100
+                        )
+                        
+                        # Also index for BM25 within the current pipeline instance
+                        pipeline.hybrid_retriever.index_chunks(chunks_for_indexing)
+                        
+                        logger.info(f"✅ RAG: Stored {len(chunks_for_indexing)} derived DSCR rules in Qdrant.")
+                        logger.info("✅ Excel mode search is now ENABLED for this session!")
                     else:
-                        print("⚠️ No valid DSCR rules to index.")
+                        logger.warning("⚠️ No valid DSCR rules to index.")
 
                 except Exception as idx_err:
-                     print(f"⚠️ Failed to index extracted rules: {idx_err}")
+                     logger.error(f"⚠️ Failed to index extracted rules: {idx_err}")
                      traceback.print_exc()
 
             except Exception as dscr_err:

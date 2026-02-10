@@ -252,20 +252,15 @@ class QdrantManager:
             # Format results
             results = []
             for hit in search_results:
+                payload = hit.payload
+                # Core fields to exclude from metadata (since they are in top-level Chunk)
+                core_fields = ["chunk_id", "text", "chunk_type", "section_path", "page_start", "page_end"]
+                
                 results.append({
-                    "id": hit.payload.get("chunk_id"),
-                    "text": hit.payload.get("text"),
+                    "id": payload.get("chunk_id"),
+                    "text": payload.get("text"),
                     "score": hit.score,
-                    "metadata": {
-                        "lender": hit.payload.get("lender"),
-                        "program": hit.payload.get("program"),
-                        "version": hit.payload.get("version"),
-                        "section_path": hit.payload.get("section_path"),
-                        "chunk_type": hit.payload.get("chunk_type"),
-                        "page_start": hit.payload.get("page_start"),
-                        "page_end": hit.payload.get("page_end"),
-                        "filename": hit.payload.get("filename")
-                    }
+                    "metadata": {k: v for k, v in payload.items() if k not in core_fields}
                 })
             
             return results

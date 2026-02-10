@@ -146,52 +146,65 @@ async def chat_with_session(
 
     text_context = ""
     
-    # STRATEGY 1: Comparison Session (Use direct preview_data)
+    # STRATEGY 1: Comparison Session (Use formatted preview_data)
     # Comparison sessions don't have gridfs_file_id, but have preview_data
     if not gridfs_file_id and preview_data:
-        logger.info(f"Using embedded preview_data for context ({len(preview_data)} items)")
+        logger.info(f"Using formatted preview_data for context ({len(preview_data)} items)")
         try:
-             text_context = json.dumps(preview_data, indent=2, default=str)
+            # Convert list of comparison results to a readable format for the LLM
+            context_parts = []
+            for item in preview_data[:100]: # Safety limit
+                param = item.get("dscr_parameters") or item.get("parameter") or "Unknown"
+                g1 = item.get("guideline_1") or item.get("guideline_1_value") or "N/A"
+                g2 = item.get("guideline_2") or item.get("guideline_2_value") or "N/A"
+                notes = item.get("comparison_notes") or ""
+                
+                context_parts.append(f"Parameter: {param}\nGuideline 1: {g1}\nGuideline 2: {g2}\nNotes: {notes}\n")
+            
+            text_context = "-- COMPARISON RESULTS --\n" + "\n".join(context_parts)
         except Exception as e:
-             logger.error(f"Failed to serialize preview_data: {e}")
-             text_context = str(preview_data)
+             logger.error(f"Failed to format preview_data: {e}")
+             text_context = str(preview_data)[:10000] # Fallback to truncated string
 
     # STRATEGY 2: Ingestion Session (Use RAG)
     elif gridfs_file_id:
         filter_metadata = {}
         
+        # Base filters
+        if investor:
+            filter_metadata["lender"] = investor
+        if version:
+            filter_metadata["version"] = version
+
+        # Mode-specific filtering
         if mode == "excel":
-            if investor:
-                filter_metadata["lender"] = investor
-            if version:
-                filter_metadata["version"] = version
-        elif mode == "pdf":
-            if investor:
-                filter_metadata["lender"] = investor
-            if version:
-                filter_metadata["version"] = version
+            # CRITICAL: Only search extracted rules in Excel mode
+            filter_metadata["type"] = "excel_rule"
+            logger.info("Excel Mode: Filtering for 'type: excel_rule'")
         else:
-            raise HTTPException(status_code=400, detail="Invalid mode. Use 'pdf' or 'excel'")
+            # In PDF mode, we want the document chunks. 
+            # We don't have a negative filter in current QdrantManager, 
+            # but usually 'type' is only set for excel_rules.
+            logger.info("PDF Mode: Searching document chunks")
      
         logger.info(f"RAG Search ({mode}): '{message}' | Filter: {filter_metadata}")
         
         # Initialize HybridRetriever
         hybrid_retriever = HybridRetriever()
 
-        # Load context for BM25
+        # Load context for BM25 (This is the bottleneck - adding filters helps)
         hybrid_retriever.load_context(filter_metadata)
 
         # Perform Search
         results = await hybrid_retriever.search(
             query=message,
             filter_conditions=filter_metadata,
-            top_k=100  # ✅ Fetch more results to capture "all" chunks for broad queries
+            top_k=50  # Balanced for context quality and speed
         )
         
         if not results:
             logger.warning(f"RAG search returned 0 results for query: '{message}'")
-            # Requirement: "if result not found means show Result not found!"
-            reply = "Result not found!"
+            reply = "Result not found in the documents."
             await save_chat_message_with_conversation(db, session_id, conversation_id, "user", message)
             await save_chat_message_with_conversation(db, session_id, conversation_id, "assistant", reply)
 
@@ -206,14 +219,12 @@ async def chat_with_session(
 
         context_parts = []
         for res in results:
-            # res is RetrievalResult object
             chunk = res.chunk
-            # res.chunk.metadata has info
             meta = chunk.metadata
             filename = meta.get('filename', 'Unknown')
-            page_info = f"Page {chunk.page_start}" if chunk.page_start else "Unknown"
+            page_info = f"Page {chunk.page_start}" if chunk.page_start else "Source: Extracted Rules"
             
-            context_parts.append(f"--- [Text | {filename} - {page_info}] ---\n{chunk.text}\n")
+            context_parts.append(f"--- [{filename} - {page_info}] ---\n{chunk.text}\n")
         
         text_context = "\n".join(context_parts)
         logger.info(f"RAG found {len(results)} items.")
@@ -229,20 +240,21 @@ async def chat_with_session(
         # Define mode-specific context instructions
         mode_instruction = ""
         if mode == "excel":
-            mode_instruction = "You are analyzing specific mortgage guidelines extracted into an Excel format. Answer strictly based on the provided rules."
+            mode_instruction = "You are analyzing specific mortgage guidelines extracted into a structured format. Answer strictly based on the provided rules."
+        elif not gridfs_file_id and preview_data:
+            mode_instruction = "You are analyzing a COMPARISON between two mortgage guidelines. Explain the differences or details as requested based on the provided comparison summary."
         else:
-             mode_instruction = "You are analyzing a mortgage guideline PDF document. Answer strictly based on the provided text."
+             mode_instruction = "You are analyzing a mortgage guideline document. Answer strictly based on the provided text."
 
         if text_context and text_context != "No relevant info found in the document index.":
             citation_instruction = f"""
             
 STRICT INSTRUCTIONS:
 1. {mode_instruction}
-2. Answer ONLY based on the provided context. Do NOT use your general knowledge or training data.
-3. If the context does not contain the answer, explicitly state: "I cannot find specific information about [topic] in the provided content."
-4. If the user query is a broad topic (e.g., "income", "credit", "assets"), provide a comprehensive summary of all requirements found in the context. Organize the summary logically (e.g., using bullet points or sections).
-
-IMPORTANT: Provide direct, clear answers without referencing source documents or page numbers.
+2. Answer ONLY based on the provided context. Do NOT use your general knowledge.
+3. If the context does not contain the answer, state: "I cannot find specific information about [topic] in the provided content."
+4. If the query is broad, provide a logical summary using bullet points.
+5. Provide direct answers without referencing page numbers or internal technical IDs.
 """
             enhanced_instructions = (enhanced_instructions + citation_instruction).strip()
         
