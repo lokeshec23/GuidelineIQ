@@ -121,21 +121,21 @@ const MainLayout = ({ children }) => {
         label: "Comparison Prompt",
       },
       {
-        key: "/settings",
-        icon: <SettingOutlined />,
-        label: "Settings",
+        key: "/config-parameters",
+        icon: <SlidersOutlined />,
+        label: "Config Parameters",
       },
-
       {
         key: "/management",
         icon: <TeamOutlined />,
         label: "Management",
       },
       {
-        key: "/config-parameters",
-        icon: <SlidersOutlined />,
-        label: "Config Parameters",
+        key: "/settings",
+        icon: <SettingOutlined />,
+        label: "Settings",
       },
+
     ];
 
     const accessibleItems = baseItems.filter(

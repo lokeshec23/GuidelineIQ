@@ -136,7 +136,7 @@ const ConfigParametersPage = () => {
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <Title level={2}>Config Parameters</Title>
-                    <p className="text-gray-500 text-base">Manage DSCR Parameters for extraction and mapping</p>
+                    <p className="text-gray-500 text-base">Manage parameters for extraction and mapping</p>
                 </div>
                 <Button
                     type="primary"
