@@ -221,7 +221,7 @@ const ConfigParametersPage = () => {
                         <Select placeholder="Select field type" className="h-10" dropdownClassName="rounded-lg">
                             <Option value="Hard">Hard</Option>
                             <Option value="Soft">Soft</Option>
-                            <Option value="Text">Text</Option>
+                            {/* <Option value="Text">Text</Option> */}
                         </Select>
                     </Form.Item>
                 </Form>
