@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sql_database import get_db
-from auth.models import find_user_by_email, create_user, get_all_users, get_user_by_id
-from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh
+from auth.models import find_user_by_email, create_user, get_all_users, get_user_by_id, update_user_password
+from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, ResetPassword
 from auth.utils import hash_password, verify_password, create_tokens, verify_token
 from utils.logger import setup_logger
 from datetime import datetime
@@ -116,6 +116,41 @@ async def refresh_token(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
 
 
     return JSONResponse({"access_token": new_access_token})
+
+
+# ✅ Forgot Password - Check if email exists
+@router.post("/forgot-password/check")
+async def forgot_password_check(data: ForgotPasswordCheck, db: AsyncSession = Depends(get_db)):
+    user = await find_user_by_email(db, data.email)
+    if not user:
+        logger.info(f"Forgot password check: email not found - {data.email}")
+        raise HTTPException(status_code=404, detail="Email not registered")
+    
+    logger.info(f"Forgot password check: email found - {data.email}")
+    return JSONResponse({"exists": True, "message": "Email found. You can reset your password."})
+
+
+# ✅ Forgot Password - Reset password
+@router.post("/forgot-password/reset")
+async def forgot_password_reset(data: ResetPassword, db: AsyncSession = Depends(get_db)):
+    # Verify passwords match (also validated in schema)
+    if data.new_password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    # Check if user exists
+    user = await find_user_by_email(db, data.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not registered")
+    
+    # Hash and update password
+    hashed_pw = hash_password(data.new_password)
+    updated_user = await update_user_password(db, data.email, hashed_pw)
+    
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to update password")
+    
+    logger.info(f"Password reset successful for: {data.email}")
+    return JSONResponse({"message": "Password updated successfully!"})
 
 
 # ✅ Get all users (Admin only)

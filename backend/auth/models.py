@@ -38,3 +38,13 @@ async def get_all_users(db: AsyncSession):
     """Retrieve all users from the database."""
     result = await db.execute(select(User))
     return result.scalars().all()
+
+async def update_user_password(db: AsyncSession, email: str, hashed_password: str):
+    """Update a user's password by their email."""
+    user = await find_user_by_email(db, email)
+    if not user:
+        return None
+    user.hashed_password = hashed_password
+    await db.commit()
+    await db.refresh(user)
+    return user

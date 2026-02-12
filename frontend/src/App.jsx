@@ -10,6 +10,7 @@ import LoadingFallback from "./components/common/LoadingFallback";
 // Lazy load page components
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/Auth/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/Auth/ForgotPasswordPage"));
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage"));
 const IngestPage = lazy(() => import("./pages/Ingest/IngestPage"));
 const ComparePage = lazy(() => import("./pages/Compare/ComparePage"));
@@ -87,6 +88,14 @@ function AppRoutes() {
           element={
             <PublicRoute>
               <RegisterPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
             </PublicRoute>
           }
         />

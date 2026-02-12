@@ -48,3 +48,22 @@ class TokenResponse(BaseModel):
 # Schema for refresh request
 class TokenRefresh(BaseModel):
     refresh_token: str
+
+
+# Schema for forgot password - check email
+class ForgotPasswordCheck(BaseModel):
+    email: EmailStr
+
+
+# Schema for reset password
+class ResetPassword(BaseModel):
+    email: EmailStr
+    new_password: str = Field(..., min_length=6, max_length=16)
+    confirm_password: str
+
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v: str, info) -> str:
+        if 'new_password' in info.data and v != info.data['new_password']:
+            raise ValueError('Passwords do not match')
+        return v
