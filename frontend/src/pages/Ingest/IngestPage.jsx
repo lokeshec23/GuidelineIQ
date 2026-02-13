@@ -27,7 +27,7 @@ import {
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
-import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
 import { IngestSkeleton } from "../../components/common/SkeletonLoader";
 
@@ -136,7 +136,7 @@ const IngestPage = () => {
 
     try {
       setProcessing(true);
-      setProgress(0); // Reset progress
+      setProgress(25); // Set to 25% initially for immediate feedback
       setProgressMessage("Starting ingestion...");
       setProcessingModalVisible(true);
 
@@ -201,7 +201,10 @@ const IngestPage = () => {
       es.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
-          setProgress(data.progress || 0);
+          // Map server progress (0-100) to UI progress (25-100)
+          const serverProgress = data.progress || 0;
+          const displayProgress = Math.max(25, 25 + (serverProgress * 0.75));
+          setProgress(displayProgress);
           setProgressMessage(data.message || "Processing...");
 
           if (data.status === "completed" || data.progress >= 100) {
@@ -618,19 +621,21 @@ const IngestPage = () => {
       </Modal>
 
       {/* Preview Modal */}
-      <ExcelPreviewModal
-        visible={previewModalVisible}
-        onClose={() => setPreviewModalVisible(false)}
-        title="Extraction Results"
-        data={previewData}
-        columns={previewColumns}
-        sessionId={sessionId}
-        onDownload={() => {
-          if (sessionId) {
-            ingestAPI.downloadExcel(sessionId);
-          }
-        }}
-      />
+      <React.Suspense fallback={<Modal open={previewModalVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+        <ExcelPreviewModal
+          visible={previewModalVisible}
+          onClose={() => setPreviewModalVisible(false)}
+          title="Extraction Results"
+          data={previewData}
+          columns={previewColumns}
+          sessionId={sessionId}
+          onDownload={() => {
+            if (sessionId) {
+              ingestAPI.downloadExcel(sessionId);
+            }
+          }}
+        />
+      </React.Suspense>
     </div>
   );
 };

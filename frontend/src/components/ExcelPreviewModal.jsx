@@ -21,8 +21,8 @@ import {
     LoadingOutlined,
     FilePdfOutlined,
 } from "@ant-design/icons";
-import ChatInterface from "./ChatInterface";
-import PdfViewerModal from "./PdfViewerModal";
+const ChatInterface = React.lazy(() => import("./ChatInterface"));
+const PdfViewerModal = React.lazy(() => import("./PdfViewerModal"));
 import { API_BASE_URL } from "../services/api";
 
 const ExcelPreviewModal = ({
@@ -670,29 +670,33 @@ const ExcelPreviewModal = ({
 
             {/* Chat Dialog */}
             {visible && chatVisible && (
-                <ChatInterface
-                    visible={true}
-                    onClose={() => setChatVisible(false)}
-                    data={data}
-                    sessionId={sessionId}
-                    isComparisonMode={isComparisonMode}
-                    onOpenPdf={() => setPdfViewerVisible(true)}
-                />
+                <React.Suspense fallback={<div className="fixed bottom-6 right-6 z-[1050]"><Spin tip="Loading chat..." /></div>}>
+                    <ChatInterface
+                        visible={true}
+                        onClose={() => setChatVisible(false)}
+                        data={data}
+                        sessionId={sessionId}
+                        isComparisonMode={isComparisonMode}
+                        onOpenPdf={() => setPdfViewerVisible(true)}
+                    />
+                </React.Suspense>
             )}
 
             {/* PDF Viewer Modal */}
             {sessionId && (
-                <PdfViewerModal
-                    visible={pdfViewerVisible}
-                    onClose={() => {
-                        setPdfViewerVisible(false);
-                        setPdfTargetPage(null);
-                    }}
-                    sessionId={sessionId}
-                    title="PDF Document"
-                    initialPage={pdfTargetPage}
-                    initialFileIndex={0}
-                />
+                <React.Suspense fallback={<Modal open={pdfViewerVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading PDF Viewer..." /></div></Modal>}>
+                    <PdfViewerModal
+                        visible={pdfViewerVisible}
+                        onClose={() => {
+                            setPdfViewerVisible(false);
+                            setPdfTargetPage(null);
+                        }}
+                        sessionId={sessionId}
+                        title="PDF Document"
+                        initialPage={pdfTargetPage}
+                        initialFileIndex={0}
+                    />
+                </React.Suspense>
             )}
         </>
     );

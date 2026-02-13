@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs } from "antd";
+import { Table, Button, Space, Tabs, Modal, Spin } from "antd";
 import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
-import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import ConfirmModal from "../../components/ConfirmModal";
 import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
@@ -510,19 +510,21 @@ const DashboardPage = () => {
             </Tabs>
 
             {/* Preview Modal */}
-            <ExcelPreviewModal
-                visible={previewVisible}
-                onClose={() => setPreviewVisible(false)}
-                title={`Preview: ${previewTitle}`}
-                data={previewData}
-                columns={previewColumns}
-                showRowCount={false}
-                pageSize={20}
-                onDownload={handleDownload}
-                sessionId={previewRecord?.id}
-                isComparisonMode={activeTab === "compare"}
-                filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
-            />
+            <React.Suspense fallback={<Modal open={previewVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+                <ExcelPreviewModal
+                    visible={previewVisible}
+                    onClose={() => setPreviewVisible(false)}
+                    title={`Preview: ${previewTitle}`}
+                    data={previewData}
+                    columns={previewColumns}
+                    showRowCount={false}
+                    pageSize={20}
+                    onDownload={handleDownload}
+                    sessionId={previewRecord?.id}
+                    isComparisonMode={activeTab === "compare"}
+                    filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
+                />
+            </React.Suspense>
 
             {/* Delete Confirmation Modal */}
             <ConfirmModal
