@@ -6,6 +6,7 @@ import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { DashboardSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TabPane } = Tabs;
 
@@ -419,6 +420,10 @@ const DashboardPage = () => {
             },
         ];
     }, [activeTab, previewData]);
+
+    if (loading && ingestHistory.length === 0 && compareHistory.length === 0) {
+        return <DashboardSkeleton />;
+    }
 
     return (
         <div style={{

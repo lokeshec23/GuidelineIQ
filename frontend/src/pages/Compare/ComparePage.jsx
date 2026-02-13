@@ -33,6 +33,7 @@ import { useAuth } from "../../context/AuthContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import { showToast } from "../../utils/toast";
+import { CompareSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -63,6 +64,7 @@ const ComparePage = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedDbRecords, setSelectedDbRecords] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     fetchModelsAndSettings();
@@ -112,6 +114,8 @@ const ComparePage = () => {
         model_name: "gpt-4o",
       });
       setSelectedProvider("openai");
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -414,6 +418,10 @@ const ComparePage = () => {
       ),
     },
   ];
+
+  if (pageLoading) {
+    return <CompareSkeleton />;
+  }
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto">

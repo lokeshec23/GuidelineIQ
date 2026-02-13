@@ -29,6 +29,7 @@ import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
 import ExcelPreviewModal from "../../components/ExcelPreviewModal";
 import { showToast, getErrorMessage } from "../../utils/toast";
+import { IngestSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -53,12 +54,15 @@ const IngestPage = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
+  const [pageLoading, setPageLoading] = useState(true);
+
   useEffect(() => {
     fetchModelsAndSettings();
   }, []);
 
   const fetchModelsAndSettings = async () => {
     try {
+      setPageLoading(true);
       // Fetch supported models (available to all users)
       const modelsRes = await settingsAPI.getSupportedModels();
       setSupportedModels(modelsRes.data);
@@ -100,6 +104,8 @@ const IngestPage = () => {
         model_name: "gpt-4o",
       });
       setSelectedProvider("openai");
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -347,6 +353,10 @@ const IngestPage = () => {
       };
     });
   }, [previewData]);
+
+  if (pageLoading) {
+    return <IngestSkeleton />;
+  }
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto">

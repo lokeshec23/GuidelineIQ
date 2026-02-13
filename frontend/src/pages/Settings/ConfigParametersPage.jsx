@@ -3,6 +3,7 @@ import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Pop
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 import { dscrAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { TableSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -149,26 +150,30 @@ const ConfigParametersPage = () => {
                 </Button>
             </div>
 
-            <Card className="shadow-sm border-gray-200 rounded-xl overflow-hidden" bordered={false}>
-                <div className="mb-4">
-                    <Input
-                        placeholder="Search parameters or categories..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
-                        value={searchText}
-                        onChange={e => setSearchText(e.target.value)}
-                        className="max-w-md h-10 rounded-lg"
-                        allowClear
+            {loading ? (
+                <TableSkeleton rows={12} columns={5} />
+            ) : (
+                <Card className="shadow-sm border-gray-200 rounded-xl overflow-hidden" bordered={false}>
+                    <div className="mb-4">
+                        <Input
+                            placeholder="Search parameters or categories..."
+                            prefix={<SearchOutlined className="text-gray-400" />}
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                            className="max-w-md h-10 rounded-lg"
+                            allowClear
+                        />
+                    </div>
+                    <Table
+                        columns={columns}
+                        dataSource={filteredParameters}
+                        rowKey="id"
+                        loading={loading}
+                        pagination={{ pageSize: 12, showSizeChanger: true }}
+                        className="custom-table"
                     />
-                </div>
-                <Table
-                    columns={columns}
-                    dataSource={filteredParameters}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{ pageSize: 12, showSizeChanger: true }}
-                    className="custom-table"
-                />
-            </Card>
+                </Card>
+            )}
 
             <Modal
                 title={editingParam ? "Edit DSCR Parameter" : "Add DSCR Parameter"}

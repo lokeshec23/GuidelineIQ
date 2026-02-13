@@ -5,6 +5,7 @@ import { Form, Input, Button, Spin, Card, Tabs, Select } from "antd";
 import { SaveOutlined, ReloadOutlined } from "@ant-design/icons";
 import { promptsAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { PromptsSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TextArea } = Input;
 
@@ -113,11 +114,7 @@ const ComparisonPromptPage = () => {
   };
 
   if (fetching) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Spin size="large" />
-      </div>
-    );
+    return <PromptsSkeleton />;
   }
 
   const tabItems = [
