@@ -11,30 +11,23 @@ ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your_secure_password
 ```
 
-## Optional API Configuration
+## API Configuration
 
-### Gemini API
+### Azure OpenAI (Required)
 ```bash
-### GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-### OpenAI API
-```bash
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-### Azure OpenAI Configuration
-```bash
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key_here
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=embedding-model
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-## Optional Model Configuration
+## Model Configuration
 
 ### Default Model Settings
 ```bash
-DEFAULT_MODEL_PROVIDER=gemini  # or "openai"
-DEFAULT_MODEL_NAME=gemini-2.5-pro  # or "gpt-4o", etc.
+DEFAULT_MODEL_PROVIDER=openai
+DEFAULT_MODEL_NAME=gpt-4o
 ```
 
 ### LLM Parameters
@@ -58,8 +51,8 @@ MAX_COMPARISON_CHUNKS=0  # 0 means no limit
 ## Usage
 
 1. Create a `.env` file in the `backend` directory
-2. Add the required variables (admin credentials)
-3. Add any optional variables you want to configure
+2. Add the required variables (admin credentials + Azure OpenAI)
+3. Add any optional parameters you want to configure
 4. Run the seed script:
 
 ```bash
@@ -75,17 +68,15 @@ ADMIN_USERNAME=admin
 ADMIN_EMAIL=admin@guidelineiq.com
 ADMIN_PASSWORD=SecurePassword123!
 
-# API Keys
-### GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-# Azure OpenAI (if using Azure)
+# Azure OpenAI (Required)
+AZURE_OPENAI_API_KEY=your-key-here
 AZURE_OPENAI_ENDPOINT=https://my-resource.openai.azure.com/
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=embedding-model
 
 # Default Model
-DEFAULT_MODEL_PROVIDER=gemini
-DEFAULT_MODEL_NAME=gemini-2.5-pro
+DEFAULT_MODEL_PROVIDER=openai
+DEFAULT_MODEL_NAME=gpt-4o
 
 # LLM Parameters
 DEFAULT_TEMPERATURE=0.3
@@ -101,6 +92,6 @@ MAX_COMPARISON_CHUNKS=0
 ## Notes
 
 - If a variable is not set, the script will use default values where applicable
-- API keys are optional but required for the respective features to work
+- Azure OpenAI credentials are required for ingestion, comparison, and chatbot features
 - The seed script will display which settings were successfully configured
 - Settings can be updated later through the Settings page in the admin UI

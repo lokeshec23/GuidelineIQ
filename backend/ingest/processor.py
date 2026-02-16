@@ -546,15 +546,7 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
             **params,
         )
 
-    if provider == "gemini":
-        return LLMProvider(
-            provider="gemini",
-            api_key=user_settings.get("gemini_api_key"),
-            model=model,
-            **params,
-        )
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    raise ValueError(f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
 
 
 def parse_and_clean_llm_response(response: str, chunk_num: int, page_numbers: str) -> List[Dict]:

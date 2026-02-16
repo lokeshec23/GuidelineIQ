@@ -83,13 +83,8 @@ async def chat_with_session(
                 "azure_embedding_deployment": embedding_deployment
             }
             
-    elif provider == "gemini":
-        api_key = settings.get("gemini_api_key")
-        if not api_key:
-            raise HTTPException(status_code=400, detail="Gemini API key not configured")
     else:
-        # Fallback or error
-        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
     
     # 2. Get session data from database
     record = None
@@ -230,7 +225,7 @@ async def chat_with_session(
         logger.info(f"RAG found {len(results)} items.")
 
 
-    # 6. Call LLM (Gemini or OpenAI)
+    # 6. Call Azure OpenAI
     try:
         reply = ""
         
@@ -258,18 +253,15 @@ STRICT INSTRUCTIONS:
 """
             enhanced_instructions = (enhanced_instructions + citation_instruction).strip()
         
-        if provider == "gemini":
-            raise HTTPException(status_code=400, detail="Gemini provider is no longer supported. Please configure Azure OpenAI in settings.")
-        elif provider == "openai":
-            reply = chat_with_openai(
-                api_key=api_key,
-                model_name=model_name,
-                message=message,
-                history=history,
-                text_context=text_context,
-                instructions=enhanced_instructions,
-                **azure_params
-            )
+        reply = chat_with_openai(
+            api_key=api_key,
+            model_name=model_name,
+            message=message,
+            history=history,
+            text_context=text_context,
+            instructions=enhanced_instructions,
+            **azure_params
+        )
         
         # 7. Save chat messages to conversation
         await save_chat_message_with_conversation(db, session_id, conversation_id, "user", message)

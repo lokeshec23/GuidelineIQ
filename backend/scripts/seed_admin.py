@@ -84,9 +84,9 @@ async def seed_admin():
                 "openai_deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
                 "openai_embedding_deployment": os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "embedding-model"),
                 
-                # Default Model Configuration
-                "default_model_provider": os.getenv("DEFAULT_MODEL_PROVIDER", "openai"),
-                "default_model_name": os.getenv("DEFAULT_MODEL_NAME", "gpt-4o"),
+                # Default Model Configuration — hardcoded to Azure OpenAI (Gemini removed)
+                "default_model_provider": "openai",
+                "default_model_name": "gpt-4o",
                 
                 # LLM Parameters (with defaults)
                 "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.3")),

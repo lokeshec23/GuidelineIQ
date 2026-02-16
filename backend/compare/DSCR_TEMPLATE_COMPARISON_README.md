@@ -24,7 +24,7 @@ This implementation adds DSCR parameter template-based comparison to the Guideli
    - **Body**: FormData with:
      - `file1`: Excel file (first guideline)
      - `file2`: Excel file (second guideline)
-     - `model_provider`: "openai" or "gemini"
+     - `model_provider`: "openai" (Azure OpenAI)
      - `model_name`: Model name
      - `system_prompt`: (optional) LLM system prompt
      - `user_prompt`: (optional) LLM user prompt

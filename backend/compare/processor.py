@@ -310,15 +310,7 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
             **params
         )
 
-    if provider == "gemini":
-        return LLMProvider(
-            provider="gemini",
-            api_key=user_settings.get("gemini_api_key"),
-            model=model,
-            **params
-        )
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    raise ValueError(f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
 
 
 def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, file2_name: str) -> List[Dict]:

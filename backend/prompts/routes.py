@@ -11,8 +11,8 @@ router = APIRouter(prefix="/prompts", tags=["prompts"])
 
 
 class PromptsUpdate(BaseModel):
-    ingest_prompts: Dict[str, Dict[str, str]]  # e.g., {"openai": {"system_prompt": "...", "user_prompt": "..."}, "gemini": {...}}
-    compare_prompts: Dict[str, Dict[str, str]]  # e.g., {"openai": {"system_prompt": "...", "user_prompt": "..."}, "gemini": {...}}
+    ingest_prompts: Dict[str, Dict[str, str]]  # e.g., {"system_prompt": "...", "user_prompt": "..."}
+    compare_prompts: Dict[str, Dict[str, str]]  # e.g., {"system_prompt": "...", "user_prompt": "..."}
 
 
 @router.get("")

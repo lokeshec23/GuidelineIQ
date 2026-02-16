@@ -39,7 +39,7 @@ def calculate_optimal_chunk_size(model_name: str, prompt_template: str) -> int:
     # Get prompt overhead (without the actual text)
     prompt_overhead = get_token_count(prompt_template, model_name)
     
-    # Account for thinking tokens in Gemini
+    # Account for thinking tokens overhead (if model uses them)
     thinking_overhead = model_config.get("thinking_tokens_overhead", 0)
     
     # Calculate available tokens for content
@@ -58,7 +58,7 @@ def calculate_optimal_chunk_size(model_name: str, prompt_template: str) -> int:
     print(f"   - Max input tokens: {max_input}")
     print(f"   - Max output tokens: {max_output}")
     print(f"   - Prompt overhead: {prompt_overhead}")
-    print(f"   - Thinking tokens (Gemini): {thinking_overhead}")
+    print(f"   - Thinking tokens overhead: {thinking_overhead}")
     print(f"   - Safety buffer: {buffer}")
     print(f"   - Available for content: {available_for_content}")
     print(f"   - Optimal chunk size: {optimal}")
