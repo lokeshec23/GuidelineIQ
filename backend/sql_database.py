@@ -20,7 +20,14 @@ def get_master_uri(uri: str, db_name: str) -> str:
 
 # Create Async Engine
 # echo=True will log SQL queries (useful for debugging)
-engine = create_async_engine(SQL_SERVER_URI, echo=False)
+engine = create_async_engine(
+    SQL_SERVER_URI,
+    echo=False,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 
 # Create Session Factory
 AsyncSessionLocal = async_sessionmaker(

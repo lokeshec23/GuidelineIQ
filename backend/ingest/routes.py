@@ -20,6 +20,7 @@ from settings.models import get_user_settings
 from auth.utils import verify_token
 # from auth.middleware import get_current_user # Used but we have custom dependency below?
 from utils.progress import update_progress, get_progress, delete_progress, progress_store, progress_lock
+from utils.progress import async_get_progress_data, async_get_session_data
 from history.models import check_duplicate_ingestion
 from config import SUPPORTED_MODELS
 from utils.json_to_excel import dynamic_json_to_excel
@@ -208,9 +209,8 @@ async def progress_stream(session_id: str):
         logger.info(f"SSE connected: {session_id[:8]}")
         
         while retry_count < max_retries:
-
-            with progress_lock:
-                progress_data = progress_store.get(session_id)
+            # Use async-safe progress access (does NOT block the event loop)
+            progress_data = await async_get_progress_data(session_id)
             
             if not progress_data:
                 break
@@ -245,33 +245,29 @@ async def progress_stream(session_id: str):
 @router.get("/status/{session_id}", response_model=ProcessingStatus)
 async def get_status(session_id: str):
     """Get current ingestion status"""
-    with progress_lock:
-        if session_id not in progress_store:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        data = progress_store[session_id]
-        
-        return ProcessingStatus(
-            status=data.get("status", "processing"),
-            progress=data["progress"],
-            message=data["message"],
-            result_url=f"/ingest/download/{session_id}" if data.get("excel_path") else None
-        )
+    data = await async_get_progress_data(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return ProcessingStatus(
+        status=data.get("status", "processing"),
+        progress=data["progress"],
+        message=data["message"],
+        result_url=f"/ingest/download/{session_id}" if data.get("excel_path") else None
+    )
 
 
 @router.get("/preview/{session_id}")
 async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
     """Endpoint to get the JSON data for the frontend preview table."""
-    # 1. Try to get from in-memory store (active/recent jobs)
-    with progress_lock:
-        session_data = progress_store.get(session_id)
-        if session_data and "preview_data" in session_data:
-            # Return both preview data and history_id if available
-            response_data = {
-                "data": session_data["preview_data"],
-                "history_id": session_data.get("history_id")  # May be None if not yet saved
-            }
-            return JSONResponse(content=response_data)
+    # 1. Try to get from in-memory store (active/recent jobs) — async-safe
+    session_data = await async_get_session_data(session_id)
+    if session_data and "preview_data" in session_data:
+        response_data = {
+            "data": session_data["preview_data"],
+            "history_id": session_data.get("history_id")
+        }
+        return JSONResponse(content=response_data)
 
     # 2. If not found, try to get from database (historical records)
     try:
@@ -300,19 +296,18 @@ async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
 async def download_result(session_id: str, db: AsyncSession = Depends(get_db)):
     """Endpoint to download the final Excel file."""
     
-    # 1. Try to get from in-memory store (active/recent jobs)
-    with progress_lock:
-        session_data = progress_store.get(session_id)
-        if session_data and "excel_path" in session_data:
-            excel_path = session_data["excel_path"]
-            filename = session_data.get("filename", "extraction.xlsx")
+    # 1. Try to get from in-memory store (active/recent jobs) — async-safe
+    session_data = await async_get_session_data(session_id)
+    if session_data and "excel_path" in session_data:
+        excel_path = session_data["excel_path"]
+        filename = session_data.get("filename", "extraction.xlsx")
 
-            if os.path.exists(excel_path):
-                return FileResponse(
-                    excel_path,
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
-                )
+        if os.path.exists(excel_path):
+            return FileResponse(
+                excel_path,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename=filename
+            )
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
     # Check DB

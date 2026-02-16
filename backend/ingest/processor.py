@@ -356,7 +356,7 @@ async def process_guideline_background(
 
             # Match frontend hidden columns
             hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
-            dynamic_json_to_excel(results, excel_path, hidden_columns=hidden_columns)
+            await asyncio.to_thread(dynamic_json_to_excel, results, excel_path, hidden_columns=hidden_columns)
 
             update_progress(session_id, 100, "Processing complete.")
             logger.info("PROCESSING COMPLETE")

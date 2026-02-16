@@ -15,6 +15,7 @@ from sql_database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from utils.progress import get_progress, delete_progress, progress_store, progress_lock
+from utils.progress import async_get_progress_data, async_get_session_data
 from config import SUPPORTED_MODELS
 import asyncio
 from typing import AsyncGenerator
@@ -400,8 +401,8 @@ async def progress_stream(session_id: str):
         logger.info(f"SSE connected: {session_id[:8]}")
 
         while retry_count < max_retries:
-            with progress_lock:
-                progress_data = progress_store.get(session_id)
+            # Use async-safe progress access (does NOT block the event loop)
+            progress_data = await async_get_progress_data(session_id)
             
             if not progress_data:
                 break
@@ -435,54 +436,52 @@ async def progress_stream(session_id: str):
 @router.get("/status/{session_id}", response_model=ComparisonStatus)
 async def get_status(session_id: str):
     """Get current comparison status"""
-    with progress_lock:
-        if session_id not in progress_store:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        data = progress_store[session_id]
-        
-        return ComparisonStatus(
-            status=data.get("status", "processing"),
-            progress=data["progress"],
-            message=data["message"],
-            result_url=f"/compare/download/{session_id}" if data.get("excel_path") else None
-        )
+    data = await async_get_progress_data(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return ComparisonStatus(
+        status=data.get("status", "processing"),
+        progress=data["progress"],
+        message=data["message"],
+        result_url=f"/compare/download/{session_id}" if data.get("excel_path") else None
+    )
 
 @router.get("/preview/{session_id}")
 async def get_preview(session_id: str):
     """Get JSON preview data"""
-    with progress_lock:
-        session_data = progress_store.get(session_id)
+    session_data = await async_get_session_data(session_id)
+    
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found or already downloaded")
         
-        if not session_data:
-            raise HTTPException(status_code=404, detail="Session not found or already downloaded")
-            
-        preview_data = session_data.get("preview_data")
-        
-        if not preview_data:
-            raise HTTPException(status_code=404, detail="Preview data not available yet")
-        
-        return JSONResponse(content=preview_data)
+    preview_data = session_data.get("preview_data")
+    
+    if not preview_data:
+        raise HTTPException(status_code=404, detail="Preview data not available yet")
+    
+    return JSONResponse(content=preview_data)
 
 @router.get("/download/{session_id}")
 async def download_result(session_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Download the comparison Excel file and cleanup"""
     
-    # 1. Try to get from in-memory store
-    with progress_lock:
-        session_data = progress_store.get(session_id)
-        if session_data and "excel_path" in session_data:
-            excel_path = session_data["excel_path"]
-            filename = session_data.get("filename", f"comparison_{session_id[:8]}.xlsx")
-            
-            if os.path.exists(excel_path):
-                del progress_store[session_id]
-                background_tasks.add_task(cleanup_file, path=excel_path)
-                return FileResponse(
-                    excel_path,
-                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
-                )
+    # 1. Try to get from in-memory store — async-safe
+    session_data = await async_get_session_data(session_id)
+    if session_data and "excel_path" in session_data:
+        excel_path = session_data["excel_path"]
+        filename = session_data.get("filename", f"comparison_{session_id[:8]}.xlsx")
+        
+        if os.path.exists(excel_path):
+            # Clean up from progress store (use threading lock since it modifies store)
+            with progress_lock:
+                progress_store.pop(session_id, None)
+            background_tasks.add_task(cleanup_file, path=excel_path)
+            return FileResponse(
+                excel_path,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename=filename
+            )
 
     # 2. If not found in memory, try to regenerate from DB (historical records)
     try:
