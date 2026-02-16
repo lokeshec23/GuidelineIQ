@@ -9,7 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from ingest.dscr_config import DSCR_GUIDELINES
-from chat.rag_service import RAGService
+
 from utils.llm_provider import LLMProvider
 from utils.logger import setup_logger
 
@@ -18,7 +18,7 @@ logger = setup_logger(__name__)
 async def extract_dscr_parameters_safe(
     session_id: str,
     gridfs_file_id: str,
-    rag_service: RAGService,
+    rag_service,  # RAGService instance (legacy)
     llm: LLMProvider,
     investor: str,
     version: str,
@@ -182,7 +182,6 @@ async def extract_dscr_parameters_multi_pdf(
     session_id: str,
     gridfs_file_ids: List[str],
     filenames: List[str],
-    rag_service: RAGService,
     llm: LLMProvider,
     investor: str,
     version: str,

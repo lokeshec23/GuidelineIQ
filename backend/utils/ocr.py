@@ -95,19 +95,6 @@ class AzureOCR:
             print(f"❌ OCR analysis failed for chunk {os.path.basename(chunk_path)}: {e}")
             return "" # Return empty string on failure to not break the whole process
 
-    def analyze_doc_page_by_page(self, pdf_path: str, pages_per_chunk: int = 1) -> List[tuple]:
-        """
-        High-level method to orchestrate the OCR process using Azure Document Intelligence.
-        It splits the PDF, processes chunks through Azure OCR, and returns text with accurate page numbers.
-        
-        Args:
-            pdf_path: The path to the source PDF file.
-            pages_per_chunk: The number of pages to group into a single text chunk for the LLM.
-        
-        Returns:
-            A list of tuples, where each tuple is (text_content, page_numbers_string).
-            Example: [("Text from page 1", "1"), ("Text from pages 2-3", "2-3")]
-        """
     def _parse_page_range(self, range_str: str, max_pages: int) -> List[int]:
         """
         Parses a page range string (e.g., "1-5, 8, 11-13") into a sorted list of 1-based page numbers.

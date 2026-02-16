@@ -8,15 +8,9 @@ from typing import Optional, Dict
 from config import (
     DEFAULT_INGEST_PROMPT_USER_OPENAI,
     DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
-    DEFAULT_INGEST_PROMPT_USER_GEMINI,
-    DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
     DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
     DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
-    DEFAULT_COMPARISON_PROMPT_USER_GEMINI,
-    DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
 )
-
-# _ensure_db removed
 
 
 async def get_default_prompts_from_db(db: AsyncSession) -> Optional[Dict]:
@@ -34,27 +28,15 @@ async def get_default_prompts_from_db(db: AsyncSession) -> Optional[Dict]:
 
 
 def get_default_prompts() -> Dict:
-    """Return default prompts - from config as fallback"""
+    """Return default prompts from config as fallback"""
     return {
         "ingest_prompts": {
-            "openai": {
-                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
-                "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI,
-            },
-            "gemini": {
-                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
-                "user_prompt": DEFAULT_INGEST_PROMPT_USER_GEMINI,
-            },
+            "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+            "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI,
         },
         "compare_prompts": {
-            "openai": {
-                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
-                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
-            },
-            "gemini": {
-                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
-                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_GEMINI,
-            },
+            "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+            "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
         },
     }
 
@@ -73,29 +55,15 @@ async def get_user_prompts(db: AsyncSession, user_id: str) -> Dict:
         "compare_prompts": user_prompts_obj.compare_prompts
     }
     
-    # Merge user prompts with defaults to ensure all models have prompts
+    # Merge user prompts with defaults to ensure all fields have prompts
     db_defaults = await get_default_prompts_from_db(db)
     defaults = db_defaults if db_defaults else get_default_prompts()
     
-    # Merge ingest_prompts
     if "ingest_prompts" not in user_prompts or not user_prompts["ingest_prompts"]:
         user_prompts["ingest_prompts"] = defaults["ingest_prompts"]
-    else:
-        # Ensure both openai and gemini exist
-        if "openai" not in user_prompts["ingest_prompts"]:
-            user_prompts["ingest_prompts"]["openai"] = defaults["ingest_prompts"]["openai"]
-        if "gemini" not in user_prompts["ingest_prompts"]:
-             user_prompts["ingest_prompts"]["gemini"] = defaults["ingest_prompts"]["gemini"]
     
-    # Merge compare_prompts
     if "compare_prompts" not in user_prompts or not user_prompts["compare_prompts"]:
         user_prompts["compare_prompts"] = defaults["compare_prompts"]
-    else:
-        # Ensure both openai and gemini exist
-        if "openai" not in user_prompts["compare_prompts"]:
-            user_prompts["compare_prompts"]["openai"] = defaults["compare_prompts"]["openai"]
-        if "gemini" not in user_prompts["compare_prompts"]:
-            user_prompts["compare_prompts"]["gemini"] = defaults["compare_prompts"]["gemini"]
     
     return user_prompts
 
@@ -123,12 +91,6 @@ async def save_user_prompts(db: AsyncSession, user_id: str, prompts_data: dict):
     await db.refresh(user_prompts_obj)
     
     return await get_user_prompts(db, user_id)
-
-async def initialize_user_prompts(user_id: str):
-    """Initialize default prompts for a new user"""
-    # Simply ensures the prompt document exists but empty or same as default
-    # For now, let's just do nothing as get_user_prompts handles fallback.
-    pass
 
 async def reset_user_prompts(db: AsyncSession, user_id: str):
     """Delete custom prompts for a user (revert to defaults)"""

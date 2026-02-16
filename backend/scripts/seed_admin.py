@@ -77,7 +77,6 @@ async def seed_admin():
             
             settings_data = {
                 # API Keys
-                "gemini_api_key": os.getenv("GEMINI_API_KEY"),
                 "openai_api_key": os.getenv("AZURE_OPENAI_API_KEY"),
                 
                 # Azure OpenAI Configuration
@@ -108,13 +107,10 @@ async def seed_admin():
             print("✅ Admin settings initialized successfully!")
             
             # Print status summary
-            if settings_data.get("gemini_api_key"):
-                print(f"   ✓ Gemini API Key configured")
             if settings_data.get("openai_api_key"):
                 print(f"   ✓ OpenAI API Key configured")
             print(f"   ✓ Default Provider: {settings_data['default_model_provider']}")
-            print(f"   ✓ Default Model: {settings_data['default_model_name']}")
-            
+            print(f"   ✓ Default Model: {settings_data['default_model_name']}")            
             return True
 
         except Exception as e:

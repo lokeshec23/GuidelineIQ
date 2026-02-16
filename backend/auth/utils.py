@@ -45,3 +45,21 @@ def verify_token(token: str):
         return payload
     except JWTError:
         return None
+
+
+# ✅ Create a short-lived reset token (15 min expiry)
+def create_reset_token(email: str) -> str:
+    payload = {
+        "sub": email,
+        "type": "reset",
+    }
+    expires_delta = timedelta(minutes=15)
+    return create_token(payload, expires_delta)
+
+
+# ✅ Verify reset token and return email
+def verify_reset_token(token: str) -> str | None:
+    payload = verify_token(token)
+    if not payload or payload.get("type") != "reset":
+        return None
+    return payload.get("sub")

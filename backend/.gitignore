@@ -96,3 +96,5 @@ results/
 
 qdrant_db/
 faiss_db/
+
+results/

@@ -11,7 +11,7 @@ from models.sql_models import User, IngestHistory, CompareHistory, ChatSession
 from settings.models import get_user_settings
 from auth.middleware import get_admin_user # Used as import, but we need to query admin user manually in route if not passed
 # from database import db_manager # Removed
-from chat.service import chat_with_gemini, chat_with_openai, upload_pdf_with_cache
+from chat.service import chat_with_openai
 from rag_pipeline.retrieval.hybrid_retriever import HybridRetriever
 
 from chat.models import (
@@ -259,16 +259,7 @@ STRICT INSTRUCTIONS:
             enhanced_instructions = (enhanced_instructions + citation_instruction).strip()
         
         if provider == "gemini":
-            reply = chat_with_gemini(
-                api_key=api_key,
-                model_name=model_name,
-                message=message,
-                history=history,
-                file_uris=[], 
-                text_context=text_context,
-                use_file_search=False,
-                instructions=enhanced_instructions
-            )
+            raise HTTPException(status_code=400, detail="Gemini provider is no longer supported. Please configure Azure OpenAI in settings.")
         elif provider == "openai":
             reply = chat_with_openai(
                 api_key=api_key,

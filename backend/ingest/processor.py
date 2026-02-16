@@ -11,7 +11,7 @@ from utils.ocr import AzureOCR
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
-from chat.rag_service import RAGService  # ✅ Import RAG Service
+
 from ingest.dscr_extractor import extract_dscr_parameters_safe  # ✅ Import DSCR Extractor
 from ingest.rag_extractor import run_main_rag_extraction # ✅ Import RAG Extractor
 from utils.logger import setup_logger
@@ -19,7 +19,7 @@ from sql_database import AsyncSessionLocal # Import session factory
 
 logger = setup_logger(__name__)
 
-rag_service = RAGService()  # ✅ Initialize RAG Service
+
 
 
 async def process_guideline_background(
@@ -233,7 +233,6 @@ async def process_guideline_background(
                     session_id=session_id,
                     gridfs_file_ids=gridfs_file_ids,
                     filenames=filenames,
-                    rag_service=rag_service,
                     llm=llm,
                     investor=investor,
                     version=version,

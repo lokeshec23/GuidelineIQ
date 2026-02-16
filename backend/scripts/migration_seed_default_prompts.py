@@ -1,4 +1,4 @@
-# backend/migration_seed_default_prompts.py
+# backend/scripts/migration_seed_default_prompts.py
 
 """
 One-time migration script to seed the database with default prompts.
@@ -15,12 +15,8 @@ from models.sql_models import DefaultPrompts
 from config import (
     DEFAULT_INGEST_PROMPT_USER_OPENAI,
     DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
-    DEFAULT_INGEST_PROMPT_USER_GEMINI,
-    DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
     DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
     DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
-    DEFAULT_COMPARISON_PROMPT_USER_GEMINI,
-    DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
 )
 
 
@@ -42,27 +38,15 @@ async def seed_default_prompts():
             )
             existing_defaults = result.scalars().first()
             
-            # Prepare data
+            # Prepare data (single prompt set — Azure OpenAI only)
             ingest_prompts_data = {
-                "openai": {
-                    "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
-                    "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI,
-                },
-                "gemini": {
-                    "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_GEMINI,
-                    "user_prompt": DEFAULT_INGEST_PROMPT_USER_GEMINI,
-                },
+                "system_prompt": DEFAULT_INGEST_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_INGEST_PROMPT_USER_OPENAI,
             }
             
             compare_prompts_data = {
-                "openai": {
-                    "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
-                    "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
-                },
-                "gemini": {
-                    "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_GEMINI,
-                    "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_GEMINI,
-                },
+                "system_prompt": DEFAULT_COMPARISON_PROMPT_SYSTEM_OPENAI,
+                "user_prompt": DEFAULT_COMPARISON_PROMPT_USER_OPENAI,
             }
 
             if existing_defaults:
@@ -85,8 +69,8 @@ async def seed_default_prompts():
             print("SUMMARY")
             print("=" * 60)
             print(f"Document ID: system_defaults")
-            print(f"Ingest Prompts: OpenAI ✓, Gemini ✓")
-            print(f"Compare Prompts: OpenAI ✓, Gemini ✓")
+            print(f"Ingest Prompts: ✓")
+            print(f"Compare Prompts: ✓")
             print("=" * 60)
             print("\n✅ Migration completed successfully!")
             return True

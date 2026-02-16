@@ -15,7 +15,7 @@ ADMIN_PASSWORD=your_secure_password
 
 ### Gemini API
 ```bash
-GEMINI_API_KEY=your_gemini_api_key_here
+### GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### OpenAI API
@@ -76,7 +76,7 @@ ADMIN_EMAIL=admin@guidelineiq.com
 ADMIN_PASSWORD=SecurePassword123!
 
 # API Keys
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+### GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 OPENAI_API_KEY=sk-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # Azure OpenAI (if using Azure)

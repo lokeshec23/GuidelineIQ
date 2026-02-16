@@ -3,7 +3,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete, update, desc
-from models.sql_models import ChatSession, ChatConversation, GeminiFileCache
+from models.sql_models import ChatSession, ChatConversation
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
@@ -42,69 +42,6 @@ async def get_chat_history(db: AsyncSession, session_id: str, limit: int = 50) -
         "content": msg.content,
         "timestamp": msg.timestamp or datetime.utcnow()
     } for msg in messages]
-
-
-async def cache_gemini_file_uri(db: AsyncSession, gridfs_file_id: str, gemini_uri: str, gemini_name: str, ttl_hours: int = 48) -> str:
-    """
-    Cache a Gemini file URI to avoid re-uploading.
-    """
-    expiry_time = datetime.utcnow() + timedelta(hours=ttl_hours)
-    
-    # Check if exists to update or insert (Upsert)
-    result = await db.execute(select(GeminiFileCache).where(GeminiFileCache.gridfs_file_id == gridfs_file_id))
-    cache_entry = result.scalars().first()
-    
-    if cache_entry:
-        cache_entry.gemini_uri = gemini_uri
-        cache_entry.gemini_name = gemini_name
-        cache_entry.expires_at = expiry_time
-        # created_at remains same
-    else:
-        cache_entry = GeminiFileCache(
-            gridfs_file_id=gridfs_file_id,
-            gemini_uri=gemini_uri,
-            gemini_name=gemini_name,
-            expires_at=expiry_time,
-            created_at=datetime.utcnow()
-        )
-        db.add(cache_entry)
-    
-    await db.commit()
-    await db.refresh(cache_entry)
-    
-    return str(cache_entry.id)
-
-
-async def get_cached_file_uri(db: AsyncSession, gridfs_file_id: str) -> Optional[Dict]:
-    """
-    Get cached Gemini file URI if still valid.
-    """
-    result = await db.execute(
-        select(GeminiFileCache).where(
-            GeminiFileCache.gridfs_file_id == gridfs_file_id,
-            GeminiFileCache.expires_at > datetime.utcnow()
-        )
-    )
-    cache_entry = result.scalars().first()
-    
-    if cache_entry:
-        return {
-            "gemini_uri": cache_entry.gemini_uri,
-            "gemini_name": cache_entry.gemini_name,
-            "created_at": cache_entry.created_at,
-            "expires_at": cache_entry.expires_at
-        }
-    
-    return None
-
-
-async def clear_expired_cache(db: AsyncSession):
-    """Remove expired cache entries."""
-    stmt = delete(GeminiFileCache).where(GeminiFileCache.expires_at < datetime.utcnow())
-    result = await db.execute(stmt)
-    await db.commit()
-    print(f"🧹 Cleared {result.rowcount} expired Gemini file cache entries")
-    return result.rowcount
 
 
 # ==================== CONVERSATION MANAGEMENT ====================

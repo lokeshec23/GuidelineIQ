@@ -124,16 +124,6 @@ class ChatSession(Base):
     
     conversation = relationship("ChatConversation", back_populates="messages")
 
-class GeminiFileCache(Base):
-    __tablename__ = "gemini_file_cache"
-
-    id = Column(String(36), primary_key=True, default=generate_uuid)
-    gridfs_file_id = Column(String(255), nullable=False, unique=True)
-    gemini_uri = Column(Text, nullable=False)
-    gemini_name = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-
 class File(Base):
     """
     Replacement for GridFS. Stores file content directly in DB.

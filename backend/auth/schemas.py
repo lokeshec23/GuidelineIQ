@@ -55,9 +55,15 @@ class ForgotPasswordCheck(BaseModel):
     email: EmailStr
 
 
-# Schema for reset password
+# Schema for requesting a password reset (generates a token)
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+# Schema for reset password (requires token verification)
 class ResetPassword(BaseModel):
     email: EmailStr
+    reset_token: str
     new_password: str = Field(..., min_length=6, max_length=16)
     confirm_password: str
 
