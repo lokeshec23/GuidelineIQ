@@ -185,7 +185,10 @@ const IngestPage = () => {
 
       // Attach new metadata fields
       if (values.page_range) formData.append("page_range", values.page_range);
-      if (values.guideline_type) formData.append("guideline_type", values.guideline_type);
+      if (values.guideline_type && values.guideline_type.length > 0) {
+        // Join array into comma-separated string for backend
+        formData.append("guideline_type", values.guideline_type.join(","));
+      }
       if (values.program_type) formData.append("program_type", values.program_type);
 
       console.log("Starting ingestion...");
@@ -463,7 +466,19 @@ const IngestPage = () => {
             label={<span className="text-gray-600">Guideline Type</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="e.g., Agency, Jumbo" className="rounded-md" />
+            <Select
+              mode="multiple"
+              size="large"
+              placeholder="Select guideline type(s)"
+              className="rounded-md w-full"
+              maxTagCount="responsive"
+              allowClear
+              defaultValue={["DSCR", "Full Doc", "Alt Doc"]}
+            >
+              <Option value="DSCR">DSCR</Option>
+              <Option value="Full Doc">Full Doc</Option>
+              <Option value="Alt Doc">Alt Doc</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item

@@ -3,16 +3,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sql_database import get_db
 from models.sql_models import DSCRParameter
-from settings.dscr_schemas import DSCRParameterCreate, DSCRParameterUpdate, DSCRParameterResponse
+from settings.dscr_schemas import DSCRParameterCreate, DSCRParameterUpdate, DSCRParameterResponse, GUIDELINE_TYPE_OPTIONS
 from auth.middleware import require_admin
 from typing import List
 
-router = APIRouter(prefix="/dscr-parameters", tags=["DSCR Parameters"])
+router = APIRouter(prefix="/dscr-parameters", tags=["Parameters"])
 
 @router.get("", response_model=List[DSCRParameterResponse])
 async def list_parameters(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(DSCRParameter).order_by(DSCRParameter.category, DSCRParameter.parameter))
     return result.scalars().all()
+
+@router.get("/guideline-types")
+async def get_guideline_types():
+    """Return available guideline type options for dropdowns."""
+    return GUIDELINE_TYPE_OPTIONS
 
 @router.post("", response_model=DSCRParameterResponse)
 async def create_parameter(

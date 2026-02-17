@@ -138,7 +138,7 @@ class File(Base):
 
 class DSCRParameter(Base):
     """
-    Model for DSCR Parameters configuration.
+    Model for Parameters configuration (DSCR / Full Doc / Alt Doc).
     """
     __tablename__ = "dscr_parameters"
 
@@ -147,5 +147,6 @@ class DSCRParameter(Base):
     category = Column(String(255), nullable=False)
     subcategory = Column(String(255), nullable=False)
     ppe_field = Column(String(255), nullable=True)
+    guideline_type = Column(JSON, nullable=True)  # e.g. ["All"], ["DSCR", "Full Doc"]
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

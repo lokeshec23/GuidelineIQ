@@ -53,6 +53,12 @@ async def process_guideline_background(
             logger.info(f"RAG-Based Multi-PDF Ingestion started for session {session_id[:8]}")
             logger.info(f"Investor: {investor} | Version: {version} | Files: {num_files}")
 
+            # Parse guideline_type into a list (comes as comma-separated string from frontend)
+            guideline_types_list = None
+            if guideline_type:
+                guideline_types_list = [t.strip() for t in guideline_type.split(",") if t.strip()]
+                logger.info(f"Selected guideline types: {guideline_types_list}")
+
 
             # Validate prompts - Use defaults if empty
             if not user_prompt.strip():
@@ -237,7 +243,8 @@ async def process_guideline_background(
                     investor=investor,
                     version=version,
                     user_settings=user_settings,
-                    pipeline=pipeline  # ✅ Pass initialized pipeline with BM25 index
+                    pipeline=pipeline,  # ✅ Pass initialized pipeline with BM25 index
+                    guideline_types=guideline_types_list  # ✅ Filter by selected types
                 )
                 logger.info(f"Multi-PDF DSCR Extraction Complete.")
 

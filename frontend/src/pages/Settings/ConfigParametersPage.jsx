@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag } from "antd";
+import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 import { dscrAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
@@ -7,6 +7,8 @@ import { TableSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Title } = Typography;
 const { Option } = Select;
+
+const GUIDELINE_TYPE_OPTIONS = ["All", "DSCR", "Full Doc", "Alt Doc"];
 
 const ConfigParametersPage = () => {
     const [parameters, setParameters] = useState([]);
@@ -35,12 +37,16 @@ const ConfigParametersPage = () => {
     const handleAdd = () => {
         setEditingParam(null);
         form.resetFields();
+        form.setFieldsValue({ guideline_type: ["All"] });
         setIsModalVisible(true);
     };
 
     const handleEdit = (record) => {
         setEditingParam(record);
-        form.setFieldsValue(record);
+        form.setFieldsValue({
+            ...record,
+            guideline_type: record.guideline_type || ["All"]
+        });
         setIsModalVisible(true);
     };
 
@@ -73,10 +79,44 @@ const ConfigParametersPage = () => {
         }
     };
 
+    // Handle guideline type checkbox logic: All checks/unchecks everything
+    const handleGuidelineTypeChange = (checkedValues) => {
+        const currentValues = form.getFieldValue("guideline_type") || [];
+        const hadAll = currentValues.includes("All");
+        const hasAll = checkedValues.includes("All");
+
+        if (!hadAll && hasAll) {
+            // User just checked "All" -> check everything
+            form.setFieldsValue({ guideline_type: [...GUIDELINE_TYPE_OPTIONS] });
+        } else if (hadAll && !hasAll) {
+            // User just unchecked "All" -> uncheck all
+            form.setFieldsValue({ guideline_type: [] });
+        } else {
+            // Individual checkbox toggled
+            const nonAllOptions = GUIDELINE_TYPE_OPTIONS.filter(o => o !== "All");
+            const selectedNonAll = checkedValues.filter(v => v !== "All");
+
+            if (selectedNonAll.length === nonAllOptions.length) {
+                // All individual options selected -> auto-check "All"
+                form.setFieldsValue({ guideline_type: [...GUIDELINE_TYPE_OPTIONS] });
+            } else {
+                // Remove "All" if not all selected
+                form.setFieldsValue({ guideline_type: selectedNonAll });
+            }
+        }
+    };
+
     const filteredParameters = parameters.filter(p =>
         p.parameter.toLowerCase().includes(searchText.toLowerCase()) ||
         p.category.toLowerCase().includes(searchText.toLowerCase())
     );
+
+    const guidelineTypeColorMap = {
+        "All": "purple",
+        "DSCR": "blue",
+        "Full Doc": "green",
+        "Alt Doc": "orange"
+    };
 
     const columns = [
         {
@@ -99,10 +139,27 @@ const ConfigParametersPage = () => {
             key: "subcategory",
         },
         {
-            title: "PPE Field",
-            dataIndex: "ppe_field",
-            key: "ppe_field",
-            render: (text) => text || <span className="text-gray-400 italic">None</span>
+            title: "Guideline Type",
+            dataIndex: "guideline_type",
+            key: "guideline_type",
+            width: 200,
+            filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
+            onFilter: (value, record) => {
+                const types = record.guideline_type || ["All"];
+                return types.includes(value);
+            },
+            render: (types) => {
+                const displayTypes = types || ["All"];
+                return (
+                    <Space size={[0, 4]} wrap>
+                        {displayTypes.map(t => (
+                            <Tag key={t} color={guidelineTypeColorMap[t] || "default"} style={{ margin: '2px' }}>
+                                {t}
+                            </Tag>
+                        ))}
+                    </Space>
+                );
+            }
         },
         {
             title: "Actions",
@@ -176,7 +233,7 @@ const ConfigParametersPage = () => {
             )}
 
             <Modal
-                title={editingParam ? "Edit DSCR Parameter" : "Add DSCR Parameter"}
+                title={editingParam ? "Edit Parameter" : "Add Parameter"}
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={() => setIsModalVisible(false)}
@@ -219,15 +276,26 @@ const ConfigParametersPage = () => {
                         </Form.Item>
                     </div>
 
+
                     <Form.Item
-                        name="ppe_field"
-                        label="PPE Field Type"
+                        name="guideline_type"
+                        label="Guideline Type"
+                        rules={[{ required: true, message: "Please select at least one guideline type" }]}
                     >
-                        <Select placeholder="Select field type" className="h-10" dropdownClassName="rounded-lg">
-                            <Option value="Hard">Hard</Option>
-                            <Option value="Soft">Soft</Option>
-                            {/* <Option value="Text">Text</Option> */}
-                        </Select>
+                        <Checkbox.Group
+                            onChange={handleGuidelineTypeChange}
+                            style={{ width: "100%" }}
+                        >
+                            <div className="flex gap-4 flex-wrap">
+                                {GUIDELINE_TYPE_OPTIONS.map(option => (
+                                    <Checkbox key={option} value={option}>
+                                        <Tag color={guidelineTypeColorMap[option] || "default"} style={{ cursor: "pointer" }}>
+                                            {option}
+                                        </Tag>
+                                    </Checkbox>
+                                ))}
+                            </div>
+                        </Checkbox.Group>
                     </Form.Item>
                 </Form>
             </Modal>

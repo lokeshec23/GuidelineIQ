@@ -221,12 +221,13 @@ export const promptsAPI = {
   resetUserPrompts: () => api.post("/prompts/reset"),
 };
 
-// ==================== DSCR PARAMETERS APIs ====================
+// ==================== PARAMETERS APIs ====================
 export const dscrAPI = {
   listParameters: () => api.get("/dscr-parameters"),
   createParameter: (data) => api.post("/dscr-parameters", data),
   updateParameter: (id, data) => api.put(`/dscr-parameters/${id}`, data),
   deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),
+  getGuidelineTypes: () => api.get("/dscr-parameters/guideline-types"),
 };
 
 // Export API_BASE_URL for use in components

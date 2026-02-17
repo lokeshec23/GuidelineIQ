@@ -22,15 +22,16 @@ async def extract_dscr_parameters_safe(
     llm: LLMProvider,
     investor: str,
     version: str,
-    user_settings: dict
+    user_settings: dict,
+    guideline_types: list = None
 ) -> Tuple[str, List[Dict]]:
     """
-    Extracts DSCR parameters using RAG and LLM, and saves them to an Excel file.
+    Extracts parameters using RAG and LLM, and saves them to an Excel file.
     Returns:
         Tuple[str, List[Dict]]: (The path to the generated Excel file, The data list)
     """
     print(f"\n{'='*60}")
-    print(f"Starting RAG-Based DSCR Extraction for Session: {session_id[:8]}")
+    print(f"Starting RAG-Based Parameter Extraction for Session: {session_id[:8]}")
     print(f"{'='*60}\n")
     
     # Load parameters from DB
@@ -47,7 +48,8 @@ async def extract_dscr_parameters_safe(
                 "parameter": p.parameter,
                 "category": p.category,
                 "subcategory": p.subcategory,
-                "ppe_field": p.ppe_field
+                "ppe_field": p.ppe_field,
+                "guideline_type": p.guideline_type or ["All"]
             }
             for p in db_params
         ]
@@ -55,6 +57,15 @@ async def extract_dscr_parameters_safe(
     if not current_guidelines:
         from ingest.dscr_config import DSCR_GUIDELINES
         current_guidelines = DSCR_GUIDELINES
+
+    # Filter by selected guideline types
+    if guideline_types and "All" not in guideline_types:
+        current_guidelines = [
+            p for p in current_guidelines
+            if "All" in (p.get("guideline_type") or ["All"])
+            or any(t in (p.get("guideline_type") or []) for t in guideline_types)
+        ]
+        logger.info(f"Filtered to {len(current_guidelines)} parameters for types: {guideline_types}")
 
     # Concurrency control
     semaphore = asyncio.Semaphore(10)
@@ -186,14 +197,18 @@ async def extract_dscr_parameters_multi_pdf(
     investor: str,
     version: str,
     user_settings: dict,
-    pipeline = None  # Optional pipeline injection
+    pipeline = None,  # Optional pipeline injection
+    guideline_types: list = None
 ) -> Tuple[str, List[Dict]]:
     """
-    Extracts DSCR parameters from multiple PDFs by searching across ALL PDFs.
+    Extracts parameters from multiple PDFs by searching across ALL PDFs.
+    Optionally filters parameters by selected guideline types.
     """
     from rag_pipeline.models import ProgramType
     
-    logger.info(f"Starting RAG Pipeline DSCR Extraction for {len(filenames)} files")
+    logger.info(f"Starting RAG Pipeline Parameter Extraction for {len(filenames)} files")
+    if guideline_types:
+        logger.info(f"Filtering by guideline types: {guideline_types}")
     
     # Initialize Pipeline if not provided
     if pipeline is None:
@@ -203,7 +218,7 @@ async def extract_dscr_parameters_multi_pdf(
     else:
         logger.info("Using existing RAGPipeline instance for extraction")
     
-    # Load DSCR parameters from database
+    # Load parameters from database
     from sql_database import AsyncSessionLocal
     from models.sql_models import DSCRParameter
     from sqlalchemy import select
@@ -217,7 +232,8 @@ async def extract_dscr_parameters_multi_pdf(
                 "parameter": p.parameter,
                 "category": p.category,
                 "subcategory": p.subcategory,
-                "ppe_field": p.ppe_field
+                "ppe_field": p.ppe_field,
+                "guideline_type": p.guideline_type or ["All"]
             }
             for p in db_params
         ]
@@ -225,6 +241,15 @@ async def extract_dscr_parameters_multi_pdf(
     if not parameters_config:
         from ingest.dscr_config import DSCR_GUIDELINES
         parameters_config = DSCR_GUIDELINES
+
+    # Filter by selected guideline types
+    if guideline_types and "All" not in guideline_types:
+        parameters_config = [
+            p for p in parameters_config
+            if "All" in (p.get("guideline_type") or ["All"])
+            or any(t in (p.get("guideline_type") or []) for t in guideline_types)
+        ]
+        logger.info(f"Filtered to {len(parameters_config)} parameters for types: {guideline_types}")
 
     # Define filter conditions for Qdrant retrieval
     filter_conditions = {
