@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 import { dscrAPI } from "../../services/api";
@@ -17,6 +17,7 @@ const ConfigParametersPage = () => {
     const [editingParam, setEditingParam] = useState(null);
     const [form] = Form.useForm();
     const [searchText, setSearchText] = useState("");
+    const prevGuidelineTypeRef = useRef(["All"]);
 
     useEffect(() => {
         fetchParameters();
@@ -37,16 +38,20 @@ const ConfigParametersPage = () => {
     const handleAdd = () => {
         setEditingParam(null);
         form.resetFields();
-        form.setFieldsValue({ guideline_type: ["All"] });
+        const defaultType = [...GUIDELINE_TYPE_OPTIONS]; // All + DSCR + Full Doc + Alt Doc
+        form.setFieldsValue({ guideline_type: defaultType });
+        prevGuidelineTypeRef.current = defaultType;
         setIsModalVisible(true);
     };
 
     const handleEdit = (record) => {
         setEditingParam(record);
+        const guidelineType = record.guideline_type || ["All"];
         form.setFieldsValue({
             ...record,
-            guideline_type: record.guideline_type || ["All"]
+            guideline_type: guidelineType
         });
+        prevGuidelineTypeRef.current = guidelineType;
         setIsModalVisible(true);
     };
 
@@ -81,29 +86,37 @@ const ConfigParametersPage = () => {
 
     // Handle guideline type checkbox logic: All checks/unchecks everything
     const handleGuidelineTypeChange = (checkedValues) => {
-        const currentValues = form.getFieldValue("guideline_type") || [];
-        const hadAll = currentValues.includes("All");
+        // Use ref for previous state since form.getFieldValue() may already be updated
+        const previousValues = prevGuidelineTypeRef.current || [];
+        const nonAllOptions = GUIDELINE_TYPE_OPTIONS.filter(o => o !== "All");
+
+        const hadAll = previousValues.includes("All");
         const hasAll = checkedValues.includes("All");
 
+        let newValues;
+
         if (!hadAll && hasAll) {
-            // User just checked "All" -> check everything
-            form.setFieldsValue({ guideline_type: [...GUIDELINE_TYPE_OPTIONS] });
+            // User clicked "All" to CHECK it -> select everything
+            newValues = [...GUIDELINE_TYPE_OPTIONS];
         } else if (hadAll && !hasAll) {
-            // User just unchecked "All" -> uncheck all
-            form.setFieldsValue({ guideline_type: [] });
+            // User clicked "All" to UNCHECK it -> deselect everything
+            newValues = [];
         } else {
-            // Individual checkbox toggled
-            const nonAllOptions = GUIDELINE_TYPE_OPTIONS.filter(o => o !== "All");
+            // An individual checkbox was toggled (not "All")
             const selectedNonAll = checkedValues.filter(v => v !== "All");
 
             if (selectedNonAll.length === nonAllOptions.length) {
-                // All individual options selected -> auto-check "All"
-                form.setFieldsValue({ guideline_type: [...GUIDELINE_TYPE_OPTIONS] });
+                // All individual options are now selected -> auto-check "All"
+                newValues = [...GUIDELINE_TYPE_OPTIONS];
             } else {
-                // Remove "All" if not all selected
-                form.setFieldsValue({ guideline_type: selectedNonAll });
+                // Not all individual options selected -> ensure "All" is unchecked
+                newValues = selectedNonAll;
             }
         }
+
+        // Update both the form and our ref
+        form.setFieldsValue({ guideline_type: newValues });
+        prevGuidelineTypeRef.current = newValues;
     };
 
     const filteredParameters = parameters.filter(p =>
