@@ -79,9 +79,19 @@ class RAGPipeline:
             batch_size=100
         )
         
-        # Attach embeddings to chunks
+        # Attach embeddings to chunks (skip any that failed)
+        valid_chunks = []
         for chunk, embedding in zip(chunks, embeddings):
-            chunk.embedding = embedding
+            if embedding is not None:
+                chunk.embedding = embedding
+                valid_chunks.append(chunk)
+            else:
+                logger.warning(f"Skipping chunk {chunk.id} — embedding failed")
+        
+        if not valid_chunks:
+            raise ValueError("All embedding generations failed")
+        
+        chunks = valid_chunks
         
         # Step 4: Index to Qdrant
         logger.info("Step 4/4: Indexing to Qdrant...")
@@ -151,13 +161,22 @@ class RAGPipeline:
                         }
                     )
                     
-                    # Verify (optional) - skip for now as it's legacy
+                    # Verification pass (NQMF-aware)
                     verification_result = None
-                    # if enable_verification and not extraction_result.needs_clarification:
-                    #     verification_result = await self.verifier.verify(
-                    #         extraction_result,
-                    #         evidence_chunks
-                    #     )
+                    if enable_verification:
+                        verification_result = await self.verifier.verify_nqmf(
+                            extraction_result,
+                            evidence_chunks
+                        )
+                        
+                        # Auto-correct if verification found hallucinations
+                        if (verification_result 
+                            and not verification_result.verified 
+                            and verification_result.suggested_fix):
+                            logger.warning(
+                                f"Verification auto-correcting '{parameter}': "
+                                f"{', '.join(verification_result.issues[:2])}"
+                            )
                     
                     # Generate rows based on classification
                     rows = []

@@ -92,12 +92,11 @@ class LLMProvider:
                 # Fallback to gpt-4o if not already using it
                 if "gpt-4o" not in self.deployment:
                     try:
-                        logger.warning("[OpenAI] Switching to fallback model: gpt-4o")
-                        original_deployment = self.deployment
-                        self.deployment = "gpt-4o"
+                        fallback_deployment = "gpt-4o"
+                        logger.warning(f"[OpenAI] Switching to fallback model: {fallback_deployment}")
 
                         response = self.client.chat.completions.create(
-                            model=self.deployment,
+                            model=fallback_deployment,
                             messages=[
                                 {"role": "system", "content": system_prompt},
                                 {"role": "user", "content": user_content},
@@ -105,11 +104,8 @@ class LLMProvider:
                         )
                         content = response.choices[0].message.content
                         logger.info(f"[OpenAI] Fallback OK ({len(content)} chars)")
-                        # Restore original deployment for future calls
-                        self.deployment = original_deployment
                         return content
                     except Exception as e2:
-                        self.deployment = original_deployment
                         logger.error(f"[OpenAI] Fallback failed: {e2}")
 
                 raise Exception(f"Azure OpenAI failed after retries: {e}")

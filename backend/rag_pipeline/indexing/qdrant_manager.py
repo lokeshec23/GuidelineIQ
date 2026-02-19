@@ -4,6 +4,7 @@ Qdrant vector database manager for DSCR_GUIDELINES collection
 """
 
 import asyncio
+import hashlib
 from typing import List, Dict, Optional
 import logging
 from qdrant_client import QdrantClient
@@ -13,7 +14,8 @@ from qdrant_client.models import (
     PointStruct,
     Filter,
     FieldCondition,
-    MatchValue
+    MatchValue,
+    PayloadSchemaType
 )
 
 from rag_pipeline.models import Chunk, DocumentPayload, ChunkType
@@ -72,9 +74,6 @@ class QdrantManager:
         except Exception as e:
             logger.error(f"Failed to connect to Qdrant: {e}")
             raise
-        except Exception as e:
-            logger.error(f"Failed to connect to Qdrant: {e}")
-            raise
     
     def create_collection(self, vector_size: int = 1536, force_recreate: bool = False):
         """
@@ -105,9 +104,21 @@ class QdrantManager:
                     distance=Distance.COSINE
                 )
             )
+            
+            # Create payload indices for filter fields (prevents full-scan at scale)
+            for field_name in ["lender", "program", "version", "gridfs_file_id"]:
+                try:
+                    self.client.create_payload_index(
+                        collection_name=self.collection_name,
+                        field_name=field_name,
+                        field_schema=PayloadSchemaType.KEYWORD
+                    )
+                except Exception:
+                    pass  # Index may already exist
+            
             logger.info(
                 f"Created collection {self.collection_name} "
-                f"with vector size {vector_size}"
+                f"with vector size {vector_size} and payload indices"
             )
         
         except Exception as e:
@@ -155,8 +166,11 @@ class QdrantManager:
                 **chunk.metadata
             }
             
+            # Deterministic hash: hashlib.sha256 is stable across Python restarts
+            stable_id = int(hashlib.sha256(chunk.id.encode()).hexdigest()[:16], 16)
+            
             point = PointStruct(
-                id=hash(chunk.id) % (2**63),  # Convert string ID to int
+                id=stable_id,
                 vector=chunk.embedding,
                 payload=payload
             )

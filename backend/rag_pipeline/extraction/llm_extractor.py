@@ -489,12 +489,9 @@ Return JSON:
         MAX_CHUNKS_FOR_NQMF = 30
         if len(evidence_chunks) > MAX_CHUNKS_FOR_NQMF:
             logger.warning(
-                f"{parameter} to prevent context overflow"
+                f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "
+                f"for parameter '{parameter}' to prevent context overflow"
             )
-            # logger.warning(
-            #     f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "
-            #     f"for parameter '{parameter}' to prevent context overflow"
-            # )
             evidence_chunks = evidence_chunks[:MAX_CHUNKS_FOR_NQMF]
         
         # Build NQMF-specific prompts
