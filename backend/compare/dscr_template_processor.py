@@ -39,7 +39,7 @@ DSCR_EXPORT_COLUMN_ORDER = [
     "comparison_notes"
 ]
 
-DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id", "ppe_field_type"]
+DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id"]
 
 
 async def process_dscr_template_comparison(
@@ -253,8 +253,7 @@ async def process_dscr_template_comparison(
 
 def detect_parameter_column(data: List[Dict], current_guidelines: List[Dict]) -> Optional[str]:
     """
-    Identify the column that likely contains DSCR parameters.
-    Checks for standard names and content overlap.
+    Intelligently identifies the column containing DSCR parameters.
     """
     if not data:
         return None
@@ -262,11 +261,12 @@ def detect_parameter_column(data: List[Dict], current_guidelines: List[Dict]) ->
     # Get all column names from first row
     columns = list(data[0].keys())
 
-    # 1. Check for standard names (priority order)
+    # Standard names to check first
     standard_names = [
+        "DSCR Parameters\n(Investor / Business Purpose Loans)", # Specific ingestion header
         "DSCR_Parameters", "DSCR Parameters", "dscr_parameters",
         "Parameter", "parameter", "Rule Name", "Rule", "Topic",
-        "Guideline", "Field", "Description"
+        "Guideline", "Field", "Description", "rule_id"
     ]
 
     # First pass: check if any standard name exists exactly
@@ -387,8 +387,9 @@ def build_dscr_template_comparison(
         
         # Create comparison entry
         comparison_entry = {
+            "rule_id": param_name, # Alias for frontend
             "dscr_parameters": param_name,
-            "variance_category": template_param["category"],
+            "category": template_param["category"],
             "sub_category": template_param["subcategory"],
             "ppe_field_type": template_param["ppe_field"],
             "guideline_1_data": guideline1_row if guideline1_row else {"status": "Not present"},
@@ -425,7 +426,7 @@ async def run_parallel_dscr_comparison(
             [
                 {
                     "dscr_parameter": item["dscr_parameters"],
-                    "category": item["variance_category"],
+                    "category": item["category"], # Changed from variance_category
                     "sub_category": item["sub_category"],
                     "ppe_field_type": item["ppe_field_type"],
                     "guideline_1": item["guideline_1_data"],
@@ -539,10 +540,10 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
 
             merged_item = {
                 # ✅ Use template data for these fields to ensure consistency
+                "rule_id": template_item["dscr_parameters"], # Alias for frontend
                 "dscr_parameters": template_item["dscr_parameters"],
-                "category": template_item["variance_category"],
+                "category": template_item["category"],
                 "sub_category": template_item["sub_category"],
-                "ppe_field_type": template_item["ppe_field_type"],
                 
                 # ✅ Map to 'guideline_1'/'guideline_2' for Excel/UI consistency
                 "guideline_1": g1_val,

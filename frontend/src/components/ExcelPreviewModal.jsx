@@ -469,7 +469,9 @@ const ExcelPreviewModal = ({
             dataColumns = dataColumns.filter(col =>
                 col.dataIndex !== 'S NO' &&
                 col.dataIndex !== 's_no' &&
-                col.dataIndex !== 'sno'
+                col.dataIndex !== 'sno' &&
+                col.dataIndex !== 'dscr_parameters' &&
+                col.dataIndex !== 'ppe_field_type'
             );
         }
 

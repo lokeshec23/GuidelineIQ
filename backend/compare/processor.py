@@ -187,7 +187,8 @@ async def run_parallel_comparison_with_validation(
         chunk_json = json.dumps(
             [
                 {
-                    "dscr_parameters": (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
+                    "rule_id": (block["guideline1"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
+                    "dscr_parameters": (block["guideline1"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
                     "guideline_1": block["guideline1"] if block["guideline1"] else {"status": "Not present in Guideline 1"},
                     "guideline_2": block["guideline2"] if block["guideline2"] else {"status": "Not present in Guideline 2"},
                 }
@@ -203,6 +204,7 @@ async def run_parallel_comparison_with_validation(
 
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have exactly these keys:
+- "rule_id" (string, copy exactly from input "rule_id")
 - "dscr_parameters" (string, copy exactly from input "dscr_parameters")
 - "category" (string)
 - "sub_category" (string)
