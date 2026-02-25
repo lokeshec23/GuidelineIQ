@@ -422,6 +422,37 @@ const ComparePage = () => {
     },
   ];
 
+  // Calculate columns for preview, excluding unwanted internal fields
+  const previewColumns = React.useMemo(() => {
+    // Only apply for ingestion preview (view details), not comparison preview
+    if (isComparePreview || !previewData || previewData.length === 0) return null;
+
+    // Get all available keys from the first record
+    const allKeys = Object.keys(previewData[0]);
+
+    // Define columns to hide
+    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'verification'];
+
+    // Filter available keys
+    const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
+
+    // Map to column objects expected by ExcelPreviewModal
+    return visibleKeys.map(key => {
+      // Rename Hard_Soft_Classification to PPE FIELD TYPE
+      if (key.toLowerCase() === 'hard_soft_classification') {
+        return {
+          title: "PPE FIELD TYPE",
+          dataIndex: key,
+          key: key
+        };
+      }
+      return {
+        dataIndex: key,
+        key: key
+      };
+    });
+  }, [previewData, isComparePreview]);
+
   if (pageLoading) {
     return <CompareSkeleton />;
   }
@@ -684,8 +715,9 @@ const ComparePage = () => {
         <ExcelPreviewModal
           visible={previewModalVisible}
           onClose={() => setPreviewModalVisible(false)}
-          title="Comparison Results"
+          title={isComparePreview ? "Comparison Results" : "Extraction Results"}
           data={previewData}
+          columns={previewColumns}
           onDownload={() => {
             if (isComparePreview) {
               compareAPI.downloadExcel(sessionId);
