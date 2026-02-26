@@ -390,11 +390,10 @@ const ExcelPreviewModal = ({
             <Modal
                 open={visible}
                 footer={null}
-                width="90vw"
+                width="95vw"
                 centered
                 closable={false}
                 style={{
-                    top: 0,
                     paddingBottom: 0,
                     maxWidth: "calc(100vw - 40px)",
                 }}
@@ -407,7 +406,7 @@ const ExcelPreviewModal = ({
                 onCancel={onClose}
             >
                 {/* Header - fixed */}
-                <div className="flex justify-between items-center px-6 py-4 border-b bg-white relative">
+                <div className="flex justify-between items-center px-4 py-2 border-b bg-white relative">
                     <div className="flex items-center gap-3">
                         <div className={`${iconBgColor} p-2 rounded-full`}>
                             <IconComponent className={`${iconColor} text-xl`} />
@@ -447,7 +446,7 @@ const ExcelPreviewModal = ({
                 </div>
 
                 {/* Search bar - fixed below header */}
-                <div className="px-6 py-3 bg-gray-50 border-b flex items-center gap-3">
+                <div className="px-4 py-1.5 bg-gray-50 border-b flex items-center gap-3">
                     {!searchExpanded ? (
                         <Button
                             icon={<SearchOutlined />}
@@ -482,7 +481,7 @@ const ExcelPreviewModal = ({
 
                 {/* Content area - table scrolls, footer fixed */}
                 <div
-                    className="p-4 bg-gray-50 relative flex flex-col"
+                    className="p-1 bg-gray-50 relative flex flex-col"
                     style={{ flex: 1, overflow: "hidden" }}
                 >
                     {/* Scrollable table container */}
@@ -525,7 +524,7 @@ const ExcelPreviewModal = ({
                             .antd-excel-table .ant-table-tbody > tr > td {
                                 border-right: 1px solid #f0f0f0 !important;
                                 vertical-align: top !important;
-                                padding: 8px 12px !important;
+                                padding: 4px 8px !important;
                             }
 
                             .antd-excel-table .ant-table-tbody > tr:hover > td {
@@ -545,9 +544,9 @@ const ExcelPreviewModal = ({
                                 setSortedInfo(sorter);
                             }}
                             pagination={false}
-                            scroll={{ x: "max-content", y: "calc(90vh - 300px)" }}
+                            scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
                             bordered
-                            size="middle"
+                            size="small"
                         />
                     </div>
 
