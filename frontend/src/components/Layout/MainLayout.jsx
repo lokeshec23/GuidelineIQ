@@ -130,11 +130,11 @@ const MainLayout = ({ children }) => {
         icon: <TeamOutlined />,
         label: "Management",
       },
-      {
-        key: "/settings",
-        icon: <SettingOutlined />,
-        label: "Settings",
-      },
+      // {
+      //   key: "/settings",
+      //   icon: <SettingOutlined />,
+      //   label: "Settings",
+      // },
 
     ];
 
@@ -189,7 +189,7 @@ const MainLayout = ({ children }) => {
       {/* HEADER */}
       <Header
         className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200"
-        style={{ paddingInline: "24px", height: "10dvh", minHeight: "60px" }}
+        style={{ paddingInline: "24px", height: "8dvh", minHeight: "60px" }}
       >
         <div className="flex items-center gap-3">
           {isMobile && (
@@ -240,7 +240,7 @@ const MainLayout = ({ children }) => {
         </div>
       </Header>
 
-      <Layout style={{ marginTop: "10dvh", height: "90dvh" }}>
+      <Layout style={{ marginTop: "8dvh", height: "92dvh" }}>
         {/* SIDEBAR */}
         <Sider
           collapsible
@@ -252,8 +252,8 @@ const MainLayout = ({ children }) => {
           style={{
             position: "fixed",
             left: isMobile ? (mobileDrawerOpen ? 0 : "-100%") : 0,
-            top: "10dvh",
-            height: "90dvh",
+            top: "8dvh",
+            height: "92dvh",
             zIndex: isMobile ? 1000 : 10,
             background: "#f9fafb",
             minWidth: isMobile ? "280px" : (collapsed ? "60px" : "200px"),
@@ -333,7 +333,7 @@ const MainLayout = ({ children }) => {
         {isMobile && mobileDrawerOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-999"
-            style={{ top: "10dvh" }}
+            style={{ top: "8dvh" }}
             onClick={() => setMobileDrawerOpen(false)}
           />
         )}
