@@ -375,7 +375,7 @@ const IngestPage = () => {
         className="w-full"
       >
         {/* Model Selection Row - Admin Only */}
-        {isAdmin && (
+        {/* {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <Form.Item
               name="model_provider"
@@ -409,24 +409,24 @@ const IngestPage = () => {
               </Select>
             </Form.Item>
           </div>
-        )}
+        )} */}
 
         {/* Investor & Version Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Form.Item
             name="investor"
-            label={<span className="text-gray-600">Investors</span>}
+            label={<span className="text-gray-600 font-medium">Investor</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="Enter" className="rounded-md" />
+            <Input size="large" placeholder="Enter investor name" className="rounded-md" />
           </Form.Item>
 
           <Form.Item
             name="version"
-            label={<span className="text-gray-600">Version</span>}
+            label={<span className="text-gray-600 font-medium">Version</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="Enter" className="rounded-md" />
+            <Input size="large" placeholder="EnterEnter version (e.g., v1, v2)" className="rounded-md" />
           </Form.Item>
         </div>
 
@@ -434,7 +434,7 @@ const IngestPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Form.Item
             name="effective_date"
-            label={<span className="text-gray-600">Effective Date</span>}
+            label={<span className="text-gray-600 font-medium ">Effective Date</span>}
             className="mb-0"
           >
             <DatePicker
@@ -447,7 +447,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="expiry_date"
-            label={<span className="text-gray-600">Expiry Date</span>}
+            label={<span className="text-gray-600 font-medium">Expiry Date</span>}
             className="mb-0"
           >
             <DatePicker
@@ -463,7 +463,7 @@ const IngestPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Form.Item
             name="guideline_type"
-            label={<span className="text-gray-600">Guideline Type</span>}
+            label={<span className="text-gray-600 font-medium">Guideline Type</span>}
             className="mb-0"
           >
             <Select
@@ -483,7 +483,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="program_type"
-            label={<span className="text-gray-600">Program Type</span>}
+            label={<span className="text-gray-600 font-medium">Program Type</span>}
             className="mb-0"
           >
             <Input size="large" placeholder="e.g., Fixed, ARM" className="rounded-md" />
@@ -491,7 +491,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="page_range"
-            label={<span className="text-gray-600">Page Range (e.g., 1-5, 8)</span>}
+            label={<span className="text-gray-600 font-medium">Page Range (e.g., 1-5, 8)</span>}
             className="mb-0"
           >
             <Input size="large" placeholder="Optional" className="rounded-md" />

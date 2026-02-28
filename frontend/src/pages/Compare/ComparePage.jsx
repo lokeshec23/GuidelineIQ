@@ -468,7 +468,7 @@ const ComparePage = () => {
         className="w-full"
       >
         {/* Model Selection Row - Admin Only */}
-        {isAdmin && (
+        {/* {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Form.Item
               name="model_provider"
@@ -502,7 +502,7 @@ const ComparePage = () => {
               </Select>
             </Form.Item>
           </div>
-        )}
+        )} */}
 
         {/* Investor and Version Input Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

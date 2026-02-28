@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +10,13 @@ class DSCRParameterBase(BaseModel):
     subcategory: str
     ppe_field: Optional[str] = None
     guideline_type: List[str] = ["All"]
+
+    @field_validator("guideline_type", mode="before")
+    @classmethod
+    def process_guideline_type(cls, v):
+        if v is None:
+            return ["All"]
+        return v
 
 class DSCRParameterCreate(DSCRParameterBase):
     pass
