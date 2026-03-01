@@ -73,3 +73,7 @@ class ResetPassword(BaseModel):
         if 'new_password' in info.data and v != info.data['new_password']:
             raise ValueError('Passwords do not match')
         return v
+
+# Schema for updating a user's role
+class UserRoleUpdate(BaseModel):
+    role: str

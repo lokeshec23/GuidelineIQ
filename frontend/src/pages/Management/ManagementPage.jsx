@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Table, Card, Tag, Typography } from "antd";
+import { Table, Card, Tag, Typography, Select } from "antd";
 import { authAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import dayjs from "dayjs";
@@ -27,6 +27,21 @@ const ManagementPage = () => {
         }
     };
 
+    const handleRoleChange = async (userId, newRole) => {
+        try {
+            await authAPI.updateUserRole(userId, { role: newRole });
+            showToast.success("User role updated successfully");
+            // Optimistically update the local state to avoid a full fetch
+            setUsers(users.map(user => 
+                user.id === userId ? { ...user, role: newRole } : user
+            ));
+        } catch (error) {
+            console.error("Failed to update user role:", error);
+            const errorMessage = error.response?.data?.detail || "Failed to update user role";
+            showToast.error(errorMessage);
+        }
+    };
+
     const columns = [
         {
             title: "S.No",
@@ -49,10 +64,17 @@ const ManagementPage = () => {
             title: "Role",
             dataIndex: "role",
             key: "role",
-            render: (role) => (
-                <Tag color={role === "admin" ? "blue" : "green"}>
-                    {role ? role.toUpperCase() : "USER"}
-                </Tag>
+            render: (role, record) => (
+                <Select
+                    value={role || "user"}
+                    style={{ width: 110 }}
+                    onChange={(value) => handleRoleChange(record.id, value)}
+                    onClick={(e) => e.stopPropagation()}
+                    options={[
+                        { value: 'admin', label: 'ADMIN' },
+                        { value: 'user', label: 'USER' }
+                    ]}
+                />
             ),
         },
         {

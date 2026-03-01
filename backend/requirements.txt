@@ -15,7 +15,7 @@ cachetools==6.2.4
 certifi==2025.11.12
 cffi==2.0.0
 charset-normalizer==3.4.4
-chromadb==1.4.0
+# chromadb==1.4.0
 click==8.3.1
 colorama==0.4.6
 coloredlogs==15.0.1
@@ -27,21 +27,16 @@ durationpy==0.10
 ecdsa==0.19.1
 email-validator==2.3.0
 et_xmlfile==2.0.0
-<<<<<<< HEAD
-=======
-faiss-cpu==1.13.2
-fastapi==0.124.4
->>>>>>> sql_dev
 filelock==3.20.3
 flatbuffers==25.12.19
 fsspec==2026.1.0
-google-ai-generativelanguage==0.4.0
-google-api-core==2.28.1
-google-api-python-client==2.187.0
-google-auth==2.45.0
-google-auth-httplib2==0.3.0
-google-generativeai==0.3.2
-googleapis-common-protos==1.72.0
+# google-ai-generativelanguage==0.4.0
+# google-api-core==2.28.1
+# google-api-python-client==2.187.0
+# google-auth==2.45.0
+# google-auth-httplib2==0.3.0
+# google-generativeai==0.3.2
+# googleapis-common-protos==1.72.0
 greenlet==3.3.1
 grpcio==1.76.0
 grpcio-status==1.62.3

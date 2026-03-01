@@ -48,3 +48,13 @@ async def update_user_password(db: AsyncSession, email: str, hashed_password: st
     await db.commit()
     await db.refresh(user)
     return user
+
+async def update_user_role(db: AsyncSession, email: str, role: str):
+    """Update a user's role by their email."""
+    user = await find_user_by_email(db, email)
+    if not user:
+        return None
+    user.role = role
+    await db.commit()
+    await db.refresh(user)
+    return user

@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sql_database import get_db
-from auth.models import find_user_by_email, create_user, get_all_users, get_user_by_id, update_user_password
-from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword
+from auth.models import find_user_by_email, create_user, get_all_users, get_user_by_id, update_user_password, update_user_role
+from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword, UserRoleUpdate
 from auth.utils import hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token
 from utils.logger import setup_logger
 from datetime import datetime
@@ -200,3 +200,45 @@ async def list_users(authorization: str = Header(None), db: AsyncSession = Depen
         ) 
         for u in users
     ]
+
+# ✅ Update user role (Admin only)
+@router.put("/users/{user_id}/role", response_model=UserOut)
+async def change_user_role(user_id: str, role_update: UserRoleUpdate, authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+
+    token = authorization.split(" ")[1]
+    payload = verify_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    # Verify admin role
+    requesting_user_id = payload.get("sub")
+    requesting_user = await get_user_by_id(db, requesting_user_id)
+    if not requesting_user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if requesting_user.role != "admin" and not requesting_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Check if target user exists
+    target_user = await get_user_by_id(db, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+    
+    # Optional: Prevent admin from demoting themselves (simplest check)
+    if requesting_user_id == user_id and role_update.role != "admin":
+         raise HTTPException(status_code=400, detail="Cannot change your own admin role")
+        
+    updated_user = await update_user_role(db, target_user.email, role_update.role)
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Failed to update role")
+        
+    logger.info(f"User {target_user.email} role updated to {role_update.role} by admin {requesting_user.email}")
+        
+    return UserOut(
+        id=str(updated_user.id),
+        username=updated_user.username,
+        email=updated_user.email,
+        role=updated_user.role,
+        created_at=updated_user.created_at.isoformat() if updated_user.created_at else None
+    )
