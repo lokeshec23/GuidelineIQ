@@ -176,9 +176,10 @@ const MainLayout = ({ children }) => {
             {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
           </div>
         ),
-        className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${isActive
-          ? "bg-white shadow-sm border border-gray-100"
-          : "bg-transparent hover:bg-gray-200/50 text-gray-600"
+        className: `mb-2 transition-all duration-200 ${collapsed ? "mx-1 mt-1 px-0 flex justify-center !w-12 !h-12 items-center rounded-xl" : "mx-3 rounded-lg"
+          } ${isActive
+            ? "bg-white shadow-sm border border-gray-100"
+            : "bg-transparent hover:bg-gray-200/50 text-gray-600"
           }`,
       };
     });

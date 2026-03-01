@@ -531,16 +531,26 @@ const IngestPage = () => {
                 <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
                   {files.length} file{files.length !== 1 ? 's' : ''} selected
                 </p>
-                <Button
-                  danger
-                  type="text"
-                  size="small"
-                  onClick={handleRemoveAllFiles}
-                  className="hover:bg-red-50"
-                  style={{ fontFamily: 'Jura, sans-serif' }}
-                >
-                  Remove All
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    danger
+                    type="text"
+                    onClick={handleRemoveAllFiles}
+                    className="hover:bg-red-50"
+                    style={{ fontFamily: 'Jura, sans-serif' }}
+                  >
+                    Remove All
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    loading={processing}
+                    disabled={files.length === 0 || processing}
+                  >
+                    {processing ? "Processing..." : "Extract Guidelines"}
+                  </Button>
+                </div>
               </div>
 
               {/* List of files */}
@@ -594,19 +604,7 @@ const IngestPage = () => {
           )}
         </div>
 
-        {/* Submit Button Area */}
-        <div className="flex justify-end">
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
-            loading={processing}
-            disabled={files.length === 0 || processing}
-          >
-            {processing ? "Processing..." : "Extract Guidelines"}
-          </Button>
-        </div>
+
       </Form>
 
       {/* Processing Modal - Updated for Progress Bar */}
