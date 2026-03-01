@@ -16,6 +16,7 @@ from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
 from ingest.dscr_config import DSCR_GUIDELINES
+from sql_database import AsyncSessionLocal
 
 # Excel Export Configuration
 DSCR_EXPORT_HEADER_MAP = {
@@ -38,7 +39,7 @@ DSCR_EXPORT_COLUMN_ORDER = [
     "comparison_notes"
 ]
 
-DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id", "ppe_field_type"]
+DSCR_EXPORT_HIDDEN_COLUMNS = ["rule_id"]
 
 
 async def process_dscr_template_comparison(
@@ -54,6 +55,8 @@ async def process_dscr_template_comparison(
     user_prompt: str,
     user_id: str = None,
     username: str = "Unknown",
+    investor: str = "Unknown Investor",
+    version: str = "v1"
 ):
     """
     Background async task to compare two DSCR guideline Excel files using the
@@ -76,12 +79,35 @@ async def process_dscr_template_comparison(
     excel_path = None
 
     try:
+        # Load parameters from DB
+        from sql_database import AsyncSessionLocal
+        from models.sql_models import DSCRParameter
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(DSCRParameter))
+            db_params = result.scalars().all()
+            
+            db_guidelines = [
+                {
+                    "parameter": p.parameter,
+                    "category": p.category,
+                    "subcategory": p.subcategory,
+                    "ppe_field": p.ppe_field
+                }
+                for p in db_params
+            ]
+
+        if not db_guidelines:
+            from ingest.dscr_config import DSCR_GUIDELINES
+            db_guidelines = DSCR_GUIDELINES
+
         print(f"\n{'='*60}")
         print(f"DSCR Template Comparison started for session {session_id[:8]}")
         print(f"File 1: {file1_name}")
         print(f"File 2: {file2_name}")
         print(f"Model: {model_provider}/{model_name}")
-        print(f"Template: {len(DSCR_GUIDELINES)} DSCR parameters")
+        print(f"Template: {len(db_guidelines)} DSCR parameters")
         print(f"{'='*60}\n")
 
         # Validate prompts - Use defaults if empty
@@ -108,7 +134,7 @@ async def process_dscr_template_comparison(
         update_progress(session_id, 20, "Mapping to DSCR parameter template...")
 
         template_data = build_dscr_template_comparison(
-            data1, data2, file1_name, file2_name
+            data1, data2, file1_name, file2_name, db_guidelines
         )
 
         print(f"✅ Created template with {len(template_data)} DSCR parameters")
@@ -128,7 +154,8 @@ async def process_dscr_template_comparison(
         llm = initialize_llm_provider_for_compare(user_settings, model_provider, model_name)
 
         # STEP 5 — Parallel LLM Processing
-        update_progress(session_id, 45, f"Analyzing {num_chunks} chunks with {model_name}...")
+        # update_progress(session_id, 45, f"Analyzing {num_chunks} chunks with {model_name}...")
+        update_progress(session_id, 45, "Performing comparison...")
 
         results, failed = await run_parallel_dscr_comparison(
             llm,
@@ -156,10 +183,14 @@ async def process_dscr_template_comparison(
         ).name
 
         # Use centralized configuration for Excel generation
+        dynamic_header_map = DSCR_EXPORT_HEADER_MAP.copy()
+        dynamic_header_map["guideline_1"] = os.path.splitext(file1_name)[0]
+        dynamic_header_map["guideline_2"] = os.path.splitext(file2_name)[0]
+
         dynamic_json_to_excel(
             results,
             excel_path,
-            header_map=DSCR_EXPORT_HEADER_MAP,
+            header_map=dynamic_header_map,
             hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
             column_order=DSCR_EXPORT_COLUMN_ORDER
         )
@@ -179,6 +210,8 @@ async def process_dscr_template_comparison(
                     f"{os.path.splitext(file1_name)[0]}_vs_"
                     f"{os.path.splitext(file2_name)[0]}.xlsx"
                 ),
+                "file1_name": file1_name,
+                "file2_name": file2_name,
                 "status": "completed",
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,
@@ -188,18 +221,21 @@ async def process_dscr_template_comparison(
         if user_id:
             try:
                 from history.models import save_compare_history
-                await save_compare_history({
-                    "user_id": user_id,
-                    "username": username,
-                    "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
-                    "uploaded_file1": file1_name,
-                    "uploaded_file2": file2_name,
-                    "extracted_file": (
-                        f"DSCR_Comparison_{os.path.splitext(file1_name)[0]}_vs_"
-                        f"{os.path.splitext(file2_name)[0]}.xlsx"
-                    ),
-                    "preview_data": results
-                })
+                async with AsyncSessionLocal() as db:
+                    await save_compare_history(db, {
+                        "user_id": user_id,
+                        "username": username,
+                        "session_id": session_id,  # ✅ Pass session_id so it can be looked up by chat
+                        "uploaded_file1": file1_name,
+                        "uploaded_file2": file2_name,
+                        "extracted_file": (
+                            f"DSCR_Comparison_{os.path.splitext(file1_name)[0]}_vs_"
+                            f"{os.path.splitext(file2_name)[0]}.xlsx"
+                        ),
+                        "preview_data": results,
+                        "investor": investor,
+                        "version": version
+                    })
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
@@ -226,10 +262,9 @@ async def process_dscr_template_comparison(
                 print("Temporary file cleaned up.")
 
 
-def detect_parameter_column(data: List[Dict]) -> Optional[str]:
+def detect_parameter_column(data: List[Dict], current_guidelines: List[Dict]) -> Optional[str]:
     """
-    Identify the column that likely contains DSCR parameters.
-    Checks for standard names and content overlap.
+    Intelligently identifies the column containing DSCR parameters.
     """
     if not data:
         return None
@@ -237,11 +272,12 @@ def detect_parameter_column(data: List[Dict]) -> Optional[str]:
     # Get all column names from first row
     columns = list(data[0].keys())
 
-    # 1. Check for standard names (priority order)
+    # Standard names to check first
     standard_names = [
+        "DSCR Parameters\n(Investor / Business Purpose Loans)", # Specific ingestion header
         "DSCR_Parameters", "DSCR Parameters", "dscr_parameters",
         "Parameter", "parameter", "Rule Name", "Rule", "Topic",
-        "Guideline", "Field", "Description"
+        "Guideline", "Field", "Description", "rule_id"
     ]
 
     # First pass: check if any standard name exists exactly
@@ -249,13 +285,13 @@ def detect_parameter_column(data: List[Dict]) -> Optional[str]:
         if name in columns:
             return name
 
-    # 2. Check content overlap with DSCR_GUIDELINES
+    # 2. Check content overlap with DSCR template
     # We want to find a column that contains values like "Purchase", "Cash-Out Refinance"
     best_col = None
     max_overlap = 0
 
     # Create set of normalized template parameters
-    template_params = {str(p["parameter"]).strip().lower() for p in DSCR_GUIDELINES}
+    template_params = {str(p["parameter"]).strip().lower() for p in current_guidelines}
 
     for col in columns:
         matches = 0
@@ -288,7 +324,8 @@ def build_dscr_template_comparison(
     data1: List[Dict],
     data2: List[Dict],
     file1_name: str,
-    file2_name: str
+    file2_name: str,
+    current_guidelines: List[Dict]
 ) -> List[Dict]:
     """
     Build comparison data using DSCR_GUIDELINES as template.
@@ -345,14 +382,14 @@ def build_dscr_template_comparison(
         return best_row
 
     # Detect columns
-    col1 = detect_parameter_column(data1)
-    col2 = detect_parameter_column(data2)
+    col1 = detect_parameter_column(data1, current_guidelines)
+    col2 = detect_parameter_column(data2, current_guidelines)
     
     print(f"📋 Detected parameter column for {file1_name}: {col1}")
     print(f"📋 Detected parameter column for {file2_name}: {col2}")
     
     # Process each DSCR template parameter
-    for template_param in DSCR_GUIDELINES:
+    for template_param in current_guidelines:
         param_name = template_param["parameter"]
         
         # Find matching data from both guidelines
@@ -361,8 +398,9 @@ def build_dscr_template_comparison(
         
         # Create comparison entry
         comparison_entry = {
+            "rule_id": param_name, # Alias for frontend
             "dscr_parameters": param_name,
-            "variance_category": template_param["category"],
+            "category": template_param["category"],
             "sub_category": template_param["subcategory"],
             "ppe_field_type": template_param["ppe_field"],
             "guideline_1_data": guideline1_row if guideline1_row else {"status": "Not present"},
@@ -399,7 +437,7 @@ async def run_parallel_dscr_comparison(
             [
                 {
                     "dscr_parameter": item["dscr_parameters"],
-                    "category": item["variance_category"],
+                    "category": item["category"], # Changed from variance_category
                     "sub_category": item["sub_category"],
                     "ppe_field_type": item["ppe_field_type"],
                     "guideline_1": item["guideline_1_data"],
@@ -512,14 +550,13 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
             g2_val = llm_item.get("guideline_2_value") or llm_item.get("guideline_2") or "Not present"
 
             merged_item = {
-                # ✅ Always use template data for these fields (never trust LLM to copy them)
-                "rule_id": template_item["dscr_parameters"], # ✅ Map to rule_id for frontend compatibility
+                # ✅ Use template data for these fields to ensure consistency
+                "rule_id": template_item["dscr_parameters"], # Alias for frontend
                 "dscr_parameters": template_item["dscr_parameters"],
-                "category": template_item["variance_category"], # Renamed from variance_category
+                "category": template_item["category"],
                 "sub_category": template_item["sub_category"],
-                "ppe_field_type": template_item["ppe_field_type"],
                 
-                # ✅ Duplicate as 'guideline_1'/'guideline_2' for frontend table compatibility
+                # ✅ Map to 'guideline_1'/'guideline_2' for Excel/UI consistency
                 "guideline_1": g1_val,
                 "guideline_2": g2_val,
 
@@ -555,15 +592,7 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
             **params
         )
 
-    if provider == "gemini":
-        return LLMProvider(
-            provider="gemini",
-            api_key=user_settings.get("gemini_api_key"),
-            model=model,
-            **params
-        )
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    raise ValueError(f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
 
 
 def create_comparison_chunks(template_data: List[Dict], chunk_size: int = 10) -> List[List[Dict]]:

@@ -3,6 +3,7 @@ import { Table, Card, Tag, Typography } from "antd";
 import { authAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import dayjs from "dayjs";
+import { TableSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Title } = Typography;
 
@@ -73,15 +74,19 @@ const ManagementPage = () => {
                 <p className="text-gray-500">View and manage registered users</p>
             </div>
 
-            <Card className="shadow-sm border-gray-200" bordered={false}>
-                <Table
-                    columns={columns}
-                    dataSource={users}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{ pageSize: 10 }}
-                />
-            </Card>
+            {loading ? (
+                <TableSkeleton rows={10} columns={5} />
+            ) : (
+                <Card className="shadow-sm border-gray-200" bordered={false}>
+                    <Table
+                        columns={columns}
+                        dataSource={users}
+                        rowKey="id"
+                        loading={loading}
+                        pagination={{ pageSize: 10 }}
+                    />
+                </Card>
+            )}
         </div>
     );
 };

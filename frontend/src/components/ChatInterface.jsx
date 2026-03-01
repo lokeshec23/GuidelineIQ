@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Segmented, Tooltip, Modal, Popconfirm, Empty } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, MessageOutlined } from '@ant-design/icons';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, MessageOutlined, CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -26,6 +26,8 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [instructions, setInstructions] = useState('');
     const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
     const [tempInstructions, setTempInstructions] = useState('');
+    const [globalSuggestions, setGlobalSuggestions] = useState([]);
+    const [copiedId, setCopiedId] = useState(null);
 
     // Conversation history state
     const [conversations, setConversations] = useState([]);
@@ -34,9 +36,16 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [loadingConversations, setLoadingConversations] = useState(false);
 
     const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
     const isResizingRef = useRef(false);
     const startPosRef = useRef({ x: 0, y: 0 });
     const startSizeRef = useRef({ width: 0, height: 0 });
+
+    const handleCopy = (id, content) => {
+        navigator.clipboard.writeText(content);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -45,6 +54,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     useEffect(() => {
         if (visible) {
             scrollToBottom();
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
         }
     }, [messages, visible]);
 
@@ -82,6 +94,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         // Just clear the current conversation and reset to welcome state
         // Conversation will be created when user sends first message
         setCurrentConversationId(null);
+        setGlobalSuggestions([]);
         setMessages([{
             id: 'welcome',
             role: 'assistant',
@@ -94,6 +107,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     // Switch to a different conversation
     const handleSwitchConversation = async (conversationId) => {
         setCurrentConversationId(conversationId);
+        setGlobalSuggestions([]);
         setLoading(true);
         try {
             const response = await chatAPI.getConversationMessages(conversationId);
@@ -155,6 +169,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         };
         setMessages(prev => [...prev, userMsg]);
         setInputValue('');
+        setGlobalSuggestions([]);
         setLoading(true);
 
         try {
@@ -179,6 +194,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 content: response.data.reply
             };
             setMessages(prev => [...prev, aiMsg]);
+
+            if (response.data.suggestions && response.data.suggestions.length > 0) {
+                setGlobalSuggestions(response.data.suggestions);
+            }
 
             // Reload conversations to update list
             await loadConversations();
@@ -430,10 +449,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                         <div
                                             className={item.role === 'user'
                                                 ? 'chat-message-user'
-                                                : 'chat-message-assistant'
+                                                : 'chat-message-assistant group relative'
                                             }
                                         >
-                                            <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                                            <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800 pr-6'}`}>
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     components={{
@@ -461,6 +480,17 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                     {item.content}
                                                 </ReactMarkdown>
                                             </div>
+                                            {item.role !== 'user' && (
+                                                <Tooltip title={copiedId === item.id ? "Copied!" : "Copy"}>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={copiedId === item.id ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
+                                                        onClick={() => handleCopy(item.id, item.content)}
+                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-gray-100 z-10"
+                                                    />
+                                                </Tooltip>
+                                            )}
                                         </div>
 
                                         {/* Suggestions Chips */}
@@ -492,9 +522,26 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                         <div ref={messagesEndRef} />
                     </div>
 
+                    {/* Suggestions Area */}
+                    {globalSuggestions.length > 0 && (
+                        <div className="chat-global-suggestions px-4 pb-2 flex flex-wrap gap-2">
+                            {globalSuggestions.map((suggestion, idx) => (
+                                <div
+                                    key={idx}
+                                    className="chat-suggestion-chip cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-full px-3 py-1 text-sm transition-colors flex items-center gap-1"
+                                    onClick={() => handleSendMessage(suggestion)}
+                                >
+                                    <BulbOutlined />
+                                    {suggestion}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Input Area */}
                     <div className="chat-input-container p-4">
                         <Input
+                            ref={inputRef}
                             placeholder="Ask anything..."
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}

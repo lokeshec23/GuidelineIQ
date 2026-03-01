@@ -1,13 +1,38 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs } from "antd";
-import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tabs, Modal, Spin, Tag, Input } from "antd";
+import { EyeOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
-import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import ConfirmModal from "../../components/ConfirmModal";
 import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { DashboardSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TabPane } = Tabs;
+
+const renderFileNames = (text) => {
+    if (!text) return "-";
+    const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
+    return (
+        <Space size={[0, 4]} wrap={false} style={{ display: 'flex', overflowX: 'auto', paddingBottom: '4px' }}>
+            {files.map((file, idx) => (
+                <Tag
+                    key={idx}
+                    color="blue"
+                    style={{
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        height: 'auto',
+                        padding: '2px 8px',
+                        lineHeight: '1.5'
+                    }}
+                >
+                    {file}
+                </Tag>
+            ))}
+        </Space>
+    );
+};
 
 const DashboardPage = () => {
     const { user } = useAuth();
@@ -15,6 +40,7 @@ const DashboardPage = () => {
     const [ingestHistory, setIngestHistory] = useState([]);
     const [compareHistory, setCompareHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [searchText, setSearchText] = useState("");
 
     // Preview modal state
     const [previewVisible, setPreviewVisible] = useState(false);
@@ -211,7 +237,7 @@ const DashboardPage = () => {
             dataIndex: "guideline_type",
             key: "guideline_type",
             width: 120,
-            render: (text) => text || "-",
+            render: renderFileNames,
         },
         {
             title: "Program Type",
@@ -267,11 +293,13 @@ const DashboardPage = () => {
             title: "Uploaded File Name",
             dataIndex: "uploadedFile",
             key: "uploadedFile",
+            render: renderFileNames,
         },
         {
             title: "Extracted File Name",
             dataIndex: "extractedFile",
             key: "extractedFile",
+            render: renderFileNames,
         },
         {
             title: "Action",
@@ -319,16 +347,19 @@ const DashboardPage = () => {
             title: "Extracted File Name",
             dataIndex: "extractedFile",
             key: "extractedFile",
+            render: renderFileNames,
         },
         {
             title: "Uploaded File Name 1",
             dataIndex: "uploadedFile1",
             key: "uploadedFile1",
+            render: renderFileNames,
         },
         {
             title: "Uploaded File Name 2",
             dataIndex: "uploadedFile2",
             key: "uploadedFile2",
+            render: renderFileNames,
         },
         {
             title: "Action",
@@ -382,7 +413,7 @@ const DashboardPage = () => {
         // For Compare tab, we keep the specific columns
         return [
             {
-                title: "DSCR PARAMETERS",
+                title: "PARAMETERS",
                 dataIndex: "rule_id",
                 key: "rule_id",
                 width: "10%",
@@ -400,13 +431,13 @@ const DashboardPage = () => {
                 width: "15%",
             },
             {
-                title: "Guideline 1",
+                title: previewRecord?.uploadedFile1 ? previewRecord.uploadedFile1.replace(/\.xlsx?$/, '') : "Guideline 1",
                 dataIndex: "guideline_1",
                 key: "guideline_1",
                 width: "25%",
             },
             {
-                title: "Guideline 2",
+                title: previewRecord?.uploadedFile2 ? previewRecord.uploadedFile2.replace(/\.xlsx?$/, '') : "Guideline 2",
                 dataIndex: "guideline_2",
                 key: "guideline_2",
                 width: "25%",
@@ -418,7 +449,31 @@ const DashboardPage = () => {
                 width: "10%",
             },
         ];
-    }, [activeTab, previewData]);
+    }, [activeTab, previewData, previewRecord]);
+
+    if (loading && ingestHistory.length === 0 && compareHistory.length === 0) {
+        return <DashboardSkeleton />;
+    }
+
+    // Filter history data based on search text
+    const filteredIngestHistory = ingestHistory.filter((record) => {
+        const searchLower = searchText.toLowerCase();
+        return (
+            record.investor?.toLowerCase().includes(searchLower) ||
+            record.version?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile?.toLowerCase().includes(searchLower)
+        );
+    });
+
+    const filteredCompareHistory = compareHistory.filter((record) => {
+        const searchLower = searchText.toLowerCase();
+        return (
+            record.investor?.toLowerCase().includes(searchLower) ||
+            record.version?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile1?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile2?.toLowerCase().includes(searchLower)
+        );
+    });
 
     return (
         <div style={{
@@ -429,7 +484,16 @@ const DashboardPage = () => {
             padding: '0 24px'
         }}>
             <div className="flex justify-between items-center py-4 flex-shrink-0">
-                <div className="flex-1"></div>
+                <div style={{ width: '50%' }}>
+                    <Input
+                        placeholder="Search by investor, version, or file name..."
+                        prefix={<SearchOutlined className="text-gray-400" />}
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        size="large"
+                        allowClear
+                    />
+                </div>
                 <Button
                     danger
                     icon={<DeleteOutlined />}
@@ -460,7 +524,7 @@ const DashboardPage = () => {
                     }}>
                         <Table
                             columns={ingestColumns}
-                            dataSource={ingestHistory}
+                            dataSource={filteredIngestHistory}
                             loading={loading}
                             rowKey="id"
                             bordered
@@ -486,7 +550,7 @@ const DashboardPage = () => {
                     }}>
                         <Table
                             columns={compareColumns}
-                            dataSource={compareHistory}
+                            dataSource={filteredCompareHistory}
                             loading={loading}
                             rowKey="id"
                             bordered
@@ -505,19 +569,21 @@ const DashboardPage = () => {
             </Tabs>
 
             {/* Preview Modal */}
-            <ExcelPreviewModal
-                visible={previewVisible}
-                onClose={() => setPreviewVisible(false)}
-                title={`Preview: ${previewTitle}`}
-                data={previewData}
-                columns={previewColumns}
-                showRowCount={false}
-                pageSize={20}
-                onDownload={handleDownload}
-                sessionId={previewRecord?.id}
-                isComparisonMode={activeTab === "compare"}
-                filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
-            />
+            <React.Suspense fallback={<Modal open={previewVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+                <ExcelPreviewModal
+                    visible={previewVisible}
+                    onClose={() => setPreviewVisible(false)}
+                    title={`Preview: ${previewTitle}`}
+                    data={previewData}
+                    columns={previewColumns}
+                    showRowCount={false}
+                    pageSize={20}
+                    onDownload={handleDownload}
+                    sessionId={previewRecord?.id}
+                    isComparisonMode={activeTab === "compare"}
+                    filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
+                />
+            </React.Suspense>
 
             {/* Delete Confirmation Modal */}
             <ConfirmModal

@@ -10,6 +10,7 @@ from utils.excel_reader import read_excel_to_json
 from utils.llm_provider import LLMProvider
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from sql_database import AsyncSessionLocal
 
 
 async def process_comparison_background(
@@ -125,17 +126,19 @@ async def process_comparison_background(
         if user_id:
             try:
                 from history.models import save_compare_history
-                await save_compare_history({
-                    "user_id": user_id,
-                    "username": username,
-                    "uploaded_file1": file1_name,
-                    "uploaded_file2": file2_name,
-                    "extracted_file": (
-                        f"comparison_{os.path.splitext(file1_name)[0]}_vs_"
-                        f"{os.path.splitext(file2_name)[0]}.xlsx"
-                    ),
-                    "preview_data": results
-                })
+                async with AsyncSessionLocal() as db:
+                    await save_compare_history(db, {
+                        "user_id": user_id,
+                        "username": username,
+                        "session_id": session_id,
+                        "uploaded_file1": file1_name,
+                        "uploaded_file2": file2_name,
+                        "extracted_file": (
+                            f"comparison_{os.path.splitext(file1_name)[0]}_vs_"
+                            f"{os.path.splitext(file2_name)[0]}.xlsx"
+                        ),
+                        "preview_data": results
+                    })
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
                 print(f"⚠️ Failed to save history: {hist_err}")
@@ -180,10 +183,12 @@ async def run_parallel_comparison_with_validation(
     async def handle_chunk(idx: int, chunk: List[Dict]):
         nonlocal chunk_results, failed_count, completed
 
+        # Prepare chunk data for LLM
         chunk_json = json.dumps(
             [
                 {
-                    "rule_id": (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
+                    "rule_id": (block["guideline1"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
+                    "dscr_parameters": (block["guideline1"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline1"] or {}).get("DSCR_Parameters") or (block["guideline1"] or {}).get("DSCR Parameters") or (block["guideline2"] or {}).get("DSCR Parameters\n(Investor / Business Purpose Loans)") or (block["guideline2"] or {}).get("DSCR_Parameters") or (block["guideline2"] or {}).get("DSCR Parameters") or "",
                     "guideline_1": block["guideline1"] if block["guideline1"] else {"status": "Not present in Guideline 1"},
                     "guideline_2": block["guideline2"] if block["guideline2"] else {"status": "Not present in Guideline 2"},
                 }
@@ -200,6 +205,7 @@ async def run_parallel_comparison_with_validation(
 ### REMINDER: OUTPUT FORMAT
 You MUST respond with a valid JSON array only. Each object must have exactly these keys:
 - "rule_id" (string, copy exactly from input "rule_id")
+- "dscr_parameters" (string, copy exactly from input "dscr_parameters")
 - "category" (string)
 - "sub_category" (string)
 - "guideline_1" (string)
@@ -306,15 +312,7 @@ def initialize_llm_provider_for_compare(user_settings: dict, provider: str, mode
             **params
         )
 
-    if provider == "gemini":
-        return LLMProvider(
-            provider="gemini",
-            api_key=user_settings.get("gemini_api_key"),
-            model=model,
-            **params
-        )
-
-    raise ValueError(f"Unsupported provider: {provider}")
+    raise ValueError(f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
 
 
 def align_guideline_data(data1: List[Dict], data2: List[Dict], file1_name: str, file2_name: str) -> List[Dict]:

@@ -474,7 +474,7 @@ Return JSON:
         if not evidence_chunks:
             return ExtractionResult(
                 parameter=parameter,
-                value="NA",
+                value="Not present",
                 hard_value="",
                 soft_value="",
                 needs_clarification=False,
@@ -489,12 +489,9 @@ Return JSON:
         MAX_CHUNKS_FOR_NQMF = 30
         if len(evidence_chunks) > MAX_CHUNKS_FOR_NQMF:
             logger.warning(
-                f"{parameter} to prevent context overflow"
+                f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "
+                f"for parameter '{parameter}' to prevent context overflow"
             )
-            # logger.warning(
-            #     f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "
-            #     f"for parameter '{parameter}' to prevent context overflow"
-            # )
             evidence_chunks = evidence_chunks[:MAX_CHUNKS_FOR_NQMF]
         
         # Build NQMF-specific prompts
@@ -549,7 +546,7 @@ Return JSON:
             if soft_value:
                 combined_value += ("\n" if combined_value else "") + soft_value
             if not combined_value:
-                combined_value = "NA"
+                combined_value = "Not present"
             
             # Create ExtractionResult with classification
             result = ExtractionResult(
@@ -574,7 +571,7 @@ Return JSON:
             logger.error(f"NQMF extraction failed for {parameter}: {e}")
             return ExtractionResult(
                 parameter=parameter,
-                value="NA",
+                value="Not present",
                 hard_value="",
                 soft_value="",
                 needs_clarification=False,
@@ -667,9 +664,9 @@ CONTENT RULES (NON-NEGOTIABLE)
 
 5. Missing Evidence
    • If the parameter is not explicitly stated → output:
-     NA
+     Not present
 
-   (Exactly "NA", no bullets, no explanation.)
+   (Exactly "Not present", no bullets, no explanation.)
 
 ================================================
 CLASSIFICATION RULES (CRITICAL)
@@ -744,7 +741,7 @@ Rules:
 • citation_indices refer to the evidence chunk numbers (0-indexed)
 • If all bullets are one type, the other array can be empty
 • No trailing commentary
-• If NO evidence found, return empty arrays (not "NA" in this format)
+• If NO evidence found, return empty arrays (not "Not present" in this format)
 
 ================================================
 FINAL ENFORCEMENT

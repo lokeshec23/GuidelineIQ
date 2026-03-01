@@ -15,6 +15,7 @@ import {
   ArrowRightOutlined,
   EditOutlined,
   TeamOutlined,
+  SlidersOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -120,16 +121,21 @@ const MainLayout = ({ children }) => {
         label: "Comparison Prompt",
       },
       {
-        key: "/settings",
-        icon: <SettingOutlined />,
-        label: "Settings",
+        key: "/config-parameters",
+        icon: <SlidersOutlined />,
+        label: "Config Parameters",
       },
-
       {
         key: "/management",
         icon: <TeamOutlined />,
         label: "Management",
       },
+      // {
+      //   key: "/settings",
+      //   icon: <SettingOutlined />,
+      //   label: "Settings",
+      // },
+
     ];
 
     const accessibleItems = baseItems.filter(
@@ -137,7 +143,7 @@ const MainLayout = ({ children }) => {
         if (item.key === "/ingestion-prompt" || item.key === "/comparison-prompt") {
           return false;
         }
-        if (item.key === "/management" && !isAdmin) {
+        if ((item.key === "/management" || item.key === "/config-parameters") && !isAdmin) {
           return false;
         }
         return item.key !== "/settings" || isAdmin;
@@ -170,9 +176,10 @@ const MainLayout = ({ children }) => {
             {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
           </div>
         ),
-        className: `mb-2 mx-3 rounded-lg transition-all duration-200 ${isActive
-          ? "bg-white shadow-sm border border-gray-100"
-          : "bg-transparent hover:bg-gray-200/50 text-gray-600"
+        className: `mb-2 transition-all duration-200 ${collapsed ? "mx-1 mt-1 px-0 flex justify-center !w-12 !h-12 items-center rounded-xl" : "mx-3 rounded-lg"
+          } ${isActive
+            ? "bg-white shadow-sm border border-gray-100"
+            : "bg-transparent hover:bg-gray-200/50 text-gray-600"
           }`,
       };
     });
@@ -183,7 +190,7 @@ const MainLayout = ({ children }) => {
       {/* HEADER */}
       <Header
         className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200"
-        style={{ paddingInline: "24px", height: "10dvh", minHeight: "60px" }}
+        style={{ paddingInline: "24px", height: "8dvh", minHeight: "60px" }}
       >
         <div className="flex items-center gap-3">
           {isMobile && (
@@ -234,7 +241,7 @@ const MainLayout = ({ children }) => {
         </div>
       </Header>
 
-      <Layout style={{ marginTop: "10dvh", height: "90dvh" }}>
+      <Layout style={{ marginTop: "8dvh", height: "92dvh" }}>
         {/* SIDEBAR */}
         <Sider
           collapsible
@@ -246,8 +253,8 @@ const MainLayout = ({ children }) => {
           style={{
             position: "fixed",
             left: isMobile ? (mobileDrawerOpen ? 0 : "-100%") : 0,
-            top: "10dvh",
-            height: "90dvh",
+            top: "8dvh",
+            height: "92dvh",
             zIndex: isMobile ? 1000 : 10,
             background: "#f9fafb",
             minWidth: isMobile ? "280px" : (collapsed ? "60px" : "200px"),
@@ -327,7 +334,7 @@ const MainLayout = ({ children }) => {
         {isMobile && mobileDrawerOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-999"
-            style={{ top: "10dvh" }}
+            style={{ top: "8dvh" }}
             onClick={() => setMobileDrawerOpen(false)}
           />
         )}

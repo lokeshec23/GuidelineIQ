@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from typing import List
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sql_database import get_db
 from history.models import (
     get_user_ingest_history,
     delete_ingest_history,
@@ -10,31 +13,52 @@ from history.models import (
     delete_all_compare_history
 )
 from history.schemas import IngestHistoryItem, CompareHistoryItem, DeleteResponse
-from auth.middleware import get_current_user_from_token
-from utils.gridfs_helper import get_pdf_from_gridfs
-from bson import ObjectId
-import database
+from auth.middleware import get_current_user_from_token, get_current_user
+from models.sql_models import IngestHistory, File
 import io
 
 router = APIRouter(prefix="/history", tags=["History"])
 
 
 @router.get("/ingest", response_model=List[IngestHistoryItem])
-async def get_ingest_history(current_user: dict = Depends(get_current_user_from_token)):
+async def get_ingest_history(
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """Get logged-in user's ingest history"""
-    user_id = str(current_user["_id"])
-    history = await get_user_ingest_history(user_id)
-    return history
+    user_id = str(current_user.id)
+    history = await get_user_ingest_history(db, user_id)
+    
+    # Map SQLAlchemy model to Pydantic schema with camelCase
+    return [
+        IngestHistoryItem(
+            id=str(h.id),
+            user_id=h.user_id,
+            username=h.username or "Unknown",
+            investor=h.investor or "",
+            version=h.version or "",
+            uploadedFile=h.uploaded_file or "",
+            extractedFile=h.extracted_file or "",
+            created_at=h.created_at,
+            effective_date=h.effective_date,
+            expiry_date=h.expiry_date,
+            preview_data=h.preview_data or [],
+            pdf_files=h.pdf_files or [],
+            guideline_type=h.guideline_type or "",
+            program_type=h.program_type or ""
+        ) for h in history
+    ]
 
 
 @router.delete("/ingest/{record_id}", response_model=DeleteResponse)
 async def delete_ingest_record(
     record_id: str,
-    current_user: dict = Depends(get_current_user_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete an ingest history record"""
-    user_id = str(current_user["_id"])
-    success = await delete_ingest_history(record_id, user_id)
+    user_id = str(current_user.id)
+    success = await delete_ingest_history(db, record_id, user_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
@@ -44,32 +68,51 @@ async def delete_ingest_record(
 
 @router.delete("/ingest", response_model=DeleteResponse)
 async def delete_all_ingest_records(
-    current_user: dict = Depends(get_current_user_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete all ingest history records for the user"""
-    user_id = str(current_user["_id"])
-    count = await delete_all_ingest_history(user_id)
+    user_id = str(current_user.id)
+    count = await delete_all_ingest_history(db, user_id)
     
     return DeleteResponse(message=f"Deleted {count} records successfully", success=True)
 
 
 # ✅ NEW: Compare history routes
 @router.get("/compare", response_model=List[CompareHistoryItem])
-async def get_compare_history(current_user: dict = Depends(get_current_user_from_token)):
+async def get_compare_history(
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """Get logged-in user's compare history"""
-    user_id = str(current_user["_id"])
-    history = await get_user_compare_history(user_id)
-    return history
+    user_id = str(current_user.id)
+    history = await get_user_compare_history(db, user_id)
+    
+    return [
+        CompareHistoryItem(
+            id=str(h.id),
+            user_id=h.user_id,
+            username=h.username or "Unknown",
+            investor=h.investor or "Unknown Investor",
+            version=h.version or "v1",
+            uploadedFile1=h.uploaded_file1 or "",
+            uploadedFile2=h.uploaded_file2 or "",
+            extractedFile=h.extracted_file or "",
+            created_at=h.created_at,
+            preview_data=h.preview_data or []
+        ) for h in history
+    ]
 
 
 @router.delete("/compare/{record_id}", response_model=DeleteResponse)
 async def delete_compare_record(
     record_id: str,
-    current_user: dict = Depends(get_current_user_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete a compare history record"""
-    user_id = str(current_user["_id"])
-    success = await delete_compare_history(record_id, user_id)
+    user_id = str(current_user.id)
+    success = await delete_compare_history(db, record_id, user_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
@@ -79,11 +122,12 @@ async def delete_compare_record(
 
 @router.delete("/compare", response_model=DeleteResponse)
 async def delete_all_compare_records(
-    current_user: dict = Depends(get_current_user_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete all compare history records for the user"""
-    user_id = str(current_user["_id"])
-    count = await delete_all_compare_history(user_id)
+    user_id = str(current_user.id)
+    count = await delete_all_compare_history(db, user_id)
     
     return DeleteResponse(message=f"Deleted {count} records successfully", success=True)
 
@@ -92,35 +136,28 @@ async def delete_all_compare_records(
 @router.get("/ingest/{record_id}/pdfs")
 async def get_ingest_pdfs_list(
     record_id: str,
-    current_user: dict = Depends(get_current_user_from_token)
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Get list of all PDFs for an ingest record"""
-    user_id = str(current_user["_id"])
+    user_id = str(current_user.id)
     
-    # Verify record exists and belongs to user
-    if not ObjectId.is_valid(record_id):
-        raise HTTPException(status_code=400, detail="Invalid record ID")
-    
-    from database import db_manager
-    if db_manager.ingest_history is None:
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    
-    record = await db_manager.ingest_history.find_one({
-        "_id": ObjectId(record_id),
-        "user_id": user_id
-    })
+    result = await db.execute(
+        select(IngestHistory).where(IngestHistory.id == record_id, IngestHistory.user_id == user_id)
+    )
+    record = result.scalars().first()
     
     if not record:
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
     
     # ✅ Handle backward compatibility
-    pdf_files = record.get("pdf_files", [])
-    if not pdf_files and record.get("gridfs_file_id"):
+    pdf_files = record.pdf_files or []
+    if not pdf_files and record.gridfs_file_id:
         # Old record with single PDF - convert to new format
         pdf_files = [{
             "file_index": 0,
-            "filename": record.get("uploaded_file", "document.pdf"),
-            "gridfs_file_id": record.get("gridfs_file_id")
+            "filename": record.uploaded_file or "document.pdf",
+            "gridfs_file_id": record.gridfs_file_id
         }]
     
     return {"pdf_files": pdf_files}
@@ -130,31 +167,23 @@ async def get_ingest_pdfs_list(
 @router.get("/ingest/{record_id}/pdf")
 async def get_ingest_pdf(
     record_id: str,
-    file_index: int = 0,  # ✅ NEW: Support fetching specific PDF by index
-    current_user: dict = Depends(get_current_user_from_token)
+    file_index: int = 0,  
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """Get PDF file for an ingest record (supports multiple PDFs via file_index)"""
-    user_id = str(current_user["_id"])
+    user_id = str(current_user.id)
     
-    # Verify record exists and belongs to user
-    if not ObjectId.is_valid(record_id):
-        raise HTTPException(status_code=400, detail="Invalid record ID")
-    
-    from database import db_manager
-    if db_manager.ingest_history is None:
-        # Fallback or error if DB not reachable (should ideally be connected via lifespan)
-        raise HTTPException(status_code=500, detail="Database not initialized")
-    
-    record = await db_manager.ingest_history.find_one({
-        "_id": ObjectId(record_id),
-        "user_id": user_id
-    })
+    result = await db.execute(
+        select(IngestHistory).where(IngestHistory.id == record_id, IngestHistory.user_id == user_id)
+    )
+    record = result.scalars().first()
     
     if not record:
         raise HTTPException(status_code=404, detail="Record not found or unauthorized")
     
     # ✅ NEW: Handle multiple PDFs
-    pdf_files = record.get("pdf_files", [])
+    pdf_files = record.pdf_files or []
     gridfs_file_id = None
     filename = "document.pdf"
     
@@ -168,15 +197,21 @@ async def get_ingest_pdf(
         filename = pdf_info.get("filename", f"document_{file_index}.pdf")
     else:
         # Old format: single PDF (backward compatibility)
-        gridfs_file_id = record.get("gridfs_file_id")
-        filename = record.get("uploaded_file", "document.pdf")
+        gridfs_file_id = record.gridfs_file_id
+        filename = record.uploaded_file or "document.pdf"
     
     if not gridfs_file_id:
         raise HTTPException(status_code=404, detail="No PDF file associated with this record")
     
     try:
-        # Get PDF from GridFS
-        pdf_content = await get_pdf_from_gridfs(gridfs_file_id)
+        # Get PDF from File table logic (Replacing GridFS)
+        file_result = await db.execute(select(File).where(File.id == gridfs_file_id))
+        file_record = file_result.scalars().first()
+        
+        if not file_record:
+             raise HTTPException(status_code=404, detail="File content not found in database")
+        
+        pdf_content = file_record.content
         
         # Escape double quotes to prevent header breaking
         filename = filename.replace('"', '\\"')
@@ -189,6 +224,8 @@ async def get_ingest_pdf(
                 "Content-Disposition": f'inline; filename="{filename}"'
             }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error retrieving PDF: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve PDF file")

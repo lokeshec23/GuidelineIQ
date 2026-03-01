@@ -31,11 +31,37 @@ import {
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
-import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast } from "../../utils/toast";
+import { CompareSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Dragger } = Upload;
 const { Option } = Select;
+
+const renderFileNames = (text) => {
+  if (!text) return "-";
+  const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+      {files.map((file, idx) => (
+        <Tag
+          key={idx}
+          color="blue"
+          style={{
+            margin: 0,
+            whiteSpace: 'normal',
+            height: 'auto',
+            padding: '2px 8px',
+            wordBreak: 'break-word',
+            lineHeight: '1.5'
+          }}
+        >
+          {file}
+        </Tag>
+      ))}
+    </div>
+  );
+};
 
 const ComparePage = () => {
   const { isAdmin } = useAuth();
@@ -57,12 +83,15 @@ const ComparePage = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [isComparePreview, setIsComparePreview] = useState(false);
+  const [file1Display, setFile1Display] = useState(null);
+  const [file2Display, setFile2Display] = useState(null);
 
   // DB Selection State
   const [historyData, setHistoryData] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedDbRecords, setSelectedDbRecords] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     fetchModelsAndSettings();
@@ -112,6 +141,8 @@ const ComparePage = () => {
         model_name: "gpt-4o",
       });
       setSelectedProvider("openai");
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -189,7 +220,7 @@ const ComparePage = () => {
   const startComparison = async (values, isFromDb = false) => {
     try {
       setProcessing(true);
-      setProgress(0);
+      setProgress(25); // Set to 25% initially for immediate feedback
       setProgressMessage("Starting comparison...");
       setProcessingModalVisible(true);
 
@@ -224,7 +255,9 @@ const ComparePage = () => {
           model_provider: modelProvider,
           model_name: modelName,
           system_prompt: systemPrompt,
-          user_prompt: userPrompt
+          user_prompt: userPrompt,
+          investor: values.investor || "Unknown Investor",
+          version: values.version || "v1"
         };
         res = await compareAPI.compareFromDB(payload);
       } else {
@@ -247,6 +280,10 @@ const ComparePage = () => {
         fd.append("system_prompt", systemPrompt);
         fd.append("user_prompt", userPrompt);
 
+        // Add investor and version
+        fd.append("investor", values.investor || "Unknown Investor");
+        fd.append("version", values.version || "v1");
+
         // Use DSCR template comparison processor (same as DB comparison)
         res = await compareAPI.compareGuidelines(fd);
       }
@@ -260,7 +297,10 @@ const ComparePage = () => {
       es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          setProgress(data.progress || 0);
+          // Map server progress (0-100) to UI progress (25-100)
+          const serverProgress = data.progress || 0;
+          const displayProgress = Math.max(25, 25 + (serverProgress * 0.75));
+          setProgress(displayProgress);
           setProgressMessage(data.message || "Processing...");
 
           if (data.status === "completed" || data.progress >= 100) {
@@ -313,10 +353,21 @@ const ComparePage = () => {
     try {
       setIsComparePreview(true);
       const res = await compareAPI.getPreview(sid);
-      const data = res.data;
+      const responseData = res.data;
 
-      if (data?.length > 0) {
-        setPreviewData(data);
+      let previewDataArray = [];
+      if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+        previewDataArray = responseData.data;
+        if (responseData.file1_name) setFile1Display(responseData.file1_name.replace(/\.xlsx?$/, ''));
+        if (responseData.file2_name) setFile2Display(responseData.file2_name.replace(/\.xlsx?$/, ''));
+      } else {
+        previewDataArray = responseData;
+        setFile1Display(null);
+        setFile2Display(null);
+      }
+
+      if (previewDataArray?.length > 0) {
+        setPreviewData(previewDataArray);
         setPreviewModalVisible(true);
       } else {
         setPreviewData([{ key: 1, content: "No structured comparison found" }]);
@@ -392,6 +443,7 @@ const ComparePage = () => {
       title: "File Name",
       dataIndex: "uploadedFile",
       key: "uploadedFile",
+      render: renderFileNames,
     },
     {
       title: "Actions",
@@ -415,6 +467,54 @@ const ComparePage = () => {
     },
   ];
 
+  // Calculate columns for preview, excluding unwanted internal fields
+  const previewColumns = React.useMemo(() => {
+    if (!previewData || previewData.length === 0) return null;
+
+    // Get all available keys from the first record
+    const allKeys = Object.keys(previewData[0]);
+
+    // Define columns to hide
+    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'verification'];
+
+    // If it's comparison mode, we hide some extra internal fields here or inside ExcelPreviewModal. 
+    // ExcelPreviewModal handles most, but we can override titles.
+
+    // Filter available keys
+    const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
+
+    // Map to column objects expected by ExcelPreviewModal
+    return visibleKeys.map(key => {
+      // Rename Hard_Soft_Classification to PPE FIELD TYPE
+      if (key.toLowerCase() === 'hard_soft_classification') {
+        return {
+          title: "PPE FIELD TYPE",
+          dataIndex: key,
+          key: key
+        };
+      }
+
+      // Override comparison file names
+      if (isComparePreview) {
+        if (key === 'guideline_1' && file1Display) {
+          return { title: file1Display, dataIndex: key, key: key };
+        }
+        if (key === 'guideline_2' && file2Display) {
+          return { title: file2Display, dataIndex: key, key: key };
+        }
+      }
+
+      return {
+        dataIndex: key,
+        key: key
+      };
+    });
+  }, [previewData, isComparePreview, file1Display, file2Display]);
+
+  if (pageLoading) {
+    return <CompareSkeleton />;
+  }
+
   return (
     <div className="p-8 max-w-[1400px] mx-auto">
       {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Compare Guidelines</h1> */}
@@ -426,7 +526,7 @@ const ComparePage = () => {
         className="w-full"
       >
         {/* Model Selection Row - Admin Only */}
-        {isAdmin && (
+        {/* {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Form.Item
               name="model_provider"
@@ -460,7 +560,7 @@ const ComparePage = () => {
               </Select>
             </Form.Item>
           </div>
-        )}
+        )} */}
 
         {/* Investor and Version Input Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -669,21 +769,24 @@ const ComparePage = () => {
       </Modal>
 
       {/* Preview Modal */}
-      <ExcelPreviewModal
-        visible={previewModalVisible}
-        onClose={() => setPreviewModalVisible(false)}
-        title="Comparison Results"
-        data={previewData}
-        onDownload={() => {
-          if (isComparePreview) {
-            compareAPI.downloadExcel(sessionId);
-          } else {
-            ingestAPI.downloadExcel(sessionId);
-          }
-        }}
-        sessionId={sessionId}
-        isComparisonMode={isComparePreview}
-      />
+      <React.Suspense fallback={<Modal open={previewModalVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+        <ExcelPreviewModal
+          visible={previewModalVisible}
+          onClose={() => setPreviewModalVisible(false)}
+          title={isComparePreview ? "Comparison Results" : "Extraction Results"}
+          data={previewData}
+          columns={previewColumns}
+          onDownload={() => {
+            if (isComparePreview) {
+              compareAPI.downloadExcel(sessionId);
+            } else {
+              ingestAPI.downloadExcel(sessionId);
+            }
+          }}
+          sessionId={sessionId}
+          isComparisonMode={isComparePreview}
+        />
+      </React.Suspense>
     </div>
   );
 };

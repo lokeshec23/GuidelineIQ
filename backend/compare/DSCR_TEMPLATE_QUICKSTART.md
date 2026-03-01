@@ -29,7 +29,7 @@ POST /compare/dscr-template
 {
   file1: <Excel File>,           // Required: First guideline Excel
   file2: <Excel File>,           // Required: Second guideline Excel
-  model_provider: "openai",      // Required: "openai" or "gemini"
+  model_provider: "openai",      // Required: "openai" (Azure OpenAI)
   model_name: "gpt-4",           // Required: Model name
   system_prompt: "",             // Optional: LLM system prompt
   user_prompt: ""                // Optional: LLM user prompt

@@ -98,9 +98,9 @@ const LoginPage = () => {
               <Form.Item name="remember" valuePropName="checked" noStyle>
                 <Checkbox>Remember me</Checkbox>
               </Form.Item>
-              <a className="text-blue-600 hover:text-blue-700 text-sm" href="#">
+              <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700 text-sm">
                 Forgot password?
-              </a>
+              </Link>
             </div>
           </Form.Item>
 

@@ -1,15 +1,33 @@
 # backend/rag_pipeline/retrieval/bm25_retriever.py
 """
-BM25 keyword-based retrieval
+BM25 keyword-based retrieval with proper tokenization
 """
 
-from typing import List, Dict
+import re
+from typing import List, Dict, Set
 import logging
 from rank_bm25 import BM25Okapi
 
 from rag_pipeline.models import Chunk
 
 logger = logging.getLogger(__name__)
+
+# Mortgage-domain stopwords (superset of common English stopwords)
+_STOPWORDS: Set[str] = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "can", "need", "dare", "ought",
+    "used", "to", "of", "in", "for", "on", "with", "at", "by", "from",
+    "as", "into", "through", "during", "before", "after", "above", "below",
+    "between", "out", "off", "over", "under", "again", "further", "then",
+    "once", "here", "there", "when", "where", "why", "how", "all", "each",
+    "every", "both", "few", "more", "most", "other", "some", "such", "no",
+    "nor", "not", "only", "own", "same", "so", "than", "too", "very",
+    "just", "because", "but", "and", "or", "if", "while", "about",
+    "this", "that", "these", "those", "it", "its", "i", "we", "you",
+    "he", "she", "they", "me", "him", "her", "us", "them", "my", "your",
+    "his", "our", "their", "what", "which", "who", "whom",
+}
 
 
 class BM25Retriever:
@@ -84,12 +102,45 @@ class BM25Retriever:
     
     def _tokenize(self, text: str) -> List[str]:
         """
-        Simple tokenization (lowercase + split)
+        Production-grade tokenization for mortgage documents:
+        - Lowercase
+        - Remove punctuation (preserve hyphens in terms like '50(a)(6)')
+        - Filter stopwords
+        - Basic suffix stemming
         
         Args:
             text: Input text
         
         Returns:
-            List of tokens
+            List of cleaned, filtered tokens
         """
-        return text.lower().split()
+        # Lowercase and split on whitespace + punctuation boundaries
+        # Preserve parenthesized terms and hyphens for mortgage terms
+        tokens = re.findall(r'[a-z0-9]+(?:[\-()][a-z0-9]+)*', text.lower())
+        
+        # Filter stopwords and very short tokens
+        tokens = [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
+        
+        # Basic suffix stemming (lightweight, no NLTK dependency)
+        stemmed = []
+        for token in tokens:
+            if token.endswith("tion") or token.endswith("sion"):
+                stemmed.append(token[:-3])  # requirement -> requir
+            elif token.endswith("ment"):
+                stemmed.append(token[:-4] if len(token) > 5 else token)
+            elif token.endswith("ing") and len(token) > 4:
+                stemmed.append(token[:-3])
+            elif token.endswith("ed") and len(token) > 3:
+                stemmed.append(token[:-2])
+            elif token.endswith("ly") and len(token) > 3:
+                stemmed.append(token[:-2])
+            elif token.endswith("ies"):
+                stemmed.append(token[:-3] + "y")
+            elif token.endswith("es") and len(token) > 3:
+                stemmed.append(token[:-2])
+            elif token.endswith("s") and not token.endswith("ss") and len(token) > 2:
+                stemmed.append(token[:-1])
+            else:
+                stemmed.append(token)
+        
+        return stemmed

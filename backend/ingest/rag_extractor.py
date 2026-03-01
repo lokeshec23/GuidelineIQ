@@ -3,7 +3,7 @@
 import json
 import asyncio
 from typing import List, Dict
-from chat.rag_service import RAGService
+
 from utils.llm_provider import LLMProvider
 from config import DEFAULT_TOC_EXTRACTION_PROMPT, DEFAULT_RAG_RULE_EXTRACTION_PROMPT
 from utils.progress import update_progress
@@ -11,7 +11,7 @@ from utils.progress import update_progress
 async def run_main_rag_extraction(
     session_id: str,
     gridfs_file_id: str,
-    rag_service: RAGService,
+    rag_service,  # RAGService instance (legacy)
     llm: LLMProvider,
     investor: str,
     version: str,

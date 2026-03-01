@@ -4,6 +4,7 @@ Qdrant vector database manager for DSCR_GUIDELINES collection
 """
 
 import asyncio
+import hashlib
 from typing import List, Dict, Optional
 import logging
 from qdrant_client import QdrantClient
@@ -13,7 +14,8 @@ from qdrant_client.models import (
     PointStruct,
     Filter,
     FieldCondition,
-    MatchValue
+    MatchValue,
+    PayloadSchemaType
 )
 
 from rag_pipeline.models import Chunk, DocumentPayload, ChunkType
@@ -72,9 +74,6 @@ class QdrantManager:
         except Exception as e:
             logger.error(f"Failed to connect to Qdrant: {e}")
             raise
-        except Exception as e:
-            logger.error(f"Failed to connect to Qdrant: {e}")
-            raise
     
     def create_collection(self, vector_size: int = 1536, force_recreate: bool = False):
         """
@@ -105,9 +104,21 @@ class QdrantManager:
                     distance=Distance.COSINE
                 )
             )
+            
+            # Create payload indices for filter fields (prevents full-scan at scale)
+            for field_name in ["lender", "program", "version", "gridfs_file_id"]:
+                try:
+                    self.client.create_payload_index(
+                        collection_name=self.collection_name,
+                        field_name=field_name,
+                        field_schema=PayloadSchemaType.KEYWORD
+                    )
+                except Exception:
+                    pass  # Index may already exist
+            
             logger.info(
                 f"Created collection {self.collection_name} "
-                f"with vector size {vector_size}"
+                f"with vector size {vector_size} and payload indices"
             )
         
         except Exception as e:
@@ -155,8 +166,11 @@ class QdrantManager:
                 **chunk.metadata
             }
             
+            # Deterministic hash: hashlib.sha256 is stable across Python restarts
+            stable_id = int(hashlib.sha256(chunk.id.encode()).hexdigest()[:16], 16)
+            
             point = PointStruct(
-                id=hash(chunk.id) % (2**63),  # Convert string ID to int
+                id=stable_id,
                 vector=chunk.embedding,
                 payload=payload
             )
@@ -252,20 +266,15 @@ class QdrantManager:
             # Format results
             results = []
             for hit in search_results:
+                payload = hit.payload
+                # Core fields to exclude from metadata (since they are in top-level Chunk)
+                core_fields = ["chunk_id", "text", "chunk_type", "section_path", "page_start", "page_end"]
+                
                 results.append({
-                    "id": hit.payload.get("chunk_id"),
-                    "text": hit.payload.get("text"),
+                    "id": payload.get("chunk_id"),
+                    "text": payload.get("text"),
                     "score": hit.score,
-                    "metadata": {
-                        "lender": hit.payload.get("lender"),
-                        "program": hit.payload.get("program"),
-                        "version": hit.payload.get("version"),
-                        "section_path": hit.payload.get("section_path"),
-                        "chunk_type": hit.payload.get("chunk_type"),
-                        "page_start": hit.payload.get("page_start"),
-                        "page_end": hit.payload.get("page_end"),
-                        "filename": hit.payload.get("filename")
-                    }
+                    "metadata": {k: v for k, v in payload.items() if k not in core_fields}
                 })
             
             return results

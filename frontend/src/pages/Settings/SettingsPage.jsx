@@ -21,6 +21,7 @@ import {
 } from "@ant-design/icons";
 import { settingsAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { SettingsSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Password } = Input;
 const { TabPane } = Tabs;
@@ -99,11 +100,7 @@ const SettingsPage = () => {
   };
 
   if (fetching) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <Spin size="large" tip="Loading settings..." />
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (

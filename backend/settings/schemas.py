@@ -19,7 +19,6 @@ class SettingsUpdate(BaseModel):
     openai_endpoint: Optional[str] = None
     openai_deployment: Optional[str] = None
     openai_embedding_deployment: Optional[str] = None
-    gemini_api_key: Optional[str] = None
     
     # --- Default Model Configuration ---
     default_model_provider: Optional[str] = None
@@ -46,7 +45,6 @@ class SettingsResponse(BaseModel):
     openai_endpoint: Optional[str] = None
     openai_deployment: Optional[str] = None
     openai_embedding_deployment: Optional[str] = None
-    gemini_api_key: Optional[str] = None
 
     # --- Default Model Configuration ---
     default_model_provider: Optional[str] = None

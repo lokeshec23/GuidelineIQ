@@ -79,9 +79,19 @@ class RAGPipeline:
             batch_size=100
         )
         
-        # Attach embeddings to chunks
+        # Attach embeddings to chunks (skip any that failed)
+        valid_chunks = []
         for chunk, embedding in zip(chunks, embeddings):
-            chunk.embedding = embedding
+            if embedding is not None:
+                chunk.embedding = embedding
+                valid_chunks.append(chunk)
+            else:
+                logger.warning(f"Skipping chunk {chunk.id} — embedding failed")
+        
+        if not valid_chunks:
+            raise ValueError("All embedding generations failed")
+        
+        chunks = valid_chunks
         
         # Step 4: Index to Qdrant
         logger.info("Step 4/4: Indexing to Qdrant...")
@@ -151,13 +161,22 @@ class RAGPipeline:
                         }
                     )
                     
-                    # Verify (optional) - skip for now as it's legacy
+                    # Verification pass (NQMF-aware)
                     verification_result = None
-                    # if enable_verification and not extraction_result.needs_clarification:
-                    #     verification_result = await self.verifier.verify(
-                    #         extraction_result,
-                    #         evidence_chunks
-                    #     )
+                    if enable_verification:
+                        verification_result = await self.verifier.verify_nqmf(
+                            extraction_result,
+                            evidence_chunks
+                        )
+                        
+                        # Auto-correct if verification found hallucinations
+                        if (verification_result 
+                            and not verification_result.verified 
+                            and verification_result.suggested_fix):
+                            logger.warning(
+                                f"Verification auto-correcting '{parameter}': "
+                                f"{', '.join(verification_result.issues[:2])}"
+                            )
                     
                     # Generate rows based on classification
                     rows = []
@@ -190,7 +209,7 @@ class RAGPipeline:
                             "_verification": verification_result.to_dict() if verification_result else None
                         })
                     
-                    # If no bullets at all, create single "NA" row
+                    # If no bullets at all, create single "Not present" row
                     if not rows:
                         rows.append({
                             "DSCR_Parameters": parameter,
@@ -198,7 +217,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "",
-                            "NQMF Investor DSCR": "NA",
+                            "NQMF Investor DSCR": "Not present",
                             "Classification": "Not Found",
                             "Notes": "",
                             "_verification": None
@@ -290,19 +309,7 @@ class RAGPipeline:
         enable_verification: bool = True
     ) -> Tuple[List[Dict], int]:
         """
-        Complete pipeline: Ingest PDF + Extract DSCR parameters
-        
-        Args:
-            pdf_path: Path to PDF file
-            lender: Lender name
-            program: Program type (DSCR, FULL_ALT, etc.)
-            version: Version identifier
-            gridfs_file_id: Optional GridFS file ID
-            use_ocr_fallback: Whether to use OCR fallback
-            enable_verification: Whether to run verification pass
-        
-        Returns:
-            Tuple of (extraction_results, num_chunks_indexed)
+        Complete pipeline: Ingest PDF + Extract DSCR parameters (from DB)
         """
         logger.info(f"Processing DSCR guidelines for {lender} - {program} v{version}")
         
@@ -322,8 +329,31 @@ class RAGPipeline:
             use_ocr_fallback
         )
         
-        # Load DSCR_GUIDELINES configuration
-        from ingest.dscr_config import DSCR_GUIDELINES
+        # Load DSCR parameters from database
+        from sql_database import AsyncSessionLocal
+        from models.sql_models import DSCRParameter
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(DSCRParameter))
+            db_params = result.scalars().all()
+            
+            # Convert to list of dicts for the extractor
+            parameters_config = [
+                {
+                    "parameter": p.parameter,
+                    "category": p.category,
+                    "subcategory": p.subcategory,
+                    "ppe_field": p.ppe_field
+                }
+                for p in db_params
+            ]
+
+        # Fallback to static config if DB is empty (should not happen if seeded)
+        if not parameters_config:
+            logger.warning("No DSCR parameters found in DB, falling back to static config")
+            from ingest.dscr_config import DSCR_GUIDELINES
+            parameters_config = DSCR_GUIDELINES
         
         # Extract parameters
         filter_conditions = {
@@ -333,7 +363,7 @@ class RAGPipeline:
         }
         
         extraction_results = await self.extract_parameters(
-            parameters_config=DSCR_GUIDELINES,
+            parameters_config=parameters_config,
             filter_conditions=filter_conditions,
             enable_verification=enable_verification
         )

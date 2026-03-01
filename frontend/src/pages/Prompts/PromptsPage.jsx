@@ -5,6 +5,7 @@ import { Tabs, Form, Input, Button, Spin } from "antd";
 import { SaveOutlined, ReloadOutlined } from "@ant-design/icons";
 import { promptsAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
+import { PromptsSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
@@ -85,11 +86,7 @@ const PromptsPage = () => {
     };
 
     if (fetching) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <Spin size="large" />
-            </div>
-        );
+        return <PromptsSkeleton />;
     }
 
     return (

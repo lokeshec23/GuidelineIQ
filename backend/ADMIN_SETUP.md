@@ -45,7 +45,7 @@ If the admin already exists, you'll see:
 
 1. Start the backend server: `python main.py`
 2. Login with the admin credentials you configured
-3. Navigate to Settings to configure API keys (OpenAI, Gemini)
+3. Navigate to Settings to configure Azure OpenAI API keys
 
 ## Role-Based Access
 

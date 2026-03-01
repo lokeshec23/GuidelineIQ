@@ -10,6 +10,7 @@ import LoadingFallback from "./components/common/LoadingFallback";
 // Lazy load page components
 const LoginPage = lazy(() => import("./pages/Auth/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/Auth/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/Auth/ForgotPasswordPage"));
 const DashboardPage = lazy(() => import("./pages/Dashboard/DashboardPage"));
 const IngestPage = lazy(() => import("./pages/Ingest/IngestPage"));
 const ComparePage = lazy(() => import("./pages/Compare/ComparePage"));
@@ -18,6 +19,26 @@ const PromptsPage = lazy(() => import("./pages/Prompts/PromptsPage"));
 const IngestionPromptPage = lazy(() => import("./pages/Prompts/IngestionPromptPage"));
 const ComparisonPromptPage = lazy(() => import("./pages/Prompts/ComparisonPromptPage"));
 const ManagementPage = lazy(() => import("./pages/Management/ManagementPage"));
+const ConfigParametersPage = lazy(() => import("./pages/Settings/ConfigParametersPage"));
+
+// Admin Route Component
+const AdminRoute = ({ children }) => {
+  const { user, loading, isAdmin } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <MainLayout>{children}</MainLayout>;
+};
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -70,6 +91,14 @@ function AppRoutes() {
             </PublicRoute>
           }
         />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
 
         {/* Protected Routes */}
         <Route
@@ -109,9 +138,18 @@ function AppRoutes() {
         <Route
           path="/management"
           element={
-            <ProtectedRoute>
+            <AdminRoute>
               <ManagementPage />
-            </ProtectedRoute>
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/config-parameters"
+          element={
+            <AdminRoute>
+              <ConfigParametersPage />
+            </AdminRoute>
           }
         />
 

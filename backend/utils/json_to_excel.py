@@ -67,13 +67,7 @@ def dynamic_json_to_excel(
     final_headers = []
 
     for h in original_headers:
-        # Check for specific renaming logic matching frontend
-        if h.lower() == "hard_soft_classification":
-            final_headers.append("PPE FIELD TYPE")
-        elif h.lower() == "rule_id":
-             final_headers.append("DSCR PARAMETERS")
-        else:
-             final_headers.append(header_map.get(h, h.replace("_", " ").title()))
+        final_headers.append(header_map.get(h, h.replace("_", " ").title()))
     
     print(f"   - Inferred Columns: {original_headers}")
     print(f"   - Final Excel Headers: {final_headers}")
@@ -122,11 +116,36 @@ def dynamic_json_to_excel(
     # --- Auto-fit Column Widths ---
     for col_num, header_key in enumerate(original_headers, 1):
         column_letter = get_column_letter(col_num)
-        # Set narrower width for page_number column
+        
+        # Calculate maximum character length in this column
+        # Start with header length
+        max_length = len(str(header_map.get(header_key, header_key.replace("_", " ").title())))
+        
+        # Check first 100 rows for performance (or all if less)
+        sample_rows = json_data[:100]
+        for item in sample_rows:
+            val = item.get(header_key)
+            if val:
+                # Handle lists/dicts formatting
+                if isinstance(val, (list, dict)):
+                    val_str = json.dumps(val)
+                else:
+                    val_str = str(val)
+                
+                # Use split lines to find the longest line in case of wrap_text
+                longest_line = max([len(line) for line in val_str.split('\n')]) if val_str else 0
+                max_length = max(max_length, longest_line)
+        
+        # Calculate width: max_length + padding, capped at 60 for usability
+        adjusted_width = min(60, max_length + 4)
+        
+        # Override for specific columns
         if header_key == "page_number":
-            ws.column_dimensions[column_letter].width = 15
-        else:
-            ws.column_dimensions[column_letter].width = 40 # Set a generous default width
+            adjusted_width = 12
+        elif header_key == "s_no" or header_key == "sno":
+            adjusted_width = 8
+            
+        ws.column_dimensions[column_letter].width = adjusted_width
 
     # Freeze the header row
     ws.freeze_panes = 'A2'

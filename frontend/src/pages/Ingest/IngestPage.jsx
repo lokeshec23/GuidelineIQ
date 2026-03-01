@@ -27,8 +27,9 @@ import {
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
-import ExcelPreviewModal from "../../components/ExcelPreviewModal";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
+import { IngestSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -53,12 +54,15 @@ const IngestPage = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
+  const [pageLoading, setPageLoading] = useState(true);
+
   useEffect(() => {
     fetchModelsAndSettings();
   }, []);
 
   const fetchModelsAndSettings = async () => {
     try {
+      setPageLoading(true);
       // Fetch supported models (available to all users)
       const modelsRes = await settingsAPI.getSupportedModels();
       setSupportedModels(modelsRes.data);
@@ -100,6 +104,8 @@ const IngestPage = () => {
         model_name: "gpt-4o",
       });
       setSelectedProvider("openai");
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -130,7 +136,7 @@ const IngestPage = () => {
 
     try {
       setProcessing(true);
-      setProgress(0); // Reset progress
+      setProgress(25); // Set to 25% initially for immediate feedback
       setProgressMessage("Starting ingestion...");
       setProcessingModalVisible(true);
 
@@ -179,7 +185,10 @@ const IngestPage = () => {
 
       // Attach new metadata fields
       if (values.page_range) formData.append("page_range", values.page_range);
-      if (values.guideline_type) formData.append("guideline_type", values.guideline_type);
+      if (values.guideline_type && values.guideline_type.length > 0) {
+        // Join array into comma-separated string for backend
+        formData.append("guideline_type", values.guideline_type.join(","));
+      }
       if (values.program_type) formData.append("program_type", values.program_type);
 
       console.log("Starting ingestion...");
@@ -195,7 +204,10 @@ const IngestPage = () => {
       es.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
-          setProgress(data.progress || 0);
+          // Map server progress (0-100) to UI progress (25-100)
+          const serverProgress = data.progress || 0;
+          const displayProgress = Math.max(25, 25 + (serverProgress * 0.75));
+          setProgress(displayProgress);
           setProgressMessage(data.message || "Processing...");
 
           if (data.status === "completed" || data.progress >= 100) {
@@ -348,6 +360,10 @@ const IngestPage = () => {
     });
   }, [previewData]);
 
+  if (pageLoading) {
+    return <IngestSkeleton />;
+  }
+
   return (
     <div className="p-8 max-w-[1200px] mx-auto">
       {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1> */}
@@ -357,9 +373,10 @@ const IngestPage = () => {
         onFinish={handleSubmit}
         layout="vertical"
         className="w-full"
+        initialValues={{ guideline_type: ["DSCR", "Full Doc", "Alt Doc"] }}
       >
         {/* Model Selection Row - Admin Only */}
-        {isAdmin && (
+        {/* {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <Form.Item
               name="model_provider"
@@ -393,24 +410,24 @@ const IngestPage = () => {
               </Select>
             </Form.Item>
           </div>
-        )}
+        )} */}
 
         {/* Investor & Version Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Form.Item
             name="investor"
-            label={<span className="text-gray-600">Investors</span>}
+            label={<span className="text-gray-600 font-medium">Investor</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="Enter" className="rounded-md" />
+            <Input size="large" placeholder="Enter investor name" className="rounded-md" />
           </Form.Item>
 
           <Form.Item
             name="version"
-            label={<span className="text-gray-600">Version</span>}
+            label={<span className="text-gray-600 font-medium">Version</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="Enter" className="rounded-md" />
+            <Input size="large" placeholder="EnterEnter version (e.g., v1, v2)" className="rounded-md" />
           </Form.Item>
         </div>
 
@@ -418,7 +435,7 @@ const IngestPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Form.Item
             name="effective_date"
-            label={<span className="text-gray-600">Effective Date</span>}
+            label={<span className="text-gray-600 font-medium ">Effective Date</span>}
             className="mb-0"
           >
             <DatePicker
@@ -431,7 +448,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="expiry_date"
-            label={<span className="text-gray-600">Expiry Date</span>}
+            label={<span className="text-gray-600 font-medium">Expiry Date</span>}
             className="mb-0"
           >
             <DatePicker
@@ -447,15 +464,26 @@ const IngestPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Form.Item
             name="guideline_type"
-            label={<span className="text-gray-600">Guideline Type</span>}
+            label={<span className="text-gray-600 font-medium">Guideline Type</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="e.g., Agency, Jumbo" className="rounded-md" />
+            <Select
+              mode="multiple"
+              size="large"
+              placeholder="Select guideline type(s)"
+              className="rounded-md w-full"
+              maxTagCount="responsive"
+              allowClear
+            >
+              <Option value="DSCR">DSCR</Option>
+              <Option value="Full Doc">Full Doc</Option>
+              <Option value="Alt Doc">Alt Doc</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item
             name="program_type"
-            label={<span className="text-gray-600">Program Type</span>}
+            label={<span className="text-gray-600 font-medium">Program Type</span>}
             className="mb-0"
           >
             <Input size="large" placeholder="e.g., Fixed, ARM" className="rounded-md" />
@@ -463,7 +491,7 @@ const IngestPage = () => {
 
           <Form.Item
             name="page_range"
-            label={<span className="text-gray-600">Page Range (e.g., 1-5, 8)</span>}
+            label={<span className="text-gray-600 font-medium">Page Range (e.g., 1-5, 8)</span>}
             className="mb-0"
           >
             <Input size="large" placeholder="Optional" className="rounded-md" />
@@ -503,16 +531,26 @@ const IngestPage = () => {
                 <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
                   {files.length} file{files.length !== 1 ? 's' : ''} selected
                 </p>
-                <Button
-                  danger
-                  type="text"
-                  size="small"
-                  onClick={handleRemoveAllFiles}
-                  className="hover:bg-red-50"
-                  style={{ fontFamily: 'Jura, sans-serif' }}
-                >
-                  Remove All
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Button
+                    danger
+                    type="text"
+                    onClick={handleRemoveAllFiles}
+                    className="hover:bg-red-50"
+                    style={{ fontFamily: 'Jura, sans-serif' }}
+                  >
+                    Remove All
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    loading={processing}
+                    disabled={files.length === 0 || processing}
+                  >
+                    {processing ? "Processing..." : "Extract Guidelines"}
+                  </Button>
+                </div>
               </div>
 
               {/* List of files */}
@@ -566,19 +604,7 @@ const IngestPage = () => {
           )}
         </div>
 
-        {/* Submit Button Area */}
-        <div className="flex justify-end">
-          <Button
-            type="primary"
-            htmlType="submit"
-            size="large"
-            className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
-            loading={processing}
-            disabled={files.length === 0 || processing}
-          >
-            {processing ? "Processing..." : "Extract Guidelines"}
-          </Button>
-        </div>
+
       </Form>
 
       {/* Processing Modal - Updated for Progress Bar */}
@@ -608,19 +634,21 @@ const IngestPage = () => {
       </Modal>
 
       {/* Preview Modal */}
-      <ExcelPreviewModal
-        visible={previewModalVisible}
-        onClose={() => setPreviewModalVisible(false)}
-        title="Extraction Results"
-        data={previewData}
-        columns={previewColumns}
-        sessionId={sessionId}
-        onDownload={() => {
-          if (sessionId) {
-            ingestAPI.downloadExcel(sessionId);
-          }
-        }}
-      />
+      <React.Suspense fallback={<Modal open={previewModalVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+        <ExcelPreviewModal
+          visible={previewModalVisible}
+          onClose={() => setPreviewModalVisible(false)}
+          title="Extraction Results"
+          data={previewData}
+          columns={previewColumns}
+          sessionId={sessionId}
+          onDownload={() => {
+            if (sessionId) {
+              ingestAPI.downloadExcel(sessionId);
+            }
+          }}
+        />
+      </React.Suspense>
     </div>
   );
 };

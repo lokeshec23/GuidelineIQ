@@ -14,6 +14,7 @@ from typing import List, Dict, Optional
 from utils.excel_reader import read_excel_to_json
 from utils.json_to_excel import dynamic_json_to_excel
 from utils.progress import update_progress
+from sql_database import AsyncSessionLocal
 from rag_pipeline.indexing.qdrant_manager import QdrantManager
 from rag_pipeline.indexing.embedder import AzureEmbedder
 from rag_pipeline.models import Chunk, ChunkType, DocumentPayload
@@ -156,6 +157,8 @@ async def process_qdrant_comparison_background(
                     f"{os.path.splitext(file1_name)[0]}_vs_"
                     f"{os.path.splitext(file2_name)[0]}.xlsx"
                 ),
+                "file1_name": file1_name,
+                "file2_name": file2_name,
                 "status": "completed",
                 "total_rows": len(comparison_results),
             })
@@ -164,19 +167,21 @@ async def process_qdrant_comparison_background(
         if user_id:
             try:
                 from history.models import save_compare_history
-                await save_compare_history({
-                    "user_id": user_id,
-                    "username": username,
-                    "investor": investor,
-                    "version": version,
-                    "uploaded_file1": file1_name,
-                    "uploaded_file2": file2_name,
-                    "extracted_file": (
-                        f"qdrant_comparison_{os.path.splitext(file1_name)[0]}_vs_"
-                        f"{os.path.splitext(file2_name)[0]}.xlsx"
-                    ),
-                    "preview_data": comparison_results
-                })
+                async with AsyncSessionLocal() as db:
+                    await save_compare_history(db, {
+                        "user_id": user_id,
+                        "username": username,
+                        "session_id": session_id,
+                        "investor": investor,
+                        "version": version,
+                        "uploaded_file1": file1_name,
+                        "uploaded_file2": file2_name,
+                        "extracted_file": (
+                            f"qdrant_comparison_{os.path.splitext(file1_name)[0]}_vs_"
+                            f"{os.path.splitext(file2_name)[0]}.xlsx"
+                        ),
+                        "preview_data": comparison_results
+                    })
                 logger.info(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:
                 logger.warning(f"⚠️ Failed to save history: {hist_err}")
@@ -331,7 +336,7 @@ async def perform_comparison_search(
                 matched_indices_file2.add(chunk2.metadata.get("row_index"))
                 
                 comparison_results.append({
-                    "rule_id": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
+                    "dscr_parameters": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
                     "category": row1.get("category", row1.get("Category", "")),
                     "sub_category": row1.get("sub_category", row1.get("Sub Category", "")),
                     "guideline_1": json.dumps(row1, ensure_ascii=False),
@@ -342,7 +347,7 @@ async def perform_comparison_search(
         else:
             # No match found
             comparison_results.append({
-                "rule_id": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
+                "dscr_parameters": row1.get("DSCR_Parameters", row1.get("DSCR Parameters", "")),
                 "category": row1.get("category", row1.get("Category", "")),
                 "sub_category": row1.get("sub_category", row1.get("Sub Category", "")),
                 "guideline_1": json.dumps(row1, ensure_ascii=False),
@@ -357,7 +362,7 @@ async def perform_comparison_search(
         if row_index not in matched_indices_file2:
             row2 = chunk2.metadata.get("original_row", {})
             comparison_results.append({
-                "rule_id": row2.get("DSCR_Parameters", row2.get("DSCR Parameters", "")),
+                "dscr_parameters": row2.get("DSCR_Parameters", row2.get("DSCR Parameters", "")),
                 "category": row2.get("category", row2.get("Category", "")),
                 "sub_category": row2.get("sub_category", row2.get("Sub Category", "")),
                 "guideline_1": "Not present in File 1",

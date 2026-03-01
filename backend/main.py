@@ -27,10 +27,13 @@ from compare.routes import router as compare_router
 from history.routes import router as history_router
 from prompts.routes import router as prompts_router
 from chat.routes import router as chat_router
+from settings.dscr_routes import router as dscr_params_router
+from scripts.seed_admin import seed_admin
+from scripts.seed_dscr_params import seed_params
 
 # Startup/Shutdown Management
 from contextlib import asynccontextmanager
-from database import db_manager
+from sql_database import init_db, close_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,14 +42,24 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
-    await db_manager.connect()
-    await db_manager.connect()
+    logger.info("Initializing database...")
+    await init_db()
+    
+    # Automatic seeding
+    logger.info("Running automatic seeding scripts...")
+    try:
+        await seed_admin()
+        await seed_params()
+        logger.info("✅ Seeding completed successfully")
+    except Exception as e:
+        logger.error(f"❌ Seeding failed: {e}")
+
     logger.info("Application started successfully")
     
     yield
     
     # Shutdown
-    await db_manager.close()
+    await close_db()
     logger.info("Application shut down")
 
 
@@ -79,6 +92,7 @@ app.include_router(compare_router)
 app.include_router(history_router)
 app.include_router(prompts_router)
 app.include_router(chat_router)
+app.include_router(dscr_params_router)
 
 # Health check
 @app.get("/")

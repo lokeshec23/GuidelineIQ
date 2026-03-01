@@ -98,6 +98,8 @@ export const authAPI = {
   login: (data) => api.post("/auth/login", data),
   getCurrentUser: () => api.get("/auth/me"),
   getAllUsers: () => api.get("/auth/users"),
+  forgotPasswordCheck: (data) => api.post("/auth/forgot-password/check", data),
+  resetPassword: (data) => api.post("/auth/forgot-password/reset", data),
 };
 
 // ==================== SETTINGS APIs ====================
@@ -217,6 +219,15 @@ export const promptsAPI = {
   getUserPrompts: () => api.get("/prompts"),
   saveUserPrompts: (prompts) => api.put("/prompts", prompts),
   resetUserPrompts: () => api.post("/prompts/reset"),
+};
+
+// ==================== PARAMETERS APIs ====================
+export const dscrAPI = {
+  listParameters: () => api.get("/dscr-parameters"),
+  createParameter: (data) => api.post("/dscr-parameters", data),
+  updateParameter: (id, data) => api.put(`/dscr-parameters/${id}`, data),
+  deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),
+  getGuidelineTypes: () => api.get("/dscr-parameters/guideline-types"),
 };
 
 // Export API_BASE_URL for use in components

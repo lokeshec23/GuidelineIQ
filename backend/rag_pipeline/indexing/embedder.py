@@ -1,10 +1,11 @@
 # backend/rag_pipeline/indexing/embedder.py
 """
-Azure OpenAI Embedding Generator
+Azure OpenAI Embedding Generator with content-hash cache
 """
 
 import asyncio
-from typing import List
+import hashlib
+from typing import List, Dict, Optional
 import logging
 from openai import AzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -22,7 +23,16 @@ class AzureEmbedder:
     def __init__(self):
         self.config = RAGConfig
         self.client = None
+        # Content-hash → embedding cache (avoids re-embedding identical text)
+        self._cache: Dict[str, List[float]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
         self._initialize_client()
+    
+    @staticmethod
+    def _content_hash(text: str) -> str:
+        """SHA256 hash of text content for cache key"""
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
     
     def _initialize_client(self):
         """Initialize Azure OpenAI client"""
@@ -46,7 +56,7 @@ class AzureEmbedder:
     )
     def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding for a single text
+        Generate embedding for a single text (with cache)
         
         Args:
             text: Input text
@@ -54,12 +64,21 @@ class AzureEmbedder:
         Returns:
             Embedding vector
         """
+        # Check cache first
+        cache_key = self._content_hash(text)
+        if cache_key in self._cache:
+            self._cache_hits += 1
+            return self._cache[cache_key]
+        
+        self._cache_misses += 1
         try:
             response = self.client.embeddings.create(
                 input=[text],
                 model=self.config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
             )
-            return response.data[0].embedding
+            embedding = response.data[0].embedding
+            self._cache[cache_key] = embedding
+            return embedding
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")
             raise
@@ -80,44 +99,78 @@ class AzureEmbedder:
         self,
         texts: List[str],
         batch_size: int = 100
-    ) -> List[List[float]]:
+    ) -> List[Optional[List[float]]]:
         """
-        Generate embeddings for multiple texts in batches
+        Generate embeddings for multiple texts in batches (with cache)
         
         Args:
             texts: List of input texts
             batch_size: Number of texts per batch
         
         Returns:
-            List of embedding vectors
+            List of embedding vectors (None for failed items)
         """
-        all_embeddings = []
+        all_embeddings: List[Optional[List[float]]] = [None] * len(texts)
+        uncached_indices = []
+        uncached_texts = []
         
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+        # Check cache for all texts first
+        for i, text in enumerate(texts):
+            cache_key = self._content_hash(text)
+            if cache_key in self._cache:
+                all_embeddings[i] = self._cache[cache_key]
+                self._cache_hits += 1
+            else:
+                uncached_indices.append(i)
+                uncached_texts.append(text)
+                self._cache_misses += 1
+        
+        if uncached_texts:
+            logger.info(
+                f"Embedding cache: {len(texts) - len(uncached_texts)} hits, "
+                f"{len(uncached_texts)} misses"
+            )
+        else:
+            logger.info(f"Embedding cache: all {len(texts)} texts cached")
+            return all_embeddings
+        
+        # Batch embed uncached texts
+        for batch_start in range(0, len(uncached_texts), batch_size):
+            batch_texts = uncached_texts[batch_start:batch_start + batch_size]
+            batch_indices = uncached_indices[batch_start:batch_start + batch_size]
+            
             try:
                 response = self.client.embeddings.create(
-                    input=batch,
+                    input=batch_texts,
                     model=self.config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
                 )
-                embeddings = [item.embedding for item in response.data]
-                all_embeddings.extend(embeddings)
+                for j, item in enumerate(response.data):
+                    idx = batch_indices[j]
+                    embedding = item.embedding
+                    all_embeddings[idx] = embedding
+                    # Cache the result
+                    cache_key = self._content_hash(batch_texts[j])
+                    self._cache[cache_key] = embedding
                 
                 logger.info(
-                    f"Generated embeddings for batch {i // batch_size + 1} "
-                    f"({len(batch)} texts)"
+                    f"Generated embeddings for batch "
+                    f"({len(batch_texts)} texts)"
                 )
             except Exception as e:
                 logger.error(f"Batch embedding failed: {e}")
                 # Fallback to individual generation
-                for text in batch:
+                for j, text in enumerate(batch_texts):
+                    idx = batch_indices[j]
                     try:
                         emb = self.generate_embedding(text)
-                        all_embeddings.append(emb)
+                        all_embeddings[idx] = emb
                     except Exception as individual_error:
-                        logger.error(f"Individual embedding failed: {individual_error}")
-                        # Add zero vector as placeholder
-                        all_embeddings.append([0.0] * 1536)
+                        logger.error(
+                            f"Individual embedding failed, SKIPPING chunk: "
+                            f"{individual_error}"
+                        )
+                        # Leave as None — caller must filter out
+                        all_embeddings[idx] = None
         
         return all_embeddings
     

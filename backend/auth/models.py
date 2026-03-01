@@ -1,36 +1,50 @@
 # backend/auth/models.py
-from bson import ObjectId
-from database import db_manager
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from models.sql_models import User
 
-async def find_user_by_email(email: str):
+async def find_user_by_email(db: AsyncSession, email: str):
     """Find a user by email address."""
-    if db_manager.users is None:
-        # Try to connect if not initialized (though lifespan should have handled this)
-        await db_manager.connect()
-        
-    return await db_manager.users.find_one({"email": email})
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalars().first()
 
-async def get_user_by_id(user_id: str):
+async def get_user_by_id(db: AsyncSession, user_id: str):
     """Find a user by their ID."""
-    if db_manager.users is None:
-        await db_manager.connect()
-        
-    return await db_manager.users.find_one({"_id": ObjectId(user_id)})
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalars().first()
 
-async def create_user(user_data: dict):
+async def create_user(db: AsyncSession, user_data: dict):
     """Create a new user."""
-    if db_manager.users is None:
-        await db_manager.connect()
-        
-    result = await db_manager.users.insert_one(user_data)
-    return await db_manager.users.find_one({"_id": result.inserted_id})
-
-async def get_all_users():
-    """Retrieve all users from the database."""
-    if db_manager.users is None:
-        await db_manager.connect()
+    # Remove 'created_at' if it's string to let SQL server default handle it or parse it
+    # But user_data comes from router which sets created_at as string. 
+    # Better to pop it and let model handle, OR ensure model accepts it.
+    # The SQL model has `created_at` as DateTime.
     
-    users = []
-    async for user in db_manager.users.find():
-        users.append(user)
-    return users
+    # Clean up user_data for SQL model
+    from datetime import datetime
+    if "created_at" in user_data and isinstance(user_data["created_at"], str):
+        try:
+            user_data["created_at"] = datetime.fromisoformat(user_data["created_at"])
+        except:
+            user_data.pop("created_at")
+
+    new_user = User(**user_data)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return new_user
+
+async def get_all_users(db: AsyncSession):
+    """Retrieve all users from the database."""
+    result = await db.execute(select(User))
+    return result.scalars().all()
+
+async def update_user_password(db: AsyncSession, email: str, hashed_password: str):
+    """Update a user's password by their email."""
+    user = await find_user_by_email(db, email)
+    if not user:
+        return None
+    user.hashed_password = hashed_password
+    await db.commit()
+    await db.refresh(user)
+    return user

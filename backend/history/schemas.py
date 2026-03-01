@@ -19,6 +19,8 @@ class IngestHistoryItem(BaseModel):
     expiry_date: Optional[str] = None
     preview_data: Optional[List[Dict[str, Any]]] = None  # Excel output data
     pdf_files: Optional[List[Dict[str, Any]]] = None  # List of PDF metadata: [{file_index, filename, gridfs_file_id}]
+    guideline_type: Optional[str] = None
+    program_type: Optional[str] = None
 
 
 
@@ -27,6 +29,8 @@ class CompareHistoryItem(BaseModel):
     id: str
     user_id: str
     username: str
+    investor: Optional[str] = "Unknown Investor"
+    version: Optional[str] = "v1"
     uploadedFile1: str
     uploadedFile2: str
     extractedFile: str

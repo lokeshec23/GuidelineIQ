@@ -26,6 +26,10 @@ class PDFParser:
         self.ocr_client = None
         self.config = RAGConfig
     
+    # Input validation limits
+    MAX_FILE_SIZE_MB = 200
+    MAX_PAGE_COUNT = 2000
+    
     def parse_pdf(
         self,
         pdf_path: str,
@@ -40,8 +44,37 @@ class PDFParser:
         
         Returns:
             List of page dictionaries with text, tables, and metadata
+        
+        Raises:
+            ValueError: If file exceeds size/page limits
+            FileNotFoundError: If file does not exist
         """
         logger.info(f"Parsing PDF: {pdf_path}")
+        
+        # --- Input Validation ---
+        pdf_file = Path(pdf_path)
+        if not pdf_file.exists():
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
+        file_size_mb = pdf_file.stat().st_size / (1024 * 1024)
+        if file_size_mb > self.MAX_FILE_SIZE_MB:
+            raise ValueError(
+                f"PDF file too large: {file_size_mb:.1f}MB "
+                f"(max {self.MAX_FILE_SIZE_MB}MB)"
+            )
+        
+        # Quick page count check
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                page_count = len(pdf.pages)
+            if page_count > self.MAX_PAGE_COUNT:
+                raise ValueError(
+                    f"PDF has too many pages: {page_count} "
+                    f"(max {self.MAX_PAGE_COUNT})"
+                )
+            logger.info(f"PDF validated: {file_size_mb:.1f}MB, {page_count} pages")
+        except pdfplumber.pdfminer.pdfparser.PDFSyntaxError as e:
+            raise ValueError(f"Invalid PDF file: {e}")
         
         pages_data = []
         

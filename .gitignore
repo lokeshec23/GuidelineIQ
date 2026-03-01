@@ -7,3 +7,5 @@ gc_pdf/
 guidelineiq_venv
 *.zip
 backend_old/
+docs/
+.agent/
