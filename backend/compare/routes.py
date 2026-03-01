@@ -35,6 +35,8 @@ async def compare_guidelines(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
+    investor: str = Form(None),
+    version: str = Form(None),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -118,6 +120,8 @@ async def compare_guidelines(
         user_prompt=user_prompt,
         user_id=str(current_user.id),
         username=current_user.email or "Unknown",
+        investor=investor or "Unknown Investor",
+        version=version or "v1",
     )
     
     return CompareResponse(
@@ -203,6 +207,8 @@ async def compare_with_dscr_template(
     model_name: str = Form(...),
     system_prompt: str = Form(""),
     user_prompt: str = Form(""),
+    investor: str = Form(None),
+    version: str = Form(None),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -286,6 +292,8 @@ async def compare_with_dscr_template(
         user_prompt=user_prompt,
         user_id=str(current_user.id),
         username=current_user.email or "Unknown",
+        investor=investor or "Unknown Investor",
+        version=version or "v1",
     )
     
     return CompareResponse(
@@ -382,6 +390,8 @@ async def compare_from_db(
         user_prompt=request.user_prompt,
         user_id=str(current_user.id),
         username=current_user.email or "Unknown",
+        investor=request.investor or "Unknown Investor",
+        version=request.version or "v1",
     )
     
     return CompareResponse(

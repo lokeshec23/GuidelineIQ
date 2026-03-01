@@ -55,6 +55,8 @@ async def process_dscr_template_comparison(
     user_prompt: str,
     user_id: str = None,
     username: str = "Unknown",
+    investor: str = "Unknown Investor",
+    version: str = "v1"
 ):
     """
     Background async task to compare two DSCR guideline Excel files using the
@@ -152,7 +154,8 @@ async def process_dscr_template_comparison(
         llm = initialize_llm_provider_for_compare(user_settings, model_provider, model_name)
 
         # STEP 5 — Parallel LLM Processing
-        update_progress(session_id, 45, f"Analyzing {num_chunks} chunks with {model_name}...")
+        # update_progress(session_id, 45, f"Analyzing {num_chunks} chunks with {model_name}...")
+        update_progress(session_id, 45, "Performing comparison...")
 
         results, failed = await run_parallel_dscr_comparison(
             llm,
@@ -229,7 +232,9 @@ async def process_dscr_template_comparison(
                             f"DSCR_Comparison_{os.path.splitext(file1_name)[0]}_vs_"
                             f"{os.path.splitext(file2_name)[0]}.xlsx"
                         ),
-                        "preview_data": results
+                        "preview_data": results,
+                        "investor": investor,
+                        "version": version
                     })
                 print(f"✅ Saved to compare history for user: {username}")
             except Exception as hist_err:

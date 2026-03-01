@@ -29,6 +29,8 @@ class CompareHistoryItem(BaseModel):
     id: str
     user_id: str
     username: str
+    investor: Optional[str] = "Unknown Investor"
+    version: Optional[str] = "v1"
     uploadedFile1: str
     uploadedFile2: str
     extractedFile: str

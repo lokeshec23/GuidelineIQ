@@ -93,6 +93,8 @@ async def get_compare_history(
             id=str(h.id),
             user_id=h.user_id,
             username=h.username or "Unknown",
+            investor=h.investor or "Unknown Investor",
+            version=h.version or "v1",
             uploadedFile1=h.uploaded_file1 or "",
             uploadedFile2=h.uploaded_file2 or "",
             extractedFile=h.extracted_file or "",

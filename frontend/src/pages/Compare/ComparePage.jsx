@@ -255,7 +255,9 @@ const ComparePage = () => {
           model_provider: modelProvider,
           model_name: modelName,
           system_prompt: systemPrompt,
-          user_prompt: userPrompt
+          user_prompt: userPrompt,
+          investor: values.investor || "Unknown Investor",
+          version: values.version || "v1"
         };
         res = await compareAPI.compareFromDB(payload);
       } else {
@@ -277,6 +279,10 @@ const ComparePage = () => {
         // Add prompts for LLM comparison
         fd.append("system_prompt", systemPrompt);
         fd.append("user_prompt", userPrompt);
+
+        // Add investor and version
+        fd.append("investor", values.investor || "Unknown Investor");
+        fd.append("version", values.version || "v1");
 
         // Use DSCR template comparison processor (same as DB comparison)
         res = await compareAPI.compareGuidelines(fd);

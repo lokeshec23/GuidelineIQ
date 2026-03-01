@@ -27,3 +27,5 @@ class CompareFromDBRequest(BaseModel):
     model_name: str
     system_prompt: Optional[str] = ""
     user_prompt: Optional[str] = ""
+    investor: Optional[str] = "Unknown Investor"
+    version: Optional[str] = "v1"
