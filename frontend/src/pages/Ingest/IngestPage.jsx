@@ -373,6 +373,7 @@ const IngestPage = () => {
         onFinish={handleSubmit}
         layout="vertical"
         className="w-full"
+        initialValues={{ guideline_type: ["DSCR", "Full Doc", "Alt Doc"] }}
       >
         {/* Model Selection Row - Admin Only */}
         {/* {isAdmin && (
@@ -473,7 +474,6 @@ const IngestPage = () => {
               className="rounded-md w-full"
               maxTagCount="responsive"
               allowClear
-              defaultValue={["DSCR", "Full Doc", "Alt Doc"]}
             >
               <Option value="DSCR">DSCR</Option>
               <Option value="Full Doc">Full Doc</Option>

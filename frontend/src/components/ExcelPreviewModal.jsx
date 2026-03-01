@@ -204,7 +204,7 @@ const ExcelPreviewModal = ({
 
             if (!displayTitle) {
                 if (key === "rule_id") {
-                    displayTitle = "DSCR PARAMETERS";
+                    displayTitle = "PARAMETERS";
                 } else {
                     displayTitle = key.replace(/_/g, " ").toUpperCase();
                 }

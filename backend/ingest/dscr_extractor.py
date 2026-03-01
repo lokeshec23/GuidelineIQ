@@ -488,7 +488,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     ws.column_dimensions['E'].width = 80
     
     # File Path
-    filename = f"DSCR_Extraction_{investor}_{version}_{session_id[:8]}.xlsx"
+    filename = f"{investor}_{version}_{session_id[:8]}.xlsx"
     
     # Save to 'results' folder in backend
     base_dir = os.getcwd()
@@ -624,7 +624,7 @@ def create_dscr_excel_multi_pdf(
     ws.column_dimensions['E'].width = 80  # NQMF Investor DSCR column
     
     # File Path
-    filename = f"DSCR_MultiPDF_{investor}_{version}_{session_id[:8]}.xlsx"
+    filename = f"{investor}_{version}_{session_id[:8]}.xlsx"
     
     # Save to 'results' folder in backend
     base_dir = os.getcwd()
