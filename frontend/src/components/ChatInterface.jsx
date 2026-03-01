@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Card, List, Avatar, Typography, Space, Spin, Segmented, Tooltip, Modal, Popconfirm, Empty } from 'antd';
-import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, MessageOutlined } from '@ant-design/icons';
+import { SendOutlined, CloseOutlined, RobotOutlined, BulbOutlined, FilePdfOutlined, FileExcelOutlined, ArrowsAltOutlined, ShrinkOutlined, FormOutlined, EyeOutlined, HistoryOutlined, PlusOutlined, DeleteOutlined, MessageOutlined, CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { chatAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -27,6 +27,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
     const [tempInstructions, setTempInstructions] = useState('');
     const [globalSuggestions, setGlobalSuggestions] = useState([]);
+    const [copiedId, setCopiedId] = useState(null);
 
     // Conversation history state
     const [conversations, setConversations] = useState([]);
@@ -39,6 +40,12 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const isResizingRef = useRef(false);
     const startPosRef = useRef({ x: 0, y: 0 });
     const startSizeRef = useRef({ width: 0, height: 0 });
+
+    const handleCopy = (id, content) => {
+        navigator.clipboard.writeText(content);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -442,10 +449,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                         <div
                                             className={item.role === 'user'
                                                 ? 'chat-message-user'
-                                                : 'chat-message-assistant'
+                                                : 'chat-message-assistant group relative'
                                             }
                                         >
-                                            <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                                            <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800 pr-6'}`}>
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     components={{
@@ -473,6 +480,17 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                     {item.content}
                                                 </ReactMarkdown>
                                             </div>
+                                            {item.role !== 'user' && (
+                                                <Tooltip title={copiedId === item.id ? "Copied!" : "Copy"}>
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={copiedId === item.id ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
+                                                        onClick={() => handleCopy(item.id, item.content)}
+                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-gray-100 z-10"
+                                                    />
+                                                </Tooltip>
+                                            )}
                                         </div>
 
                                         {/* Suggestions Chips */}
