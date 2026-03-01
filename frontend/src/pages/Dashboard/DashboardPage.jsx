@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs, Modal, Spin } from "antd";
+import { Table, Button, Space, Tabs, Modal, Spin, Tag } from "antd";
 import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
@@ -9,6 +9,31 @@ import { showToast } from "../../utils/toast";
 import { DashboardSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TabPane } = Tabs;
+
+const renderFileNames = (text) => {
+    if (!text) return "-";
+    const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
+    return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            {files.map((file, idx) => (
+                <Tag 
+                    key={idx} 
+                    color="blue" 
+                    style={{ 
+                        margin: 0, 
+                        whiteSpace: 'normal', 
+                        height: 'auto', 
+                        padding: '2px 8px',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.5'
+                    }}
+                >
+                    {file}
+                </Tag>
+            ))}
+        </div>
+    );
+};
 
 const DashboardPage = () => {
     const { user } = useAuth();
@@ -268,11 +293,13 @@ const DashboardPage = () => {
             title: "Uploaded File Name",
             dataIndex: "uploadedFile",
             key: "uploadedFile",
+            render: renderFileNames,
         },
         {
             title: "Extracted File Name",
             dataIndex: "extractedFile",
             key: "extractedFile",
+            render: renderFileNames,
         },
         {
             title: "Action",
@@ -320,16 +347,19 @@ const DashboardPage = () => {
             title: "Extracted File Name",
             dataIndex: "extractedFile",
             key: "extractedFile",
+            render: renderFileNames,
         },
         {
             title: "Uploaded File Name 1",
             dataIndex: "uploadedFile1",
             key: "uploadedFile1",
+            render: renderFileNames,
         },
         {
             title: "Uploaded File Name 2",
             dataIndex: "uploadedFile2",
             key: "uploadedFile2",
+            render: renderFileNames,
         },
         {
             title: "Action",
