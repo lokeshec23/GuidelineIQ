@@ -34,6 +34,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [loadingConversations, setLoadingConversations] = useState(false);
 
     const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
     const isResizingRef = useRef(false);
     const startPosRef = useRef({ x: 0, y: 0 });
     const startSizeRef = useRef({ width: 0, height: 0 });
@@ -45,6 +46,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     useEffect(() => {
         if (visible) {
             scrollToBottom();
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
         }
     }, [messages, visible]);
 
@@ -495,6 +499,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                     {/* Input Area */}
                     <div className="chat-input-container p-4">
                         <Input
+                            ref={inputRef}
                             placeholder="Ask anything..."
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
