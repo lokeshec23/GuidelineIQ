@@ -571,7 +571,7 @@ Return JSON:
             logger.error(f"NQMF extraction failed for {parameter}: {e}")
             return ExtractionResult(
                 parameter=parameter,
-                value="NA",
+                value="Not present",
                 hard_value="",
                 soft_value="",
                 needs_clarification=False,
@@ -664,7 +664,7 @@ CONTENT RULES (NON-NEGOTIABLE)
 
 5. Missing Evidence
    • If the parameter is not explicitly stated → output:
-     NA
+     Not present
 
    (Exactly "Not present", no bullets, no explanation.)
 

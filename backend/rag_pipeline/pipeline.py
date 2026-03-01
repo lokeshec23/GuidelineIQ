@@ -209,7 +209,7 @@ class RAGPipeline:
                             "_verification": verification_result.to_dict() if verification_result else None
                         })
                     
-                    # If no bullets at all, create single "NA" row
+                    # If no bullets at all, create single "Not present" row
                     if not rows:
                         rows.append({
                             "DSCR_Parameters": parameter,
@@ -217,7 +217,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "",
-                            "NQMF Investor DSCR": "NA",
+                            "NQMF Investor DSCR": "Not present",
                             "Classification": "Not Found",
                             "Notes": "",
                             "_verification": None
