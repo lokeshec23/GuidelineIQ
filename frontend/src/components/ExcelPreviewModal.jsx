@@ -203,7 +203,7 @@ const ExcelPreviewModal = ({
             let displayTitle = customTitle;
 
             if (!displayTitle) {
-                if (key === "rule_id") {
+                if (key === "rule_id" || key.trim().toLowerCase() === "dscr_parameters") {
                     displayTitle = "PARAMETERS";
                 } else {
                     displayTitle = key.replace(/_/g, " ").toUpperCase();
