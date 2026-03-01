@@ -83,6 +83,8 @@ const ComparePage = () => {
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [isComparePreview, setIsComparePreview] = useState(false);
+  const [file1Display, setFile1Display] = useState(null);
+  const [file2Display, setFile2Display] = useState(null);
 
   // DB Selection State
   const [historyData, setHistoryData] = useState([]);
@@ -345,10 +347,21 @@ const ComparePage = () => {
     try {
       setIsComparePreview(true);
       const res = await compareAPI.getPreview(sid);
-      const data = res.data;
+      const responseData = res.data;
 
-      if (data?.length > 0) {
-        setPreviewData(data);
+      let previewDataArray = [];
+      if (responseData && typeof responseData === 'object' && 'data' in responseData) {
+        previewDataArray = responseData.data;
+        if (responseData.file1_name) setFile1Display(responseData.file1_name.replace(/\.xlsx?$/, ''));
+        if (responseData.file2_name) setFile2Display(responseData.file2_name.replace(/\.xlsx?$/, ''));
+      } else {
+        previewDataArray = responseData;
+        setFile1Display(null);
+        setFile2Display(null);
+      }
+
+      if (previewDataArray?.length > 0) {
+        setPreviewData(previewDataArray);
         setPreviewModalVisible(true);
       } else {
         setPreviewData([{ key: 1, content: "No structured comparison found" }]);
@@ -450,14 +463,16 @@ const ComparePage = () => {
 
   // Calculate columns for preview, excluding unwanted internal fields
   const previewColumns = React.useMemo(() => {
-    // Only apply for ingestion preview (view details), not comparison preview
-    if (isComparePreview || !previewData || previewData.length === 0) return null;
+    if (!previewData || previewData.length === 0) return null;
 
     // Get all available keys from the first record
     const allKeys = Object.keys(previewData[0]);
 
     // Define columns to hide
     const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'verification'];
+
+    // If it's comparison mode, we hide some extra internal fields here or inside ExcelPreviewModal. 
+    // ExcelPreviewModal handles most, but we can override titles.
 
     // Filter available keys
     const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
@@ -472,12 +487,23 @@ const ComparePage = () => {
           key: key
         };
       }
+
+      // Override comparison file names
+      if (isComparePreview) {
+        if (key === 'guideline_1' && file1Display) {
+          return { title: file1Display, dataIndex: key, key: key };
+        }
+        if (key === 'guideline_2' && file2Display) {
+          return { title: file2Display, dataIndex: key, key: key };
+        }
+      }
+
       return {
         dataIndex: key,
         key: key
       };
     });
-  }, [previewData, isComparePreview]);
+  }, [previewData, isComparePreview, file1Display, file2Display]);
 
   if (pageLoading) {
     return <CompareSkeleton />;

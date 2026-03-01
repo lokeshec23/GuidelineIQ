@@ -157,6 +157,8 @@ async def process_qdrant_comparison_background(
                     f"{os.path.splitext(file1_name)[0]}_vs_"
                     f"{os.path.splitext(file2_name)[0]}.xlsx"
                 ),
+                "file1_name": file1_name,
+                "file2_name": file2_name,
                 "status": "completed",
                 "total_rows": len(comparison_results),
             })

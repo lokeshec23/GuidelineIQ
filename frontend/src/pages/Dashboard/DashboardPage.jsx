@@ -413,7 +413,7 @@ const DashboardPage = () => {
         // For Compare tab, we keep the specific columns
         return [
             {
-                title: "DSCR PARAMETERS",
+                title: "PARAMETERS",
                 dataIndex: "rule_id",
                 key: "rule_id",
                 width: "10%",
@@ -431,13 +431,13 @@ const DashboardPage = () => {
                 width: "15%",
             },
             {
-                title: "Guideline 1",
+                title: previewRecord?.uploadedFile1 ? previewRecord.uploadedFile1.replace(/\.xlsx?$/, '') : "Guideline 1",
                 dataIndex: "guideline_1",
                 key: "guideline_1",
                 width: "25%",
             },
             {
-                title: "Guideline 2",
+                title: previewRecord?.uploadedFile2 ? previewRecord.uploadedFile2.replace(/\.xlsx?$/, '') : "Guideline 2",
                 dataIndex: "guideline_2",
                 key: "guideline_2",
                 width: "25%",
@@ -449,7 +449,7 @@ const DashboardPage = () => {
                 width: "10%",
             },
         ];
-    }, [activeTab, previewData]);
+    }, [activeTab, previewData, previewRecord]);
 
     if (loading && ingestHistory.length === 0 && compareHistory.length === 0) {
         return <DashboardSkeleton />;

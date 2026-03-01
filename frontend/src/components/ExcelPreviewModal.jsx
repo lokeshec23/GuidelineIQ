@@ -55,6 +55,7 @@ const ExcelPreviewModal = ({
     const resizingColumn = useRef(null);
     const startX = useRef(0);
     const startWidth = useRef(0);
+    console.log("isComparisonMode", isComparisonMode);
 
     const convertToTableData = (data) => {
         if (!Array.isArray(data)) return [];
@@ -197,13 +198,14 @@ const ExcelPreviewModal = ({
     const getColumns = () => {
         const generateColumn = (key, customTitle = null) => {
             // ✅ Use pre-calculated "prefit" width, fallback to default if not available
+            debugger
             const prefitWidth = calculatedWidths[key] || 250;
             const currentWidth = columnWidths[key] || prefitWidth;
 
             let displayTitle = customTitle;
 
             if (!displayTitle) {
-                if (key === "rule_id" || key.trim().toLowerCase() === "dscr_parameters") {
+                if (key === "rule_id" || key.trim().toLowerCase() === "dscr_parameters" || key.trim().toLowerCase() === "dscr parameters") {
                     displayTitle = "PARAMETERS";
                 } else {
                     displayTitle = key.replace(/_/g, " ").toUpperCase();

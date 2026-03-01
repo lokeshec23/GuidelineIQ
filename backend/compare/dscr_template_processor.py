@@ -180,10 +180,14 @@ async def process_dscr_template_comparison(
         ).name
 
         # Use centralized configuration for Excel generation
+        dynamic_header_map = DSCR_EXPORT_HEADER_MAP.copy()
+        dynamic_header_map["guideline_1"] = os.path.splitext(file1_name)[0]
+        dynamic_header_map["guideline_2"] = os.path.splitext(file2_name)[0]
+
         dynamic_json_to_excel(
             results,
             excel_path,
-            header_map=DSCR_EXPORT_HEADER_MAP,
+            header_map=dynamic_header_map,
             hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
             column_order=DSCR_EXPORT_COLUMN_ORDER
         )
@@ -203,6 +207,8 @@ async def process_dscr_template_comparison(
                     f"{os.path.splitext(file1_name)[0]}_vs_"
                     f"{os.path.splitext(file2_name)[0]}.xlsx"
                 ),
+                "file1_name": file1_name,
+                "file2_name": file2_name,
                 "status": "completed",
                 "total_chunks": num_chunks,
                 "failed_chunks": failed,

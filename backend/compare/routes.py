@@ -460,7 +460,11 @@ async def get_preview(session_id: str):
     if not preview_data:
         raise HTTPException(status_code=404, detail="Preview data not available yet")
     
-    return JSONResponse(content=preview_data)
+    return JSONResponse(content={
+        "data": preview_data,
+        "file1_name": session_data.get("file1_name"),
+        "file2_name": session_data.get("file2_name")
+    })
 
 @router.get("/download/{session_id}")
 async def download_result(session_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -510,10 +514,17 @@ async def download_result(session_id: str, background_tasks: BackgroundTasks, db
                     DSCR_EXPORT_COLUMN_ORDER,
                     DSCR_EXPORT_HIDDEN_COLUMNS
                 )
+                
+                dynamic_header_map = DSCR_EXPORT_HEADER_MAP.copy()
+                if record.uploaded_file1:
+                    dynamic_header_map["guideline_1"] = os.path.splitext(record.uploaded_file1)[0]
+                if record.uploaded_file2:
+                    dynamic_header_map["guideline_2"] = os.path.splitext(record.uploaded_file2)[0]
+                    
                 dynamic_json_to_excel(
                     preview_data,
                     tmp.name,
-                    header_map=DSCR_EXPORT_HEADER_MAP,
+                    header_map=dynamic_header_map,
                     hidden_columns=DSCR_EXPORT_HIDDEN_COLUMNS,
                     column_order=DSCR_EXPORT_COLUMN_ORDER
                 )
