@@ -279,6 +279,41 @@ STRICT INSTRUCTIONS:
             **azure_params
         )
         
+        # 6.5 Generate Follow-up Suggestions if New Conversation
+        suggestions = []
+        try:
+            suggestions_prompt = (
+                "Based on the user's recent query and the context provided (along with the assistant's answer), suggest 3 relevant follow-up "
+                "questions the user could ask next to explore the guidelines further. "
+                "Return ONLY a JSON array of 3 strings. Example: [\"Question 1?\", \"Question 2?\", \"Question 3?\"]"
+            )
+            
+            # We can call the same chat service, just overriding the message and instructions to get the JSON
+            suggestions_reply = chat_with_openai(
+                api_key=api_key,
+                model_name=model_name,
+                message=suggestions_prompt,
+                history=[], # Don't need history, we just need the context of current interaction
+                text_context=f"User's query: {message}\nAssistant's answer: {reply}\nContext: {text_context}",
+                instructions="You are an assistant that only outputs a valid JSON array of 3 concise follow-up questions.",
+                **azure_params
+            )
+            
+            # Parse the JSON response
+            # Sometimes LLMs wrap JSON in markdown blocks
+            if "```json" in suggestions_reply:
+                suggestions_reply = suggestions_reply.split("```json")[-1].split("```")[0].strip()
+            elif "```" in suggestions_reply:
+                suggestions_reply = suggestions_reply.split("```")[-1].split("```")[0].strip()
+                
+            parsed_suggestions = json.loads(suggestions_reply)
+            if isinstance(parsed_suggestions, list) and len(parsed_suggestions) > 0:
+                suggestions = [str(s) for s in parsed_suggestions][:3]
+        except Exception as e:
+            logger.error(f"Failed to generate follow-up suggestions: {e}")
+            # Don't fail the main request if suggestions fail
+            pass
+        
         # 7. Save chat messages to conversation
         await save_chat_message_with_conversation(db, session_id, conversation_id, "user", message)
         await save_chat_message_with_conversation(db, session_id, conversation_id, "assistant", reply)
@@ -292,12 +327,17 @@ STRICT INSTRUCTIONS:
         # 9. Return reply with conversation ID
         updated_history = await get_conversation_messages(db, conversation_id, limit=20)
         
-        return {
+        response_data = {
             "reply": reply,
             "history": updated_history,
             "mode": mode,
             "conversation_id": conversation_id
         }
+        
+        if suggestions:
+            response_data["suggestions"] = suggestions
+            
+        return response_data
         
     except Exception as e:
         logger.error(f"Chat Error: {e}", exc_info=True)

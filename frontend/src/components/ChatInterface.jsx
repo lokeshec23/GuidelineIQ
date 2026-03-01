@@ -26,6 +26,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     const [instructions, setInstructions] = useState('');
     const [isInstructionModalOpen, setIsInstructionModalOpen] = useState(false);
     const [tempInstructions, setTempInstructions] = useState('');
+    const [globalSuggestions, setGlobalSuggestions] = useState([]);
 
     // Conversation history state
     const [conversations, setConversations] = useState([]);
@@ -86,6 +87,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         // Just clear the current conversation and reset to welcome state
         // Conversation will be created when user sends first message
         setCurrentConversationId(null);
+        setGlobalSuggestions([]);
         setMessages([{
             id: 'welcome',
             role: 'assistant',
@@ -98,6 +100,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     // Switch to a different conversation
     const handleSwitchConversation = async (conversationId) => {
         setCurrentConversationId(conversationId);
+        setGlobalSuggestions([]);
         setLoading(true);
         try {
             const response = await chatAPI.getConversationMessages(conversationId);
@@ -159,6 +162,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
         };
         setMessages(prev => [...prev, userMsg]);
         setInputValue('');
+        setGlobalSuggestions([]);
         setLoading(true);
 
         try {
@@ -183,6 +187,10 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 content: response.data.reply
             };
             setMessages(prev => [...prev, aiMsg]);
+
+            if (response.data.suggestions && response.data.suggestions.length > 0) {
+                setGlobalSuggestions(response.data.suggestions);
+            }
 
             // Reload conversations to update list
             await loadConversations();
@@ -495,6 +503,22 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                         )}
                         <div ref={messagesEndRef} />
                     </div>
+
+                    {/* Suggestions Area */}
+                    {globalSuggestions.length > 0 && (
+                        <div className="chat-global-suggestions px-4 pb-2 flex flex-wrap gap-2">
+                            {globalSuggestions.map((suggestion, idx) => (
+                                <div
+                                    key={idx}
+                                    className="chat-suggestion-chip cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-full px-3 py-1 text-sm transition-colors flex items-center gap-1"
+                                    onClick={() => handleSendMessage(suggestion)}
+                                >
+                                    <BulbOutlined />
+                                    {suggestion}
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Input Area */}
                     <div className="chat-input-container p-4">
