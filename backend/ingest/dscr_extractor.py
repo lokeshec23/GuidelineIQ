@@ -117,7 +117,7 @@ async def extract_dscr_parameters_safe(
                         "Variance_Category": category,
                         "SubCategory": subcategory,
                         "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": "NA"
+                        "NQMF Investor DSCR": "Not present"
                     }
                 
                 # Enhanced Prompt for Detailed Extraction
@@ -135,7 +135,7 @@ async def extract_dscr_parameters_safe(
                 Format your response as a JSON object with the following key:
                 - "summary": (string, clean list with "• " bullets)
 
-                Be concise. If the context doesn't explicitly mention something, state "NA".
+                Be concise. If the context doesn't explicitly mention something, state "Not present".
                 """
                 
                 response_text = await asyncio.to_thread(
@@ -310,7 +310,7 @@ async def summarize_dscr_aggregated_results(
         async with semaphore:
             extractions = param_data["extractions"]
             
-            # If only one extraction or all are "NA", no summarization needed
+            # If only one extraction or all are "Not present", no summarization needed
             unique_summaries = set(e["summary"] for e in extractions)
             
             if len(extractions) == 1:
@@ -322,14 +322,14 @@ async def summarize_dscr_aggregated_results(
                     "NQMF Investor DSCR": extractions[0]["summary"]
                 }
             
-            # Check if all are "NA" or similar
-            if all("na" == s.lower().strip() or "not found" in s.lower() or "error" in s.lower() for s in unique_summaries):
+            # Check if all are "Not present" or similar
+            if all(s.lower().strip() in ["not present", "na", "n/a", "none"] or "not found" in s.lower() or "error" in s.lower() for s in unique_summaries):
                 return {
                     "DSCR_Parameters": param_name,
                     "Variance_Category": param_data["category"],
                     "SubCategory": param_data["subcategory"],
                     "PPE_Field_Type": param_data["ppe_field"],
-                    "NQMF Investor DSCR": "NA"
+                    "NQMF Investor DSCR": "Not present"
                 }
             
             # Build context for LLM

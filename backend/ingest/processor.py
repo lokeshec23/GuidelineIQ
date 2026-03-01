@@ -261,7 +261,7 @@ async def process_guideline_background(
                     for idx, item in enumerate(dscr_results):
                         # Skip items with no useful info
                         summary = item.get('NQMF Investor DSCR', '')
-                        if not summary or summary in ["NA", "Error extraction", "No summary provided."]:
+                        if not summary or summary in ["Not present", "NA", "Error extraction", "No summary provided."]:
                             continue
                             
                         # keys in dscr_results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, NQMF Investor DSCR

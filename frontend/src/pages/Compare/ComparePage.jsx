@@ -38,6 +38,31 @@ import { CompareSkeleton } from "../../components/common/SkeletonLoader";
 const { Dragger } = Upload;
 const { Option } = Select;
 
+const renderFileNames = (text) => {
+  if (!text) return "-";
+  const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+      {files.map((file, idx) => (
+        <Tag
+          key={idx}
+          color="blue"
+          style={{
+            margin: 0,
+            whiteSpace: 'normal',
+            height: 'auto',
+            padding: '2px 8px',
+            wordBreak: 'break-word',
+            lineHeight: '1.5'
+          }}
+        >
+          {file}
+        </Tag>
+      ))}
+    </div>
+  );
+};
+
 const ComparePage = () => {
   const { isAdmin } = useAuth();
   const [form] = Form.useForm();
@@ -399,6 +424,7 @@ const ComparePage = () => {
       title: "File Name",
       dataIndex: "uploadedFile",
       key: "uploadedFile",
+      render: renderFileNames,
     },
     {
       title: "Actions",

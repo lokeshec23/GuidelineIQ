@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs, Modal, Spin, Tag } from "antd";
-import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tabs, Modal, Spin, Tag, Input } from "antd";
+import { EyeOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import ConfirmModal from "../../components/ConfirmModal";
@@ -14,24 +14,23 @@ const renderFileNames = (text) => {
     if (!text) return "-";
     const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
     return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+        <Space size={[0, 4]} wrap={false} style={{ display: 'flex', overflowX: 'auto', paddingBottom: '4px' }}>
             {files.map((file, idx) => (
-                <Tag 
-                    key={idx} 
-                    color="blue" 
-                    style={{ 
-                        margin: 0, 
-                        whiteSpace: 'normal', 
-                        height: 'auto', 
+                <Tag
+                    key={idx}
+                    color="blue"
+                    style={{
+                        margin: 0,
+                        whiteSpace: 'nowrap',
+                        height: 'auto',
                         padding: '2px 8px',
-                        wordBreak: 'break-word',
                         lineHeight: '1.5'
                     }}
                 >
                     {file}
                 </Tag>
             ))}
-        </div>
+        </Space>
     );
 };
 
@@ -41,6 +40,7 @@ const DashboardPage = () => {
     const [ingestHistory, setIngestHistory] = useState([]);
     const [compareHistory, setCompareHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [searchText, setSearchText] = useState("");
 
     // Preview modal state
     const [previewVisible, setPreviewVisible] = useState(false);
@@ -237,7 +237,7 @@ const DashboardPage = () => {
             dataIndex: "guideline_type",
             key: "guideline_type",
             width: 120,
-            render: (text) => text || "-",
+            render: renderFileNames,
         },
         {
             title: "Program Type",
@@ -455,6 +455,26 @@ const DashboardPage = () => {
         return <DashboardSkeleton />;
     }
 
+    // Filter history data based on search text
+    const filteredIngestHistory = ingestHistory.filter((record) => {
+        const searchLower = searchText.toLowerCase();
+        return (
+            record.investor?.toLowerCase().includes(searchLower) ||
+            record.version?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile?.toLowerCase().includes(searchLower)
+        );
+    });
+
+    const filteredCompareHistory = compareHistory.filter((record) => {
+        const searchLower = searchText.toLowerCase();
+        return (
+            record.investor?.toLowerCase().includes(searchLower) ||
+            record.version?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile1?.toLowerCase().includes(searchLower) ||
+            record.uploadedFile2?.toLowerCase().includes(searchLower)
+        );
+    });
+
     return (
         <div style={{
             height: 'calc(100vh - 64px)', // Full height minus header
@@ -464,7 +484,16 @@ const DashboardPage = () => {
             padding: '0 24px'
         }}>
             <div className="flex justify-between items-center py-4 flex-shrink-0">
-                <div className="flex-1"></div>
+                <div style={{ width: '50%' }}>
+                    <Input
+                        placeholder="Search by investor, version, or file name..."
+                        prefix={<SearchOutlined className="text-gray-400" />}
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        size="large"
+                        allowClear
+                    />
+                </div>
                 <Button
                     danger
                     icon={<DeleteOutlined />}
@@ -495,7 +524,7 @@ const DashboardPage = () => {
                     }}>
                         <Table
                             columns={ingestColumns}
-                            dataSource={ingestHistory}
+                            dataSource={filteredIngestHistory}
                             loading={loading}
                             rowKey="id"
                             bordered
@@ -521,7 +550,7 @@ const DashboardPage = () => {
                     }}>
                         <Table
                             columns={compareColumns}
-                            dataSource={compareHistory}
+                            dataSource={filteredCompareHistory}
                             loading={loading}
                             rowKey="id"
                             bordered

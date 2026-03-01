@@ -43,7 +43,9 @@ async def get_ingest_history(
             effective_date=h.effective_date,
             expiry_date=h.expiry_date,
             preview_data=h.preview_data or [],
-            pdf_files=h.pdf_files or []
+            pdf_files=h.pdf_files or [],
+            guideline_type=h.guideline_type or "",
+            program_type=h.program_type or ""
         ) for h in history
     ]
 

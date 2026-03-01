@@ -474,7 +474,7 @@ Return JSON:
         if not evidence_chunks:
             return ExtractionResult(
                 parameter=parameter,
-                value="NA",
+                value="Not present",
                 hard_value="",
                 soft_value="",
                 needs_clarification=False,
@@ -546,7 +546,7 @@ Return JSON:
             if soft_value:
                 combined_value += ("\n" if combined_value else "") + soft_value
             if not combined_value:
-                combined_value = "NA"
+                combined_value = "Not present"
             
             # Create ExtractionResult with classification
             result = ExtractionResult(
@@ -666,7 +666,7 @@ CONTENT RULES (NON-NEGOTIABLE)
    • If the parameter is not explicitly stated → output:
      NA
 
-   (Exactly "NA", no bullets, no explanation.)
+   (Exactly "Not present", no bullets, no explanation.)
 
 ================================================
 CLASSIFICATION RULES (CRITICAL)
@@ -741,7 +741,7 @@ Rules:
 • citation_indices refer to the evidence chunk numbers (0-indexed)
 • If all bullets are one type, the other array can be empty
 • No trailing commentary
-• If NO evidence found, return empty arrays (not "NA" in this format)
+• If NO evidence found, return empty arrays (not "Not present" in this format)
 
 ================================================
 FINAL ENFORCEMENT
