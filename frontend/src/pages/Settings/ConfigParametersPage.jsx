@@ -8,7 +8,7 @@ import { TableSkeleton } from "../../components/common/SkeletonLoader";
 const { Title } = Typography;
 const { Option } = Select;
 
-const GUIDELINE_TYPE_OPTIONS = ["All", "DSCR", "Full Doc", "Alt Doc"];
+const GUIDELINE_TYPE_OPTIONS = ["DSCR", "Full Doc", "Alt Doc"];
 
 const ConfigParametersPage = () => {
     const [parameters, setParameters] = useState([]);
@@ -17,7 +17,7 @@ const ConfigParametersPage = () => {
     const [editingParam, setEditingParam] = useState(null);
     const [form] = Form.useForm();
     const [searchText, setSearchText] = useState("");
-    const prevGuidelineTypeRef = useRef(["All"]);
+    const prevGuidelineTypeRef = useRef([]);
 
     useEffect(() => {
         fetchParameters();
@@ -38,7 +38,7 @@ const ConfigParametersPage = () => {
     const handleAdd = () => {
         setEditingParam(null);
         form.resetFields();
-        const defaultType = [...GUIDELINE_TYPE_OPTIONS]; // All + DSCR + Full Doc + Alt Doc
+        const defaultType = [...GUIDELINE_TYPE_OPTIONS]; // DSCR + Full Doc + Alt Doc
         form.setFieldsValue({ guideline_type: defaultType });
         prevGuidelineTypeRef.current = defaultType;
         setIsModalVisible(true);
@@ -46,7 +46,10 @@ const ConfigParametersPage = () => {
 
     const handleEdit = (record) => {
         setEditingParam(record);
-        const guidelineType = record.guideline_type || ["All"];
+        let guidelineType = record.guideline_type || [...GUIDELINE_TYPE_OPTIONS];
+        if (guidelineType.includes("All")) {
+            guidelineType = [...new Set(guidelineType.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+        }
         form.setFieldsValue({
             ...record,
             guideline_type: guidelineType
@@ -84,39 +87,9 @@ const ConfigParametersPage = () => {
         }
     };
 
-    // Handle guideline type checkbox logic: All checks/unchecks everything
     const handleGuidelineTypeChange = (checkedValues) => {
-        // Use ref for previous state since form.getFieldValue() may already be updated
-        const previousValues = prevGuidelineTypeRef.current || [];
-        const nonAllOptions = GUIDELINE_TYPE_OPTIONS.filter(o => o !== "All");
-
-        const hadAll = previousValues.includes("All");
-        const hasAll = checkedValues.includes("All");
-
-        let newValues;
-
-        if (!hadAll && hasAll) {
-            // User clicked "All" to CHECK it -> select everything
-            newValues = [...GUIDELINE_TYPE_OPTIONS];
-        } else if (hadAll && !hasAll) {
-            // User clicked "All" to UNCHECK it -> deselect everything
-            newValues = [];
-        } else {
-            // An individual checkbox was toggled (not "All")
-            const selectedNonAll = checkedValues.filter(v => v !== "All");
-
-            if (selectedNonAll.length === nonAllOptions.length) {
-                // All individual options are now selected -> auto-check "All"
-                newValues = [...GUIDELINE_TYPE_OPTIONS];
-            } else {
-                // Not all individual options selected -> ensure "All" is unchecked
-                newValues = selectedNonAll;
-            }
-        }
-
-        // Update both the form and our ref
-        form.setFieldsValue({ guideline_type: newValues });
-        prevGuidelineTypeRef.current = newValues;
+        form.setFieldsValue({ guideline_type: checkedValues });
+        prevGuidelineTypeRef.current = checkedValues;
     };
 
     const filteredParameters = parameters.filter(p =>
@@ -125,7 +98,6 @@ const ConfigParametersPage = () => {
     );
 
     const guidelineTypeColorMap = {
-        "All": "purple",
         "DSCR": "blue",
         "Full Doc": "green",
         "Alt Doc": "orange"
@@ -158,11 +130,17 @@ const ConfigParametersPage = () => {
             width: 200,
             filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
             onFilter: (value, record) => {
-                const types = record.guideline_type || ["All"];
+                let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                if (types.includes("All")) {
+                    types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+                }
                 return types.includes(value);
             },
             render: (types) => {
-                const displayTypes = types || ["All"];
+                let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
+                if (displayTypes.includes("All")) {
+                    displayTypes = [...new Set(displayTypes.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+                }
                 return (
                     <Space size={[0, 4]} wrap>
                         {displayTypes.map(t => (

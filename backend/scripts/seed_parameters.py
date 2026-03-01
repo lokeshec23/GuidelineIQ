@@ -11,6 +11,10 @@ Usage: python scripts/seed_parameters.py
 import asyncio
 import sys
 import os
+
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import text, inspect
@@ -152,10 +156,7 @@ def build_unified_parameters():
         if param in dscr_set:
             types.append("DSCR")
         
-        # If in all three, tag as "All"
-        if len(types) == 3:
-            types = ["All"]
-        
+
         result.append({
             "parameter": param,
             "category": "General",
@@ -192,7 +193,7 @@ async def seed_parameters():
     print(f"\n📋 Unified parameter list: {len(unified)} unique parameters")
     
     # Count by type
-    type_counts = {"Full Doc": 0, "Alt Doc": 0, "DSCR": 0, "All": 0}
+    type_counts = {"Full Doc": 0, "Alt Doc": 0, "DSCR": 0}
     for p in unified:
         for t in p["guideline_type"]:
             type_counts[t] = type_counts.get(t, 0) + 1
