@@ -220,6 +220,9 @@ async def change_user_role(user_id: str, role_update: UserRoleUpdate, authorizat
     if requesting_user.role != "admin" and not requesting_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
+    if requesting_user.email != "admin@admin.com":
+        raise HTTPException(status_code=403, detail="Only superadmin (admin@admin.com) can change roles")
+    
     # Check if target user exists
     target_user = await get_user_by_id(db, user_id)
     if not target_user:

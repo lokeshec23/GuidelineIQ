@@ -11,6 +11,10 @@ const ManagementPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const userStr = sessionStorage.getItem("user") || localStorage.getItem("user");
+    const currentUser = userStr ? JSON.parse(userStr) : null;
+    const isSuperAdmin = currentUser?.email === "admin@admin.com";
+
     useEffect(() => {
         fetchUsers();
     }, []);
@@ -32,7 +36,7 @@ const ManagementPage = () => {
             await authAPI.updateUserRole(userId, { role: newRole });
             showToast.success("User role updated successfully");
             // Optimistically update the local state to avoid a full fetch
-            setUsers(users.map(user => 
+            setUsers(users.map(user =>
                 user.id === userId ? { ...user, role: newRole } : user
             ));
         } catch (error) {
@@ -65,16 +69,20 @@ const ManagementPage = () => {
             dataIndex: "role",
             key: "role",
             render: (role, record) => (
-                <Select
-                    value={role || "user"}
-                    style={{ width: 110 }}
-                    onChange={(value) => handleRoleChange(record.id, value)}
-                    onClick={(e) => e.stopPropagation()}
-                    options={[
-                        { value: 'admin', label: 'ADMIN' },
-                        { value: 'user', label: 'USER' }
-                    ]}
-                />
+                isSuperAdmin ? (
+                    <Select
+                        value={role || "user"}
+                        style={{ width: 110 }}
+                        onChange={(value) => handleRoleChange(record.id, value)}
+                        onClick={(e) => e.stopPropagation()}
+                        options={[
+                            { value: 'admin', label: 'ADMIN' },
+                            { value: 'user', label: 'USER' }
+                        ]}
+                    />
+                ) : (
+                    <span className="capitalize">{role || "user"}</span>
+                )
             ),
         },
         {
