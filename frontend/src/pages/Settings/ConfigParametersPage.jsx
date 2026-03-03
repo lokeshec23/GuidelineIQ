@@ -68,6 +68,16 @@ const ConfigParametersPage = () => {
         }
     };
 
+    const handleRemoveAll = async () => {
+        try {
+            await dscrAPI.deleteAllParameters();
+            showToast.success("All parameters deleted successfully");
+            fetchParameters();
+        } catch (error) {
+            console.error("Failed to delete all parameters:", error);
+        }
+    };
+
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields();
@@ -187,15 +197,36 @@ const ConfigParametersPage = () => {
                     <Title level={2}>Config Parameters</Title>
                     <p className="text-gray-500 text-base">Manage parameters for extraction and mapping</p>
                 </div>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={handleAdd}
-                    size="large"
-                    className="bg-blue-600 hover:bg-blue-700 rounded-lg h-11 px-6 shadow-md transition-all"
-                >
-                    Add Parameter
-                </Button>
+                <div className="flex gap-2">
+                    <Popconfirm
+                        title="Delete all parameters?"
+                        description="Are you sure you want to delete ALL parameters? This cannot be undone."
+                        onConfirm={handleRemoveAll}
+                        okText="Yes"
+                        cancelText="No"
+                        okButtonProps={{ danger: true }}
+                    >
+                        <Button
+                            danger
+                            type="primary"
+                            icon={<DeleteOutlined />}
+                            size="large"
+                            className="rounded-lg h-11 px-6 shadow-md transition-all"
+                            disabled={parameters.length === 0}
+                        >
+                            Remove All
+                        </Button>
+                    </Popconfirm>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={handleAdd}
+                        size="large"
+                        className="bg-blue-600 hover:bg-blue-700 rounded-lg h-11 px-6 shadow-md transition-all"
+                    >
+                        Add Parameter
+                    </Button>
+                </div>
             </div>
 
             {loading ? (

@@ -228,6 +228,7 @@ export const dscrAPI = {
   createParameter: (data) => api.post("/dscr-parameters", data),
   updateParameter: (id, data) => api.put(`/dscr-parameters/${id}`, data),
   deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),
+  deleteAllParameters: () => api.delete("/dscr-parameters"),
   getGuidelineTypes: () => api.get("/dscr-parameters/guideline-types"),
 };
 

@@ -65,3 +65,15 @@ async def delete_parameter(
     await db.delete(db_param)
     await db.commit()
     return {"message": "Parameter deleted successfully"}
+
+from sqlalchemy import delete
+
+@router.delete("")
+async def delete_all_parameters(
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    """Delete all parameters from the database"""
+    await db.execute(delete(DSCRParameter))
+    await db.commit()
+    return {"message": "All parameters deleted successfully"}
