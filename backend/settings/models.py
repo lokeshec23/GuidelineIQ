@@ -18,16 +18,16 @@ async def get_user_settings(db: AsyncSession, user_id: str) -> Optional[Dict]:
     data = user_settings.settings_json or {}
     
     # --- Migration guard: auto-fix stale Gemini provider settings ---
-    # if data.get("default_model_provider") == "gemini":
-    #     data["default_model_provider"] = "openai"
-    #     data["default_model_name"] = "gpt-4o"
-    #     # Remove stale gemini_api_key if present
-    #     data.pop("gemini_api_key", None)
-    #     # Persist the fix
-    #     user_settings.settings_json = data
-    #     user_settings.updated_at = datetime.utcnow()
-    #     await db.commit()
-    #     await db.refresh(user_settings)
+    if data.get("default_model_provider") == "gemini":
+        data["default_model_provider"] = "openai"
+        data["default_model_name"] = "gpt-4o"
+        # Remove stale gemini_api_key if present
+        data.pop("gemini_api_key", None)
+        # Persist the fix
+        user_settings.settings_json = data
+        user_settings.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(user_settings)
     
     data["user_id"] = user_settings.user_id
     data["updated_at"] = user_settings.updated_at

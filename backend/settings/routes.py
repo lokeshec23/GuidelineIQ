@@ -18,12 +18,19 @@ async def get_settings_route(admin_user = Depends(require_admin), db: AsyncSessi
     settings = await get_user_settings(db, user_id)
     
     if not settings:
-        # Auto-create defaults or raise 404? 
-        # Existing logic raised 404.
-        raise HTTPException(
-            status_code=404,
-            detail="Settings not found. Please save your settings first."
-        )
+        # Auto-create defaults if settings do not exist, to avoid 404
+        default_settings = {
+            "default_model_provider": "openai",
+            "default_model_name": "gpt-4o",
+            "temperature": 0.3,
+            "max_output_tokens": 8192,
+            "top_p": 0.95,
+            "stop_sequences": [],
+            "pages_per_chunk": DEFAULT_PAGES_PER_CHUNK,
+            "comparison_chunk_size": 10,
+            "max_comparison_chunks": 0
+        }
+        settings = await create_or_update_settings(db, user_id, default_settings)
     
     # Ensure a default value for pages_per_chunk if it's missing
     if "pages_per_chunk" not in settings:
