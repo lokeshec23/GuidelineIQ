@@ -528,7 +528,7 @@ const DashboardPage = () => {
                             loading={loading}
                             rowKey="id"
                             bordered
-                            scroll={{ x: "max-content", y: 'calc(100vh - 280px)' }}
+                            scroll={{ x: "max-content", y: 'calc(100vh - 350px)' }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
@@ -554,7 +554,7 @@ const DashboardPage = () => {
                             loading={loading}
                             rowKey="id"
                             bordered
-                            scroll={{ x: "max-content", y: 'calc(100vh - 280px)' }}
+                            scroll={{ x: "max-content", y: 'calc(100vh - 350px)' }}
                             pagination={{
                                 pageSize: 10,
                                 showSizeChanger: true,
