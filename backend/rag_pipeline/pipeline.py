@@ -61,12 +61,16 @@ class RAGPipeline:
         
         # Step 1: Parse PDF
         logger.info("Step 1/4: Parsing PDF...")
-        pages_data = self.pdf_parser.parse_pdf(pdf_path, use_ocr_fallback)
+        pages_data = await asyncio.to_thread(
+            self.pdf_parser.parse_pdf, pdf_path, use_ocr_fallback
+        )
         
         # Step 2: Create chunks
         logger.info("Step 2/4: Creating chunks...")
         document_id = document_payload.gridfs_file_id or Path(pdf_path).stem
-        chunks = self.chunker.chunk_pages(pages_data, document_id)
+        chunks = await asyncio.to_thread(
+            self.chunker.chunk_pages, pages_data, document_id
+        )
         
         if not chunks:
             raise ValueError("No chunks created from PDF")
@@ -102,7 +106,7 @@ class RAGPipeline:
         )
         
         # Also index for BM25
-        self.hybrid_retriever.index_chunks(chunks)
+        await asyncio.to_thread(self.hybrid_retriever.index_chunks, chunks)
         
         logger.info(f"Ingestion complete: {len(chunks)} chunks indexed")
         return len(chunks)

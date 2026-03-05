@@ -185,7 +185,7 @@ async def extract_dscr_parameters_safe(
     results = await asyncio.gather(*tasks)
     
     # Generate Excel
-    filepath = create_dscr_excel(results, session_id, investor, version, current_guidelines)
+    filepath = await asyncio.to_thread(create_dscr_excel, results, session_id, investor, version, current_guidelines)
     return filepath, results
 
 
@@ -273,7 +273,8 @@ async def extract_dscr_parameters_multi_pdf(
         logger.info(f"RAG Pipeline extracted {len(final_results)} parameters")
         
         # Generate Excel
-        filepath = create_dscr_excel_multi_pdf(
+        filepath = await asyncio.to_thread(
+            create_dscr_excel_multi_pdf,
             data=final_results,
             session_id=session_id,
             investor=investor,

@@ -102,10 +102,13 @@ async def process_guideline_background(
                             pdf_content = await get_pdf_from_gridfs(sub_db, gridfs_id)
                         
                         # 2. Save to temp file
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=f"rag_{session_id[:8]}_{idx}_") as temp_file:
-                            temp_file.write(pdf_content)
-                            temp_pdf_path = temp_file.name
-                            temp_pdf_paths.append(temp_pdf_path)
+                        def write_temp():
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", prefix=f"rag_{session_id[:8]}_{idx}_") as temp_file:
+                                temp_file.write(pdf_content)
+                                return temp_file.name
+                                
+                        temp_pdf_path = await asyncio.to_thread(write_temp)
+                        temp_pdf_paths.append(temp_pdf_path)
                         
                         # 3. Create Document Payload
                         # Map program_type string to Enum, default to DSCR if not specified or invalid
