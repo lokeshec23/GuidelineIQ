@@ -11,7 +11,7 @@ const { Text, TextArea } = Typography;
 const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = [], isComparisonMode = false, onOpenPdf }) => {
     const [mode, setMode] = useState("excel"); // "excel" or "pdf"
     const [isExpanded, setIsExpanded] = useState(true);
-    const [size, setSize] = useState({ width: 1000, height: 700 });
+    const [size, setSize] = useState({ width: 1150, height: 860 });
     const [messages, setMessages] = useState([
         {
             id: 'welcome',
@@ -70,9 +70,9 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
     // Handle Expand Toggle
     useEffect(() => {
         if (isExpanded) {
-            setSize({ width: 1000, height: 700 });
+            setSize({ width: 1150, height: 860 });
         } else {
-            setSize({ width: 700, height: 600 });
+            setSize({ width: 800, height: 720 });
         }
     }, [isExpanded]);
 
@@ -495,15 +495,15 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
 
                                         {/* Suggestions Chips */}
                                         {item.suggestions && (
-                                            <div className="mt-3 flex flex-col gap-2">
+                                            <div className="mt-3 flex flex-wrap gap-2">
                                                 {item.suggestions.map((suggestion, idx) => (
                                                     <div
                                                         key={idx}
-                                                        className="chat-suggestion-chip flex items-center gap-2 p-2 text-sm text-gray-600"
+                                                        className="chat-suggestion-chip cursor-pointer bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 rounded-md px-2 py-1.5 text-xs transition-colors flex items-start gap-1.5 w-full sm:w-fit whitespace-normal text-left leading-tight"
                                                         onClick={() => handleSendMessage(suggestion)}
                                                     >
-                                                        <BulbOutlined style={{ color: '#3b82f6' }} />
-                                                        {suggestion}
+                                                        <BulbOutlined style={{ color: '#3b82f6', fontSize: '12px', marginTop: '2px' }} />
+                                                        <span className="flex-1">{suggestion}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -524,17 +524,20 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
 
                     {/* Suggestions Area */}
                     {globalSuggestions.length > 0 && (
-                        <div className="chat-global-suggestions px-4 pb-2 flex flex-wrap gap-2">
-                            {globalSuggestions.map((suggestion, idx) => (
-                                <div
-                                    key={idx}
-                                    className="chat-suggestion-chip cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-full px-3 py-1 text-sm transition-colors flex items-center gap-1"
-                                    onClick={() => handleSendMessage(suggestion)}
-                                >
-                                    <BulbOutlined />
-                                    {suggestion}
-                                </div>
-                            ))}
+                        <div className="chat-global-suggestions px-4 pb-2 flex flex-col gap-2">
+                            {/* <span className="text-xs text-gray-500 mb-1">Suggested Follow-ups:</span> */}
+                            <div className="flex flex-wrap gap-2">
+                                {globalSuggestions.map((suggestion, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="chat-suggestion-chip w-full sm:w-auto cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-start gap-1.5 whitespace-normal text-left leading-tight"
+                                        onClick={() => handleSendMessage(suggestion)}
+                                    >
+                                        <BulbOutlined style={{ fontSize: '12px', marginTop: '2px' }} />
+                                        <span className="flex-1">{suggestion}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 

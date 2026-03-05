@@ -283,8 +283,9 @@ STRICT INSTRUCTIONS:
         suggestions = []
         try:
             suggestions_prompt = (
-                "Based on the user's recent query and the context provided (along with the assistant's answer), suggest 3 relevant follow-up "
-                "questions the user could ask next to explore the guidelines further. "
+                "Based STRICTLY on the user's specific query and the assistant's direct answer, suggest 3 highly relevant follow-up "
+                "questions. The questions MUST directly relate to the user's original intent and the provided answer, acting as natural next steps in the conversation. "
+                "Do NOT suggest generic or unrelated guideline questions. "
                 "Return ONLY a JSON array of 3 strings. Example: [\"Question 1?\", \"Question 2?\", \"Question 3?\"]"
             )
             
@@ -294,8 +295,8 @@ STRICT INSTRUCTIONS:
                 model_name=model_name,
                 message=suggestions_prompt,
                 history=[], # Don't need history, we just need the context of current interaction
-                text_context=f"User's query: {message}\nAssistant's answer: {reply}\nContext: {text_context}",
-                instructions="You are an assistant that only outputs a valid JSON array of 3 concise follow-up questions.",
+                text_context=f"User's query: {message}\nAssistant's answer: {reply}",
+                instructions="You are an assistant that only outputs a valid JSON array of 3 concise follow-up questions strictly related to the user's query.",
                 **azure_params
             )
             

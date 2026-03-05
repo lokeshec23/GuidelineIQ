@@ -23,7 +23,7 @@ const ConfigParametersPage = () => {
         fetchParameters();
     }, []);
 
-    const fetchParameters = async () => {
+    const  fetchParameters = async () => {
         setLoading(true);
         try {
             const response = await dscrAPI.listParameters();
