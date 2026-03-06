@@ -173,3 +173,186 @@ code {
   height: 100%;
   overflow: hidden;
 }
+
+/* ===== Guideline Configuration Card ===== */
+.guideline-card {
+  background: transparent;
+  border: 1px solid #d6e4ff;
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.guideline-card:hover {
+  box-shadow: 0 4px 20px rgba(24, 144, 255, 0.1);
+  border-color: #adc6ff;
+}
+
+.guideline-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #597ef7, #85a5ff, #b37feb);
+  border-radius: 12px 12px 0 0;
+}
+
+.guideline-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.guideline-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #597ef7, #85a5ff);
+  color: #fff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.guideline-card__title {
+  font-family: "Jura", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d3b;
+  margin: 0;
+}
+
+.guideline-card__subtitle {
+  font-family: "Jura", sans-serif;
+  font-size: 12px;
+  color: #8c8ca1;
+  margin: 0;
+}
+
+/* ===== Category Toggle Chips ===== */
+.guideline-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.guideline-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 24px;
+  border: 1.5px solid #d9d9d9;
+  background: #fff;
+  cursor: pointer;
+  font-family: "Jura", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #595959;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.guideline-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.guideline-chip:active {
+  transform: scale(0.97);
+}
+
+.guideline-chip .chip-icon {
+  font-size: 15px;
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  opacity: 0.4;
+}
+
+/* Active variants */
+.guideline-chip--dscr {
+  border-color: #597ef7;
+  background: linear-gradient(135deg, #f0f5ff, #e6f0ff);
+  color: #2f54eb;
+}
+
+.guideline-chip--dscr .chip-icon {
+  color: #2f54eb;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.guideline-chip--fulldoc {
+  border-color: #52c41a;
+  background: linear-gradient(135deg, #f6ffed, #ecffe0);
+  color: #389e0d;
+}
+
+.guideline-chip--fulldoc .chip-icon {
+  color: #389e0d;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.guideline-chip--altdoc {
+  border-color: #b37feb;
+  background: linear-gradient(135deg, #f9f0ff, #f0e5ff);
+  color: #722ed1;
+}
+
+.guideline-chip--altdoc .chip-icon {
+  color: #722ed1;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* ===== Chip Controls ===== */
+.chip-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.chip-controls__label {
+  font-family: "Jura", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #595959;
+}
+
+.chip-controls__toggle {
+  font-family: "Jura", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #597ef7;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.chip-controls__toggle:hover {
+  color: #2f54eb;
+  text-decoration: underline;
+}
+
+/* ===== Investor Select Enhancement ===== */
+.investor-select .ant-select-selector {
+  border-radius: 10px !important;
+  border-color: #d6e4ff !important;
+  transition: all 0.2s ease !important;
+}
+
+.investor-select .ant-select-selector:hover,
+.investor-select.ant-select-focused .ant-select-selector {
+  border-color: #597ef7 !important;
+  box-shadow: 0 0 0 2px rgba(89, 126, 247, 0.1) !important;
+}

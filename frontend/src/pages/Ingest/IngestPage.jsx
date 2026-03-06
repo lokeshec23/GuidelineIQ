@@ -23,6 +23,10 @@ import {
   FileExcelOutlined,
   LoadingOutlined,
   DeleteOutlined,
+  BankOutlined,
+  CheckCircleFilled,
+  AppstoreOutlined,
+  PlusCircleOutlined,
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
@@ -41,6 +45,7 @@ const IngestPage = () => {
 
   // --- STATE ---
   const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
+  const [selectedCategories, setSelectedCategories] = useState(["DSCR", "Full Doc", "Alt Doc"]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0); // ✅ Progress state
   const [progressMessage, setProgressMessage] = useState(""); // ✅ Progress message state
@@ -394,6 +399,10 @@ const IngestPage = () => {
         className="w-full"
         initialValues={{ guideline_type: ["DSCR", "Full Doc", "Alt Doc"] }}
       >
+        {/* Hidden field to sync chip state with form */}
+        <Form.Item name="guideline_type" hidden>
+          <Input />
+        </Form.Item>
         {/* Model Selection Row - Admin Only */}
         {/* {isAdmin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -479,41 +488,97 @@ const IngestPage = () => {
           </Form.Item>
         </div>
 
-        {/* New Metadata Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Form.Item
-            name="guideline_investor_id"
-            label={<span className="text-gray-600 font-medium">Guideline Type (Investor)</span>}
-            className="mb-0"
-            initialValue="null"
-          >
-            <Select size="large" className="rounded-md" placeholder="Select Investor for Extraction">
-              <Option value="null">General</Option>
-              {investors.map(inv => (
-                <Option key={inv.id} value={inv.id}>{inv.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
+        {/* ===== Guideline Configuration Card ===== */}
+        <div className="guideline-card mb-8">
+          <div className="guideline-card__header">
+            <div className="guideline-card__icon">
+              <AppstoreOutlined />
+            </div>
+            <div>
+              <p className="guideline-card__title">Guideline Configuration</p>
+              <p className="guideline-card__subtitle">Select investor context and document categories for extraction</p>
+            </div>
+          </div>
 
-          <Form.Item
-            name="guideline_type"
-            label={<span className="text-gray-600 font-medium">Guideline Type (Categories)</span>}
-            className="mb-0"
-          >
-            <Select
-              mode="multiple"
-              size="large"
-              placeholder="Select guideline type(s)"
-              className="rounded-md w-full"
-              maxTagCount="responsive"
-              allowClear
-            >
-              <Option value="DSCR">DSCR</Option>
-              <Option value="Full Doc">Full Doc</Option>
-              <Option value="Alt Doc">Alt Doc</Option>
-            </Select>
-          </Form.Item>
+          {/* Investor Selector */}
+          <div className="mb-5">
+            <label className="block text-gray-600 font-medium text-sm mb-2" style={{ fontFamily: 'Jura, sans-serif' }}>
+              <BankOutlined className="mr-1.5" /> Investor Context
+            </label>
+            <Form.Item name="guideline_investor_id" className="mb-0" initialValue="null">
+              <Select
+                size="large"
+                className="investor-select w-full"
+                placeholder="Select an investor for targeted extraction"
+                suffixIcon={<BankOutlined style={{ color: '#597ef7' }} />}
+              >
+                <Option value="null">
+                  <span className="flex items-center gap-2">
+                    <span style={{ color: '#8c8ca1' }}>●</span> General Parameters
+                  </span>
+                </Option>
+                {investors.map(inv => (
+                  <Option key={inv.id} value={inv.id}>
+                    <span className="flex items-center gap-2">
+                      <span style={{ color: '#597ef7' }}>●</span> {inv.name}
+                    </span>
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </div>
 
+          {/* Category Chips */}
+          <div>
+            <div className="chip-controls">
+              <span className="chip-controls__label">Document Categories</span>
+              <button
+                type="button"
+                className="chip-controls__toggle"
+                onClick={() => {
+                  const allCats = ["DSCR", "Full Doc", "Alt Doc"];
+                  const next = selectedCategories.length === allCats.length ? [] : allCats;
+                  setSelectedCategories(next);
+                  form.setFieldsValue({ guideline_type: next });
+                }}
+              >
+                {selectedCategories.length === 3 ? "Deselect All" : "Select All"}
+              </button>
+            </div>
+            <div className="guideline-chips">
+              {[
+                { value: "DSCR", label: "DSCR", activeClass: "guideline-chip--dscr" },
+                { value: "Full Doc", label: "Full Doc", activeClass: "guideline-chip--fulldoc" },
+                { value: "Alt Doc", label: "Alt Doc", activeClass: "guideline-chip--altdoc" },
+              ].map((cat) => {
+                const isActive = selectedCategories.includes(cat.value);
+                return (
+                  <div
+                    key={cat.value}
+                    className={`guideline-chip ${isActive ? cat.activeClass : ""}`}
+                    onClick={() => {
+                      const next = isActive
+                        ? selectedCategories.filter((c) => c !== cat.value)
+                        : [...selectedCategories, cat.value];
+                      setSelectedCategories(next);
+                      form.setFieldsValue({ guideline_type: next });
+                    }}
+                  >
+                    {isActive ? (
+                      <CheckCircleFilled className="chip-icon" />
+                    ) : (
+                      <PlusCircleOutlined className="chip-icon" />
+                    )}
+                    {cat.label}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Program Type & Page Range Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Form.Item
             name="program_type"
             label={<span className="text-gray-600 font-medium">Program Type</span>}
