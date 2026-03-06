@@ -222,9 +222,17 @@ export const promptsAPI = {
   resetUserPrompts: () => api.post("/prompts/reset"),
 };
 
+// ==================== INVESTOR APIs ====================
+export const investorAPI = {
+  listInvestors: () => api.get("/investors"),
+  createInvestor: (data) => api.post("/investors", data),
+  updateInvestor: (id, data) => api.put(`/investors/${id}`, data),
+  deleteInvestor: (id) => api.delete(`/investors/${id}`),
+};
+
 // ==================== PARAMETERS APIs ====================
 export const dscrAPI = {
-  listParameters: () => api.get("/dscr-parameters"),
+  listParameters: (investorId = "null") => api.get(`/dscr-parameters?investor_id=${investorId}`),
   createParameter: (data) => api.post("/dscr-parameters", data),
   updateParameter: (id, data) => api.put(`/dscr-parameters/${id}`, data),
   deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),

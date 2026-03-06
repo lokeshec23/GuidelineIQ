@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
-import { dscrAPI } from "../../services/api";
+import React, { useState, useEffect, useRef, useContext } from "react";
+import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip } from "antd";
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined } from "@ant-design/icons";
+import { dscrAPI, investorAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
+import { useAuth } from "../../context/AuthContext";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -11,6 +12,10 @@ const { Option } = Select;
 const GUIDELINE_TYPE_OPTIONS = ["DSCR", "Full Doc", "Alt Doc"];
 
 const ConfigParametersPage = () => {
+    const { user } = useAuth();
+    const isAdmin = user?.role === "admin";
+
+    // Parameter State
     const [parameters, setParameters] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -19,14 +24,38 @@ const ConfigParametersPage = () => {
     const [searchText, setSearchText] = useState("");
     const prevGuidelineTypeRef = useRef([]);
 
+    // Investor State
+    const [investors, setInvestors] = useState([]);
+    const [selectedInvestorId, setSelectedInvestorId] = useState("null"); // 'null' represents General
+
+    // Manage Investors Modal State
+    const [isManageInvestorsVisible, setIsManageInvestorsVisible] = useState(false);
+    const [investorForm] = Form.useForm();
+    const [editingInvestor, setEditingInvestor] = useState(null);
+    const [investorsLoading, setInvestorsLoading] = useState(false);
+    const [investorSubmitting, setInvestorSubmitting] = useState(false);
+
     useEffect(() => {
-        fetchParameters();
+        fetchInvestors();
     }, []);
 
-    const  fetchParameters = async () => {
+    useEffect(() => {
+        fetchParameters();
+    }, [selectedInvestorId]);
+
+    const fetchInvestors = async () => {
+        try {
+            const response = await investorAPI.listInvestors();
+            setInvestors(response.data);
+        } catch (error) {
+            console.error("Failed to fetch investors:", error);
+        }
+    };
+
+    const fetchParameters = async () => {
         setLoading(true);
         try {
-            const response = await dscrAPI.listParameters();
+            const response = await dscrAPI.listParameters(selectedInvestorId);
             setParameters(response.data);
         } catch (error) {
             console.error("Failed to fetch parameters:", error);
@@ -82,11 +111,17 @@ const ConfigParametersPage = () => {
         try {
             const values = await form.validateFields();
 
+            // Inject selected investor ID if not general
+            const payload = { ...values };
+            if (selectedInvestorId !== "null") {
+                payload.investor_id = selectedInvestorId;
+            }
+
             if (editingParam) {
-                await dscrAPI.updateParameter(editingParam.id, values);
+                await dscrAPI.updateParameter(editingParam.id, payload);
                 showToast.success("Parameter updated successfully");
             } else {
-                await dscrAPI.createParameter(values);
+                await dscrAPI.createParameter(payload);
                 showToast.success("Parameter created successfully");
             }
 
@@ -95,6 +130,59 @@ const ConfigParametersPage = () => {
         } catch (error) {
             console.error("Failed to save parameter:", error);
         }
+    };
+
+    /* === Manage Investors Flow === */
+    const handleManageInvestors = () => {
+        if (!isAdmin) return;
+        setIsManageInvestorsVisible(true);
+    };
+
+    const handleInvestorEdit = (inv) => {
+        setEditingInvestor(inv);
+        investorForm.setFieldsValue({ name: inv.name });
+    };
+
+    const handleInvestorDelete = async (id) => {
+        try {
+            await investorAPI.deleteInvestor(id);
+            showToast.success("Investor deleted successfully");
+            if (selectedInvestorId === id) setSelectedInvestorId("null");
+            fetchInvestors();
+        } catch (error) {
+            console.error("Failed to delete investor", error);
+        }
+    };
+
+    const handleInvestorSubmit = async () => {
+        try {
+            const values = await investorForm.validateFields();
+            setInvestorSubmitting(true);
+            if (editingInvestor) {
+                await investorAPI.updateInvestor(editingInvestor.id, values);
+                showToast.success("Investor updated successfully");
+            } else {
+                await investorAPI.createInvestor(values);
+                showToast.success("Investor created successfully");
+            }
+            investorForm.resetFields();
+            setEditingInvestor(null);
+            fetchInvestors();
+        } catch (error) {
+            console.error("Failed to save investor", error);
+        } finally {
+            setInvestorSubmitting(false);
+        }
+    };
+
+    const handleInvestorFormCancel = () => {
+        investorForm.resetFields();
+        setEditingInvestor(null);
+    };
+
+    const handleManageInvestorsClose = () => {
+        setIsManageInvestorsVisible(false);
+        handleInvestorFormCancel();
     };
 
     const handleGuidelineTypeChange = (checkedValues) => {
@@ -197,10 +285,34 @@ const ConfigParametersPage = () => {
                     <Title level={2}>Config Parameters</Title>
                     <p className="text-gray-500 text-base">Manage parameters for extraction and mapping</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-4 items-center">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-600 font-medium whitespace-nowrap">Context:</span>
+                        <Select
+                            value={selectedInvestorId}
+                            onChange={(val) => setSelectedInvestorId(val)}
+                            className="w-48"
+                            size="large"
+                            options={[
+                                { label: "General parameters", value: "null" },
+                                ...investors.map(inv => ({ label: inv.name, value: inv.id }))
+                            ]}
+                        />
+                        {isAdmin && (
+                            <Tooltip title="Manage Investors">
+                                <Button
+                                    icon={<SettingOutlined />}
+                                    size="large"
+                                    onClick={handleManageInvestors}
+                                    className="flex items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
+                                />
+                            </Tooltip>
+                        )}
+                    </div>
+                    <Divider type="vertical" className="h-8 bg-gray-300 mx-0" />
                     <Popconfirm
                         title="Delete all parameters?"
-                        description="Are you sure you want to delete ALL parameters? This cannot be undone."
+                        description={`Are you sure you want to delete ALL parameters for the selected context? This cannot be undone.`}
                         onConfirm={handleRemoveAll}
                         okText="Yes"
                         cancelText="No"
@@ -222,7 +334,7 @@ const ConfigParametersPage = () => {
                         icon={<PlusOutlined />}
                         onClick={handleAdd}
                         size="large"
-                        className="bg-blue-600 hover:bg-blue-700 rounded-lg h-11 px-6 shadow-md transition-all"
+                        className="bg-blue-600 hover:bg-blue-700 rounded-lg h-11 px-6 shadow-md transition-all whitespace-nowrap"
                     >
                         Add Parameter
                     </Button>
@@ -320,6 +432,100 @@ const ConfigParametersPage = () => {
                         </Checkbox.Group>
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            {/* Manage Investors Modal */}
+            <Modal
+                title="Manage Investors"
+                open={isManageInvestorsVisible}
+                onCancel={handleManageInvestorsClose}
+                footer={null}
+                width={500}
+                destroyOnClose
+            >
+                <div className="mb-6">
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <Title level={5} className="mt-0 mb-3 text-gray-700">
+                            {editingInvestor ? "Edit Investor" : "Add New Investor"}
+                        </Title>
+                        <Form
+                            form={investorForm}
+                            layout="inline"
+                            onFinish={handleInvestorSubmit}
+                            className="flex items-end w-full"
+                        >
+                            <Form.Item
+                                name="name"
+                                rules={[{ required: true, message: 'Investor name is required' }]}
+                                className="flex-grow mb-0"
+                            >
+                                <Input placeholder="e.g. Rocket Mortgage" className="h-9" />
+                            </Form.Item>
+                            <Form.Item className="mb-0">
+                                <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-9 bg-blue-600">
+                                    {editingInvestor ? "Update" : "Add"}
+                                </Button>
+                            </Form.Item>
+                            {editingInvestor && (
+                                <Form.Item className="mb-0 ml-[-8px]">
+                                    <Button type="default" onClick={handleInvestorFormCancel} className="h-9">
+                                        Cancel
+                                    </Button>
+                                </Form.Item>
+                            )}
+                        </Form>
+                    </div>
+                </div>
+
+                <Title level={5} className="mb-3 text-gray-700">Existing Investors</Title>
+                <div className="max-h-64 overflow-y-auto pr-2 border border-gray-100 rounded-md">
+                    {investors.length === 0 ? (
+                        <div className="text-center py-6 text-gray-400 text-sm">No investors added yet.</div>
+                    ) : (
+                        <Table
+                            size="small"
+                            dataSource={investors}
+                            rowKey="id"
+                            pagination={false}
+                            columns={[
+                                {
+                                    title: "Name",
+                                    dataIndex: "name",
+                                    key: "name",
+                                    render: (text) => <span className="font-medium text-gray-800">{text}</span>
+                                },
+                                {
+                                    title: "Actions",
+                                    key: "actions",
+                                    width: 100,
+                                    render: (_, record) => (
+                                        <Space size="small">
+                                            <Button
+                                                type="text"
+                                                size="small"
+                                                icon={<EditOutlined className="text-blue-500" />}
+                                                onClick={() => handleInvestorEdit(record)}
+                                            />
+                                            <Popconfirm
+                                                title="Delete investor?"
+                                                description="Parameters linked to this investor will also be deleted."
+                                                onConfirm={() => handleInvestorDelete(record.id)}
+                                                okText="Yes"
+                                                cancelText="No"
+                                            >
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<DeleteOutlined className="text-red-500" />}
+                                                />
+                                            </Popconfirm>
+                                        </Space>
+                                    ),
+                                }
+                            ]}
+                        />
+                    )}
+                </div>
             </Modal>
         </div>
     );

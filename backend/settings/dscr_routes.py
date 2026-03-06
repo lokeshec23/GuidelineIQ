@@ -5,13 +5,22 @@ from sql_database import get_db
 from models.sql_models import DSCRParameter
 from settings.dscr_schemas import DSCRParameterCreate, DSCRParameterUpdate, DSCRParameterResponse, GUIDELINE_TYPE_OPTIONS
 from auth.middleware import require_admin
-from typing import List
+from typing import List, Optional
 
 router = APIRouter(prefix="/dscr-parameters", tags=["Parameters"])
 
 @router.get("", response_model=List[DSCRParameterResponse])
-async def list_parameters(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(DSCRParameter).order_by(DSCRParameter.category, DSCRParameter.parameter))
+async def list_parameters(investor_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    query = select(DSCRParameter)
+    
+    # Filter by specific investor_id, or None for general parameters
+    if investor_id == "null" or investor_id is None:
+        query = query.where(DSCRParameter.investor_id == None)
+    elif investor_id != "all":
+        query = query.where(DSCRParameter.investor_id == investor_id)
+        
+    query = query.order_by(DSCRParameter.category, DSCRParameter.parameter)
+    result = await db.execute(query)
     return result.scalars().all()
 
 @router.get("/guideline-types")

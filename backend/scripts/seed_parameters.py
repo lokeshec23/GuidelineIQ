@@ -169,7 +169,7 @@ def build_unified_parameters():
 
 
 async def add_column_if_not_exists():
-    """Add guideline_type column if it doesn't exist yet."""
+    """Add guideline_type and investor_id columns if they don't exist yet."""
     async with engine.begin() as conn:
         try:
             await conn.execute(text(
@@ -177,10 +177,15 @@ async def add_column_if_not_exists():
             ))
             print("✅ Added guideline_type column to dscr_parameters table")
         except Exception as e:
-            if "already" in str(e).lower() or "duplicate" in str(e).lower() or "column names" in str(e).lower():
-                print("ℹ️  guideline_type column already exists")
-            else:
-                print(f"⚠️  Column add attempt: {e}")
+            pass
+
+        try:
+            await conn.execute(text(
+                "ALTER TABLE dscr_parameters ADD investor_id NVARCHAR(36) NULL"
+            ))
+            print("✅ Added investor_id column to dscr_parameters table")
+        except Exception as e:
+            pass
 
 
 async def seed_parameters():

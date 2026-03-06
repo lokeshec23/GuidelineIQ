@@ -136,6 +136,21 @@ class File(Base):
     content = Column(LargeBinary, nullable=False) # VARBINARY(MAX)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class Investor(Base):
+    """
+    Model for Investors. Parameters can be assigned to an investor. 
+    If not assigned, they are treated as 'General' parameters.
+    """
+    __tablename__ = "investors"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    parameters = relationship("DSCRParameter", back_populates="investor", cascade="all, delete-orphan")
+
+
 class DSCRParameter(Base):
     """
     Model for Parameters configuration (DSCR / Full Doc / Alt Doc).
@@ -148,5 +163,8 @@ class DSCRParameter(Base):
     subcategory = Column(String(255), nullable=False)
     ppe_field = Column(String(255), nullable=True)
     guideline_type = Column(JSON, nullable=True)  # e.g. ["All"], ["DSCR", "Full Doc"]
+    investor_id = Column(String(36), ForeignKey("investors.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    investor = relationship("Investor", back_populates="parameters")
