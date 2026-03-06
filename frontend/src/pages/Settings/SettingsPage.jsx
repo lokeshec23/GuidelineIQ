@@ -266,7 +266,7 @@ const SettingsPage = () => {
 
         <div className="flex justify-end mt-5">
           <Space>
-            <Button onClick={() => form.resetFields()} size="large">
+            <Button onClick={() => form.resetFields()}>
               Reset
             </Button>
             <Button
@@ -274,7 +274,6 @@ const SettingsPage = () => {
               htmlType="submit"
               loading={loading}
               icon={<SaveOutlined />}
-              size="large"
             >
               Save Settings
             </Button>

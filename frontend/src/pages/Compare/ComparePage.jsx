@@ -636,8 +636,6 @@ const ComparePage = () => {
                 type="primary"
                 icon={<SwapOutlined />}
                 onClick={handleDbCompare}
-                size="large"
-                className="px-8 bg-green-600 hover:bg-green-700"
               >
                 Compare Selected Guidelines
               </Button>
@@ -732,8 +730,6 @@ const ComparePage = () => {
             <Button
               type="primary"
               htmlType="submit"
-              size="large"
-              className="px-8 h-12 text-lg bg-blue-600 hover:bg-blue-700"
               loading={processing}
             >
               {processing ? "Processing..." : "Compare Local Files"}

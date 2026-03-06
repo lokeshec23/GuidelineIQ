@@ -59,6 +59,119 @@ body,
   scrollbar-color: #1890ff transparent;
 }
 
+/* ===== Global Button Standardization ===== */
+/* Base button: uniform height, border-radius, font */
+.ant-btn {
+  height: 40px !important;
+  min-width: 100px;
+  border-radius: 8px !important;
+  font-family: "Jura", sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 0 20px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Primary (positive/contained) — filled blue */
+.ant-btn-primary {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #fff !important;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2) !important;
+}
+
+.ant-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* Default (negative/cancel/reset) — outlined, no fill */
+.ant-btn-default {
+  background: transparent !important;
+  border: 1.5px solid #d1d5db !important;
+  color: #374151 !important;
+}
+
+.ant-btn-default:hover:not(:disabled) {
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+  background: rgba(37, 99, 235, 0.04) !important;
+}
+
+/* Danger default (outlined red — for Remove All, Delete All) */
+.ant-btn-dangerous:not(.ant-btn-primary):not(.ant-btn-text) {
+  background: transparent !important;
+  border: 1.5px solid #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.ant-btn-dangerous:not(.ant-btn-primary):not(.ant-btn-text):hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.06) !important;
+  border-color: #dc2626 !important;
+  color: #dc2626 !important;
+}
+
+/* Danger primary (filled red — for destructive confirms) */
+.ant-btn-dangerous.ant-btn-primary {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #fff !important;
+}
+
+.ant-btn-dangerous.ant-btn-primary:hover:not(:disabled) {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Text buttons (icon-only in tables, nav) — no min-width */
+.ant-btn-text {
+  min-width: auto !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Icon-only buttons — square, no min-width */
+.ant-btn-icon-only {
+  min-width: auto !important;
+  width: 40px !important;
+  padding: 0 !important;
+}
+
+/* Small buttons */
+.ant-btn-sm {
+  height: 32px !important;
+  min-width: 80px;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+}
+
+.ant-btn-sm.ant-btn-text,
+.ant-btn-sm.ant-btn-icon-only {
+  min-width: auto !important;
+}
+
+/* Large buttons */
+.ant-btn-lg {
+  height: 44px !important;
+  min-width: 120px;
+  padding: 0 24px !important;
+  font-size: 15px !important;
+}
+
+/* Disabled state */
+.ant-btn:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
 /* Global styles */
 body {
   /* ✅ SET DEFAULT FONT */

@@ -633,7 +633,6 @@ const IngestPage = () => {
                   <Button
                     danger
                     onClick={handleRemoveAllFiles}
-                    className="hover:bg-red-50"
                     style={{ fontFamily: 'Jura, sans-serif' }}
                   >
                     Remove All
@@ -641,7 +640,6 @@ const IngestPage = () => {
                   <Button
                     type="primary"
                     htmlType="submit"
-                    className="bg-blue-600 hover:bg-blue-700"
                     loading={processing}
                     disabled={files.length === 0 || processing}
                   >

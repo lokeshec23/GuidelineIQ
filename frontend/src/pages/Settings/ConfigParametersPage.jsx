@@ -322,7 +322,6 @@ const ConfigParametersPage = () => {
                             danger
                             icon={<DeleteOutlined />}
                             size="large"
-                            className="rounded-lg h-11 px-6 shadow-md transition-all"
                             disabled={parameters.length === 0}
                         >
                             Remove All
@@ -333,7 +332,6 @@ const ConfigParametersPage = () => {
                         icon={<PlusOutlined />}
                         onClick={handleAdd}
                         size="large"
-                        className="bg-blue-600 hover:bg-blue-700 rounded-lg h-11 px-6 shadow-md transition-all whitespace-nowrap"
                     >
                         Add Parameter
                     </Button>
@@ -375,8 +373,8 @@ const ConfigParametersPage = () => {
                 centered
                 maskClosable={false}
                 width={600}
-                okButtonProps={{ className: "bg-blue-600 h-10 px-6 rounded-lg" }}
-                cancelButtonProps={{ className: "h-10 px-6 rounded-lg" }}
+                okButtonProps={{ className: "" }}
+                cancelButtonProps={{ className: "" }}
             >
                 <Form
                     form={form}
@@ -461,13 +459,13 @@ const ConfigParametersPage = () => {
                                 <Input placeholder="e.g. Rocket Mortgage" className="h-9" />
                             </Form.Item>
                             <Form.Item className="mb-0">
-                                <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-9 bg-blue-600">
+                                <Button type="primary" htmlType="submit" loading={investorSubmitting}>
                                     {editingInvestor ? "Update" : "Add"}
                                 </Button>
                             </Form.Item>
                             {editingInvestor && (
                                 <Form.Item className="mb-0 ml-[-8px]">
-                                    <Button type="default" onClick={handleInvestorFormCancel} className="h-9">
+                                    <Button onClick={handleInvestorFormCancel}>
                                         Cancel
                                     </Button>
                                 </Form.Item>
