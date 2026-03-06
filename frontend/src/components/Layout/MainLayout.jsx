@@ -190,7 +190,7 @@ const MainLayout = ({ children }) => {
       {/* HEADER */}
       <Header
         className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200"
-        style={{ paddingInline: "24px", height: "8dvh", minHeight: "60px" }}
+        style={{ paddingInline: "24px", height: "56px" }}
       >
         <div className="flex items-center gap-3">
           {isMobile && (
@@ -208,7 +208,7 @@ const MainLayout = ({ children }) => {
             <img
               src="/gc_logo.svg"
               alt="Logo"
-              className="h-15 object-contain"
+              className="h-10 object-contain"
             />
           </div>
         </div>
@@ -241,7 +241,7 @@ const MainLayout = ({ children }) => {
         </div>
       </Header>
 
-      <Layout style={{ marginTop: "8dvh", height: "92dvh" }}>
+      <Layout style={{ marginTop: "56px", height: "calc(100vh - 56px)" }}>
         {/* SIDEBAR */}
         <Sider
           collapsible
@@ -253,8 +253,8 @@ const MainLayout = ({ children }) => {
           style={{
             position: "fixed",
             left: isMobile ? (mobileDrawerOpen ? 0 : "-100%") : 0,
-            top: "8dvh",
-            height: "92dvh",
+            top: "56px",
+            height: "calc(100vh - 56px)",
             zIndex: isMobile ? 1000 : 10,
             background: "#f9fafb",
             minWidth: isMobile ? "280px" : (collapsed ? "60px" : "200px"),
@@ -334,7 +334,7 @@ const MainLayout = ({ children }) => {
         {isMobile && mobileDrawerOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-999"
-            style={{ top: "8dvh" }}
+            style={{ top: "56px" }}
             onClick={() => setMobileDrawerOpen(false)}
           />
         )}

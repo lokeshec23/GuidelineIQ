@@ -477,7 +477,7 @@ const DashboardPage = () => {
 
     return (
         <div style={{
-            height: 'calc(100vh - 64px)', // Full height minus header
+            height: 'calc(100vh - 56px)', // Full height minus header
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
