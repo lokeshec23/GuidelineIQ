@@ -26,6 +26,7 @@ async def process_guideline_background(
     session_id: str,
     gridfs_file_ids: List[str],  # ✅ Now accepts list of file IDs
     filenames: List[str],  # ✅ Now accepts list of filenames
+    investor_id: str,
     investor: str,
     version: str,
     user_settings: dict,
@@ -243,6 +244,7 @@ async def process_guideline_background(
                     gridfs_file_ids=gridfs_file_ids,
                     filenames=filenames,
                     llm=llm,
+                    investor_id=investor_id,
                     investor=investor,
                     version=version,
                     user_settings=user_settings,

@@ -56,6 +56,7 @@ async def get_current_user_id_from_token(authorization: str = Header(...)) -> st
 async def ingest_guideline(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    investor_id: str = Form("null"),
     investor: str = Form(None),
     version: str = Form(None),
     model_provider: str = Form(...),
@@ -147,6 +148,7 @@ async def ingest_guideline(
                 file_content=content,
                 filename=file.filename,
                 metadata={
+                    "investor_id": investor_id,
                     "investor": investor,
                     "version": version,
                     "session_id": session_id,
@@ -175,6 +177,7 @@ async def ingest_guideline(
         session_id=session_id,
         gridfs_file_ids=gridfs_file_ids,
         filenames=filenames,
+        investor_id=investor_id,
         investor=investor,
         version=version,  
         user_settings=admin_settings,

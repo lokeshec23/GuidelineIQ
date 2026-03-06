@@ -194,6 +194,7 @@ async def extract_dscr_parameters_multi_pdf(
     gridfs_file_ids: List[str],
     filenames: List[str],
     llm: LLMProvider,
+    investor_id: str,
     investor: str,
     version: str,
     user_settings: dict,
@@ -224,7 +225,15 @@ async def extract_dscr_parameters_multi_pdf(
     from sqlalchemy import select
     
     async with AsyncSessionLocal() as db:
-        result = await db.execute(select(DSCRParameter))
+        query = select(DSCRParameter)
+        
+        # Filter by specific investor_id, or None for general parameters
+        if investor_id == "null" or investor_id is None:
+            query = query.where(DSCRParameter.investor_id == None)
+        elif investor_id != "all":
+            query = query.where(DSCRParameter.investor_id == investor_id)
+            
+        result = await db.execute(query)
         db_params = result.scalars().all()
         
         parameters_config = [

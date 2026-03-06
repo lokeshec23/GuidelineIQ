@@ -26,7 +26,7 @@ import {
 } from "@ant-design/icons";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
-import { ingestAPI, settingsAPI, promptsAPI } from "../../services/api";
+import { ingestAPI, settingsAPI, promptsAPI, investorAPI } from "../../services/api";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
 import { IngestSkeleton } from "../../components/common/SkeletonLoader";
@@ -51,6 +51,7 @@ const IngestPage = () => {
     gemini: [],
   });
   const [selectedProvider, setSelectedProvider] = useState("openai");
+  const [investors, setInvestors] = useState([]);
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
 
@@ -58,7 +59,17 @@ const IngestPage = () => {
 
   useEffect(() => {
     fetchModelsAndSettings();
+    fetchInvestors();
   }, []);
+
+  const fetchInvestors = async () => {
+    try {
+      const response = await investorAPI.listInvestors();
+      setInvestors(response.data);
+    } catch (error) {
+      console.error("Failed to fetch investors:", error);
+    }
+  };
 
   const fetchModelsAndSettings = async () => {
     try {
@@ -161,13 +172,21 @@ const IngestPage = () => {
         console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
       }
 
+      // Find investor name from selected ID for Guideline Type
+      let guidelineInvestorName = "General";
+      if (values.guideline_investor_id && values.guideline_investor_id !== "null") {
+        const inv = investors.find(i => i.id === values.guideline_investor_id);
+        if (inv) guidelineInvestorName = inv.name;
+      }
+
       const formData = new FormData();
       // ✅ Append all files
       files.forEach((file) => {
         formData.append("files", file); // Note: 'files' matches backend List[UploadFile]
       });
-      formData.append("investor", values.investor);
-      formData.append("version", values.version);
+      formData.append("investor", values.investor || "Unknown");
+      formData.append("investor_id", values.guideline_investor_id || "null");
+      formData.append("version", values.version || "v1");
       formData.append("model_provider", modelProvider);
       formData.append("model_name", modelName);
 
@@ -427,7 +446,7 @@ const IngestPage = () => {
             label={<span className="text-gray-600 font-medium">Version</span>}
             className="mb-0"
           >
-            <Input size="large" placeholder="EnterEnter version (e.g., v1, v2)" className="rounded-md" />
+            <Input size="large" placeholder="Enter version (e.g., v1, v2)" className="rounded-md" />
           </Form.Item>
         </div>
 
@@ -463,8 +482,22 @@ const IngestPage = () => {
         {/* New Metadata Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Form.Item
+            name="guideline_investor_id"
+            label={<span className="text-gray-600 font-medium">Guideline Type (Investor)</span>}
+            className="mb-0"
+            initialValue="null"
+          >
+            <Select size="large" className="rounded-md" placeholder="Select Investor for Extraction">
+              <Option value="null">General</Option>
+              {investors.map(inv => (
+                <Option key={inv.id} value={inv.id}>{inv.name}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             name="guideline_type"
-            label={<span className="text-gray-600 font-medium">Guideline Type</span>}
+            label={<span className="text-gray-600 font-medium">Guideline Type (Categories)</span>}
             className="mb-0"
           >
             <Select
