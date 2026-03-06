@@ -320,7 +320,6 @@ const ConfigParametersPage = () => {
                     >
                         <Button
                             danger
-                            type="primary"
                             icon={<DeleteOutlined />}
                             size="large"
                             className="rounded-lg h-11 px-6 shadow-md transition-all"

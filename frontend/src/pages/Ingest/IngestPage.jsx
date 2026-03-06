@@ -632,7 +632,6 @@ const IngestPage = () => {
                 <div className="flex items-center gap-3">
                   <Button
                     danger
-                    type="text"
                     onClick={handleRemoveAllFiles}
                     className="hover:bg-red-50"
                     style={{ fontFamily: 'Jura, sans-serif' }}

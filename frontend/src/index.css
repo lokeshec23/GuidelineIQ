@@ -177,29 +177,20 @@ code {
 /* ===== Guideline Configuration Card ===== */
 .guideline-card {
   background: transparent;
-  border: 1px solid #d6e4ff;
+  border: none;
   border-radius: 12px;
   padding: 24px;
   position: relative;
-  overflow: hidden;
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: box-shadow 0.3s ease;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .guideline-card:hover {
   box-shadow: 0 4px 20px rgba(24, 144, 255, 0.1);
-  border-color: #adc6ff;
+
 }
 
-.guideline-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #597ef7, #85a5ff, #b37feb);
-  border-radius: 12px 12px 0 0;
-}
+
 
 .guideline-card__header {
   display: flex;
