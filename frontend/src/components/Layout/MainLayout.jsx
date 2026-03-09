@@ -157,30 +157,16 @@ const MainLayout = ({ children }) => {
       return {
         key: item.key,
         label: (
-          <div className="flex items-center justify-between w-full">
-            <span className={isActive ? "font-medium text-gray-900" : ""}>
-              {item.label}
-            </span>
-            {isActive && !collapsed && (
-              <ArrowRightOutlined
-                className="text-[#1890ff]"
-                style={{ fontSize: "12px" }}
-              />
-            )}
-          </div>
+          <span className={`ml-1 transition-all duration-200 ${isActive ? "font-semibold text-blue-600" : "text-gray-600"}`}>
+            {item.label}
+          </span>
         ),
         icon: (
-          <div
-            className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 bg-gray-200 text-gray-500 group-hover:bg-gray-300`}
-          >
-            {React.cloneElement(item.icon, { style: { fontSize: "15px" } })}
+          <div className={`menu-item-icon-wrapper ${isActive ? "text-blue-600" : "text-gray-500"}`}>
+            {React.cloneElement(item.icon, { style: { fontSize: "18px" } })}
           </div>
         ),
-        className: `mb-2 transition-all duration-200 ${collapsed ? "mx-1 mt-1 px-0 flex justify-center !w-12 !h-12 items-center rounded-xl" : "mx-3 rounded-lg"
-          } ${isActive
-            ? "bg-white shadow-sm border border-gray-100"
-            : "bg-transparent hover:bg-gray-200/50 text-gray-600"
-          }`,
+        className: `menu-item-refined ${collapsed ? "sidebar-collapsed-item" : ""}`,
       };
     });
   }, [isAdmin, location.pathname, collapsed]);
@@ -248,20 +234,18 @@ const MainLayout = ({ children }) => {
           collapsed={collapsed}
           onCollapse={setCollapsed}
           trigger={null}
-          width="20vw"
-          collapsedWidth={60}
+          width={260}
+          collapsedWidth={80}
           style={{
             position: "fixed",
             left: isMobile ? (mobileDrawerOpen ? 0 : "-100%") : 0,
             top: "56px",
             height: "calc(100vh - 56px)",
             zIndex: isMobile ? 1000 : 10,
-            background: "#f9fafb",
-            minWidth: isMobile ? "280px" : (collapsed ? "60px" : "200px"),
-            maxWidth: isMobile ? "280px" : (collapsed ? "60px" : "400px"),
-            transition: "left 0.3s ease-in-out",
+            background: "#f8fafc",
+            transition: "all 0.3s cubic-bezier(0.2, 0, 0, 1)",
           }}
-          className="border-r border-gray-200 h-full flex flex-col justify-between"
+          className="border-r border-gray-200 h-full flex flex-col justify-between sidebar-refined"
         >
           <div className="flex flex-col h-full bg-[#f9fafb] pb-6">
             {/* Collapse Toggle */}
@@ -341,10 +325,10 @@ const MainLayout = ({ children }) => {
 
         {/* MAIN CONTENT */}
         <Layout
-          className="bg-white transition-all duration-200 ease-in-out"
+          className="bg-white transition-all duration-300 ease-in-out"
           style={{
-            marginLeft: isMobile ? 0 : (collapsed ? "60px" : "20vw"),
-            width: isMobile ? "100vw" : (collapsed ? "calc(100vw - 60px)" : "80vw")
+            marginLeft: isMobile ? 0 : (collapsed ? "80px" : "260px"),
+            width: isMobile ? "100vw" : (collapsed ? "calc(100vw - 80px)" : "calc(100vw - 260px)")
           }}
         >
           <Content className="h-full overflow-y-auto p-8 bg-white">
