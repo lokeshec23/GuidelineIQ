@@ -55,8 +55,6 @@ const ExcelPreviewModal = ({
     const resizingColumn = useRef(null);
     const startX = useRef(0);
     const startWidth = useRef(0);
-    console.log("isComparisonMode", isComparisonMode);
-
     const convertToTableData = (data) => {
         if (!Array.isArray(data)) return [];
         return data.map((item, idx) => ({ key: idx, ...item }));

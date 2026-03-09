@@ -240,7 +240,6 @@ const ComparePage = () => {
 
         systemPrompt = modelPrompts.system_prompt || "";
         userPrompt = modelPrompts.user_prompt || "";
-        console.log(`✅ Fetched compare prompts for ${modelProvider}`);
       } catch (err) {
         console.warn("Could not fetch prompts from prompts API");
       }

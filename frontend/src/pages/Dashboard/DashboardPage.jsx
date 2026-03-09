@@ -91,7 +91,6 @@ const DashboardPage = () => {
     }, [activeTab, fetchIngestHistory, fetchCompareHistory]);
 
     const handleView = React.useCallback((record) => {
-        console.log("View record:", record);
         if (!record.preview_data || record.preview_data.length === 0) {
             showToast.warning("No preview data available for this record");
             return;

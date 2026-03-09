@@ -145,9 +145,6 @@ const IngestPage = () => {
 
   // --- MAIN SUBMIT ---
   const handleSubmit = async (values) => {
-    console.log("Form submitted with values:", values);
-    console.log("Files selected:", files);
-
     // if (!files || files.length === 0) return showToast.error("Please upload at least one PDF file");
 
     try {
@@ -172,7 +169,6 @@ const IngestPage = () => {
 
         systemPrompt = modelPrompts.system_prompt || "";
         userPrompt = modelPrompts.user_prompt || "";
-        console.log(`✅ Fetched ingest prompts for ${modelProvider}`);
       } catch (err) {
         console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
       }
@@ -215,11 +211,9 @@ const IngestPage = () => {
       }
       if (values.program_type) formData.append("program_type", values.program_type);
 
-      console.log("Starting ingestion...");
       const res = await ingestAPI.ingestGuideline(formData);
       const { session_id, status } = res.data;
 
-      console.log("Ingestion started with session ID:", session_id);
       setSessionId(session_id);
 
       // Start SSE for progress tracking
@@ -258,7 +252,6 @@ const IngestPage = () => {
             }
 
             // Load preview
-            console.log("Loading preview for session:", session_id);
             await loadPreview(session_id);
 
           } else if (data.status === "failed") {
@@ -300,10 +293,8 @@ const IngestPage = () => {
 
   // --- LOAD PREVIEW ---
   const loadPreview = async (sid) => {
-    console.log("loadPreview called with session ID:", sid);
     try {
       const res = await ingestAPI.getPreview(sid);
-      console.log("Preview response received:", res.data);
 
       // Handle new response format: { data: [...], history_id: "..." }
       const responseData = res.data;
@@ -323,10 +314,8 @@ const IngestPage = () => {
       if (previewDataArray?.length > 0) {
         setPreviewData(previewDataArray);
         setSessionId(historyId); // Use history_id for PDF viewing
-        console.log("Opening preview modal with history_id:", historyId);
         setPreviewModalVisible(true);
       } else {
-        console.log("No data found, showing empty state");
         setPreviewData([{ key: 1, content: "No structured data found." }]);
         setSessionId(historyId);
         setPreviewModalVisible(true);

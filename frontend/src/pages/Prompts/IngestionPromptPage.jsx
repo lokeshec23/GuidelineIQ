@@ -25,11 +25,6 @@ const IngestionPromptPage = () => {
       setFetching(true);
       const res = await promptsAPI.getUserPrompts();
 
-      console.log("Full API Response:", res);
-      console.log("Response data:", res.data);
-      console.log("Ingest prompts:", res.data?.ingest_prompts);
-      console.log("Selected model:", selectedModel);
-
       // Ensure the response has the expected structure
       if (!res.data || !res.data.ingest_prompts) {
         console.error("Invalid response structure:", res);
@@ -39,14 +34,10 @@ const IngestionPromptPage = () => {
       // Set form values for the currently selected model
       const modelPrompts = res.data.ingest_prompts[selectedModel] || res.data.ingest_prompts.openai || {};
 
-      console.log("Model prompts for", selectedModel, ":", modelPrompts);
-
       form.setFieldsValue({
         system_prompt: modelPrompts.system_prompt || "",
         user_prompt: modelPrompts.user_prompt || "",
       });
-
-      console.log("Form values set successfully");
     } catch (error) {
       console.error("Failed to fetch prompts:", error);
       // Toast is handled by API interceptor

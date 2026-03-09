@@ -25,11 +25,6 @@ const ComparisonPromptPage = () => {
       setFetching(true);
       const res = await promptsAPI.getUserPrompts();
 
-      console.log("Full API Response (Comparison):", res);
-      console.log("Response data:", res.data);
-      console.log("Compare prompts:", res.data?.compare_prompts);
-      console.log("Selected model:", selectedModel);
-
       // Ensure the response has the expected structure
       if (!res.data || !res.data.compare_prompts) {
         console.error("Invalid response structure:", res);
@@ -39,14 +34,10 @@ const ComparisonPromptPage = () => {
       // Set form values for the currently selected model
       const modelPrompts = res.data.compare_prompts[selectedModel] || res.data.compare_prompts.openai || {};
 
-      console.log("Model prompts for", selectedModel, ":", modelPrompts);
-
       form.setFieldsValue({
         system_prompt: modelPrompts.system_prompt || "",
         user_prompt: modelPrompts.user_prompt || "",
       });
-
-      console.log("Form values set successfully");
     } catch (error) {
       console.error("Failed to fetch prompts:", error);
       // Toast is handled by API interceptor
