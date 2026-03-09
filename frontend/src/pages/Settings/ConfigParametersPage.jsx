@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic } from "antd";
+import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
@@ -354,6 +354,7 @@ const ConfigParametersPage = () => {
                             title={<span className="text-gray-500 font-medium flex items-center gap-2"><AppstoreOutlined /> Total Parameters</span>}
                             value={totalParams}
                             valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '28px' }}
+                            formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "60px", height: "38px", borderRadius: "6px" }} /> : val}
                         />
                     </Card>
                 </Col>
@@ -365,18 +366,21 @@ const ConfigParametersPage = () => {
                                 title={<span className="text-blue-500 font-semibold text-[11px] uppercase tracking-wider">DSCR</span>}
                                 value={dscrCount}
                                 valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
                             <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
                             <Statistic
                                 title={<span className="text-green-500 font-semibold text-[11px] uppercase tracking-wider">Full Doc</span>}
                                 value={fullDocCount}
                                 valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
                             <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
                             <Statistic
                                 title={<span className="text-purple-500 font-semibold text-[11px] uppercase tracking-wider">Alt Doc</span>}
                                 value={altDocCount}
                                 valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
                         </div>
                     </Card>
