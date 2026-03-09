@@ -598,7 +598,7 @@ const ComparePage = () => {
         {/* Database Selection Card */}
         <div className="compare-card">
           <div className="compare-card-title">
-            <CloudUploadOutlined /> Select from Database
+            <CloudUploadOutlined /> Access the stored information
           </div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-gray-500 text-sm">Select exactly 2 guidelines to compare</p>

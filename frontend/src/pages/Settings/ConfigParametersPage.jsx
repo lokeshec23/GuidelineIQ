@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined } from "@ant-design/icons";
+import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic } from "antd";
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
@@ -198,34 +198,39 @@ const ConfigParametersPage = () => {
     const guidelineTypeColorMap = {
         "DSCR": "blue",
         "Full Doc": "green",
-        "Alt Doc": "orange"
+        "Alt Doc": "purple"
     };
 
     const columns = [
         {
-            title: "Parameter",
+            title: "Parameter Name",
             dataIndex: "parameter",
             key: "parameter",
             sorter: (a, b) => a.parameter.localeCompare(b.parameter),
-            render: (text) => <span className="font-medium text-gray-800">{text}</span>
+            render: (text) => <span className="font-semibold text-gray-800">{text}</span>
         },
         {
             title: "Category",
             dataIndex: "category",
             key: "category",
             sorter: (a, b) => a.category.localeCompare(b.category),
-            render: (text) => <Tag color="blue">{text}</Tag>
+            render: (text) => (
+                <Tag className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 rounded-full font-medium">
+                    {text}
+                </Tag>
+            )
         },
         {
             title: "Subcategory",
             dataIndex: "subcategory",
             key: "subcategory",
+            render: (text) => <span className="text-gray-600">{text || "—"}</span>
         },
         {
             title: "Guideline Type",
             dataIndex: "guideline_type",
             key: "guideline_type",
-            width: 200,
+            width: 250,
             filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
             onFilter: (value, record) => {
                 let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
@@ -240,9 +245,13 @@ const ConfigParametersPage = () => {
                     displayTypes = [...new Set(displayTypes.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
                 }
                 return (
-                    <Space size={[0, 4]} wrap>
+                    <Space size={[0, 6]} wrap>
                         {displayTypes.map(t => (
-                            <Tag key={t} color={guidelineTypeColorMap[t] || "default"} style={{ margin: '2px' }}>
+                            <Tag
+                                key={t}
+                                color={guidelineTypeColorMap[t] || "default"}
+                                className="px-3 rounded-full text-xs font-medium border-transparent cursor-default scale-100 hover:scale-[1.02] transition-transform"
+                            >
                                 {t}
                             </Tag>
                         ))}
@@ -253,176 +262,255 @@ const ConfigParametersPage = () => {
         {
             title: "Actions",
             key: "actions",
-            width: 150,
+            width: 120,
             render: (_, record) => (
-                <Space size="middle">
-                    <Button
-                        type="text"
-                        icon={<EditOutlined className="text-blue-500" />}
-                        onClick={() => handleEdit(record)}
-                    />
-                    <Popconfirm
-                        title="Delete parameter?"
-                        description="Are you sure you want to delete this parameter?"
-                        onConfirm={() => handleDelete(record.id)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
+                <Space size="small">
+                    <Tooltip title="Edit">
                         <Button
                             type="text"
-                            icon={<DeleteOutlined className="text-red-500" />}
+                            icon={<EditOutlined className="text-gray-400 hover:text-blue-500 transition-colors" />}
+                            onClick={() => handleEdit(record)}
                         />
-                    </Popconfirm>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                        <Popconfirm
+                            title="Delete parameter?"
+                            description="Are you sure you want to delete this parameter?"
+                            onConfirm={() => handleDelete(record.id)}
+                            okText="Yes"
+                            cancelText="No"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Button
+                                type="text"
+                                icon={<DeleteOutlined className="text-gray-400 hover:text-red-500 transition-colors" />}
+                            />
+                        </Popconfirm>
+                    </Tooltip>
                 </Space>
             ),
         },
     ];
 
+    // Calculate stats
+    const totalParams = parameters.length;
+
+    const getTypeCount = (type) => parameters.filter(p => {
+        let types = p.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+        if (typeof types === 'string') {
+            types = [types];
+        }
+        if (types.includes("All")) {
+            types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+        }
+        return types.includes(type);
+    }).length;
+
+    const dscrCount = getTypeCount("DSCR");
+    const fullDocCount = getTypeCount("Full Doc");
+    const altDocCount = getTypeCount("Alt Doc");
+
+    const activeContextName = selectedInvestorId === "null"
+        ? "General Properties"
+        : investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
+
     return (
-        <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <Title level={2}>Config Parameters</Title>
-                    <p className="text-gray-500 text-base">Manage parameters for extraction and mapping</p>
-                </div>
-                <div className="flex gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-gray-600 font-medium whitespace-nowrap">Context:</span>
-                        <Select
-                            value={selectedInvestorId}
-                            onChange={(val) => setSelectedInvestorId(val)}
-                            className="w-48"
-                            size="large"
-                            options={[
-                                { label: "General parameters", value: "null" },
-                                ...investors.map(inv => ({ label: inv.name, value: inv.id }))
-                            ]}
-                        />
-                        {isAdmin && (
-                            <Tooltip title="Manage Investors">
-                                <Button
-                                    icon={<SettingOutlined />}
-                                    size="large"
-                                    onClick={handleManageInvestors}
-                                    className="flex items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
-                                />
-                            </Tooltip>
-                        )}
-                    </div>
-                    <Divider type="vertical" className="h-8 bg-gray-300 mx-0" />
-                    <Popconfirm
-                        title="Delete all parameters?"
-                        description={`Are you sure you want to delete ALL parameters for the selected context? This cannot be undone.`}
-                        onConfirm={handleRemoveAll}
-                        okText="Yes"
-                        cancelText="No"
-                        okButtonProps={{ danger: true }}
-                    >
-                        <Button
-                            danger
-                            icon={<DeleteOutlined />}
-                            size="large"
-                            disabled={parameters.length === 0}
-                        >
-                            Remove All
-                        </Button>
-                    </Popconfirm>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleAdd}
+        <div className="max-w-7xl mx-auto pb-10">
+            {/* Header / Context Filter Bar */}
+            <div className="mb-6">
+                <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 w-full md:w-1/2 flex items-center gap-4">
+                    <span className="text-gray-500 font-semibold text-sm flex items-center gap-2 ml-2 whitespace-nowrap uppercase tracking-wider">
+                        <DatabaseOutlined className="text-blue-500 text-lg" /> Active Context
+                    </span>
+                    <Select
+                        value={selectedInvestorId}
+                        onChange={(val) => setSelectedInvestorId(val)}
+                        className="bg-gray-50 rounded-xl investor-select flex-1"
                         size="large"
-                    >
-                        Add Parameter
-                    </Button>
+                        bordered={false}
+                        options={[
+                            { label: <span className="font-medium text-gray-700">General parameters</span>, value: "null" },
+                            ...investors.map(inv => ({ label: <span className="font-medium text-gray-700">{inv.name}</span>, value: inv.id }))
+                        ]}
+                    />
+                    {isAdmin && (
+                        <Tooltip title="Manage Contexts">
+                            <Button
+                                type="text"
+                                icon={<SettingOutlined className="text-lg" />}
+                                onClick={handleManageInvestors}
+                                className="flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 h-10 w-10 mr-1 rounded-xl transition-colors"
+                            />
+                        </Tooltip>
+                    )}
                 </div>
             </div>
 
-            {loading ? (
-                <TableSkeleton rows={12} columns={5} />
-            ) : (
-                <Card className="shadow-sm border-gray-200 rounded-xl overflow-hidden" bordered={false}>
-                    <div className="mb-4">
-                        <Input
-                            placeholder="Search parameters or categories..."
-                            prefix={<SearchOutlined className="text-gray-400" />}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            className="max-w-md h-10 rounded-lg"
-                            allowClear
+            {/* Stats Overview */}
+            <Row gutter={[24, 24]} className="mb-8 flex items-stretch">
+                <Col xs={24} md={12}>
+                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full flex flex-col justify-center">
+                        <Statistic
+                            title={<span className="text-gray-500 font-medium flex items-center gap-2"><AppstoreOutlined /> Total Parameters</span>}
+                            value={totalParams}
+                            valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '28px' }}
                         />
+                    </Card>
+                </Col>
+                <Col xs={24} md={12}>
+                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
+                        <span className="text-gray-500 font-medium flex items-center gap-2 mb-3 text-sm"><TagsOutlined /> Types Breakdown</span>
+                        <div className="flex justify-between items-center w-full">
+                            <Statistic
+                                title={<span className="text-blue-500 font-semibold text-[11px] uppercase tracking-wider">DSCR</span>}
+                                value={dscrCount}
+                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                            />
+                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
+                            <Statistic
+                                title={<span className="text-green-500 font-semibold text-[11px] uppercase tracking-wider">Full Doc</span>}
+                                value={fullDocCount}
+                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                            />
+                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
+                            <Statistic
+                                title={<span className="text-purple-500 font-semibold text-[11px] uppercase tracking-wider">Alt Doc</span>}
+                                value={altDocCount}
+                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                            />
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Main Content Area */}
+            <Card className="shadow-sm border-gray-200 rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
+                {/* Table Header Controls */}
+                <div className="p-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <Input
+                        placeholder="Search parameters or categories..."
+                        prefix={<SearchOutlined className="text-gray-400" />}
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
+                        allowClear
+                    />
+                    <div className="flex gap-3 w-full sm:w-auto">
+                        <Popconfirm
+                            title="Delete all parameters?"
+                            description={`Are you sure you want to delete ALL parameters for the selected context?`}
+                            onConfirm={handleRemoveAll}
+                            okText="Yes"
+                            cancelText="No"
+                            okButtonProps={{ danger: true }}
+                        >
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                disabled={parameters.length === 0}
+                                className="rounded-lg"
+                            >
+                                Remove All
+                            </Button>
+                        </Popconfirm>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            className="bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm font-medium"
+                        >
+                            Add Parameter
+                        </Button>
                     </div>
+                </div>
+
+                {/* Table */}
+                {loading ? (
+                    <div className="p-6">
+                        <TableSkeleton rows={8} columns={5} />
+                    </div>
+                ) : (
                     <Table
                         columns={columns}
                         dataSource={filteredParameters}
                         rowKey="id"
-                        loading={loading}
-                        pagination={{ pageSize: 12, showSizeChanger: true }}
+                        pagination={{
+                            pageSize: 12,
+                            showSizeChanger: true,
+                            className: "px-6 pb-2"
+                        }}
                         className="custom-table"
+                        rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
                     />
-                </Card>
-            )}
+                )}
+            </Card>
 
+            {/* Parameter Modal */}
             <Modal
-                title={editingParam ? "Edit Parameter" : "Add Parameter"}
+                title={
+                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                        {editingParam ? <EditOutlined className="text-blue-500" /> : <PlusOutlined className="text-blue-500" />}
+                        {editingParam ? "Edit Parameter" : "Add New Parameter"}
+                    </div>
+                }
                 open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={() => setIsModalVisible(false)}
-                okText={editingParam ? "Update" : "Create"}
+                okText={editingParam ? "Update Parameter" : "Create Parameter"}
                 destroyOnClose
                 centered
                 maskClosable={false}
-                width={600}
-                okButtonProps={{ className: "" }}
-                cancelButtonProps={{ className: "" }}
+                width={650}
+                className="parameter-modal"
+                okButtonProps={{ className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6" }}
+                cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
             >
                 <Form
                     form={form}
                     layout="vertical"
-                    className="mt-4"
+                    className="mt-6"
+                    requiredMark={false}
                 >
                     <Form.Item
                         name="parameter"
-                        label="Parameter Name"
+                        label={<span className="font-medium text-gray-700">Parameter Name</span>}
                         rules={[{ required: true, message: "Please enter parameter name" }]}
                     >
-                        <Input placeholder="e.g. Credit Score Requirements" className="h-10 rounded-lg" />
+                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
                     </Form.Item>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-5 mt-2">
                         <Form.Item
                             name="category"
-                            label="Category"
+                            label={<span className="font-medium text-gray-700">Category</span>}
                             rules={[{ required: true, message: "Please enter category" }]}
                         >
-                            <Input placeholder="e.g. Credit / Housing" className="h-10 rounded-lg" />
+                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
                         </Form.Item>
 
                         <Form.Item
                             name="subcategory"
-                            label="Subcategory"
+                            label={<span className="font-medium text-gray-700">Subcategory</span>}
                             initialValue="Feature Eligibility"
                         >
-                            <Input className="h-10 rounded-lg" />
+                            <Input placeholder="Optional" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
                         </Form.Item>
                     </div>
 
-
                     <Form.Item
                         name="guideline_type"
-                        label="Guideline Type"
+                        label={<span className="font-medium text-gray-700">Guideline Compatibility</span>}
                         rules={[{ required: true, message: "Please select at least one guideline type" }]}
+                        className="mt-2 mb-0"
                     >
                         <Checkbox.Group
                             onChange={handleGuidelineTypeChange}
-                            style={{ width: "100%" }}
+                            className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
                         >
-                            <div className="flex gap-4 flex-wrap">
+                            <div className="flex gap-6 flex-wrap">
                                 {GUIDELINE_TYPE_OPTIONS.map(option => (
                                     <Checkbox key={option} value={option}>
-                                        <Tag color={guidelineTypeColorMap[option] || "default"} style={{ cursor: "pointer" }}>
-                                            {option}
-                                        </Tag>
+                                        <span className="text-gray-700 font-medium ml-1">{option}</span>
                                     </Checkbox>
                                 ))}
                             </div>
@@ -433,39 +521,45 @@ const ConfigParametersPage = () => {
 
             {/* Manage Investors Modal */}
             <Modal
-                title="Manage Investors"
+                title={
+                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                        <TeamOutlined className="text-blue-500" />
+                        Manage Contexts (Investors)
+                    </div>
+                }
                 open={isManageInvestorsVisible}
                 onCancel={handleManageInvestorsClose}
                 footer={null}
-                width={500}
+                width={550}
                 destroyOnClose
+                centered
             >
-                <div className="mb-6">
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <Title level={5} className="mt-0 mb-3 text-gray-700">
-                            {editingInvestor ? "Edit Investor" : "Add New Investor"}
-                        </Title>
+                <div className="mb-6 mt-4">
+                    <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                        <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
+                            {editingInvestor ? "Edit Context" : "Add New Context"}
+                        </span>
                         <Form
                             form={investorForm}
                             layout="inline"
                             onFinish={handleInvestorSubmit}
-                            className="flex items-end w-full"
+                            className="flex items-start w-full gap-2"
                         >
                             <Form.Item
                                 name="name"
-                                rules={[{ required: true, message: 'Investor name is required' }]}
-                                className="flex-grow mb-0"
+                                rules={[{ required: true, message: 'Name is required' }]}
+                                className="flex-grow m-0"
                             >
-                                <Input placeholder="e.g. Rocket Mortgage" className="h-9" />
+                                <Input placeholder="e.g. Rocket Mortgage" className="h-10 rounded-lg" />
                             </Form.Item>
-                            <Form.Item className="mb-0">
-                                <Button type="primary" htmlType="submit" loading={investorSubmitting}>
+                            <Form.Item className="m-0">
+                                <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-10 px-6 rounded-lg font-medium shadow-sm">
                                     {editingInvestor ? "Update" : "Add"}
                                 </Button>
                             </Form.Item>
                             {editingInvestor && (
-                                <Form.Item className="mb-0 ml-[-8px]">
-                                    <Button onClick={handleInvestorFormCancel}>
+                                <Form.Item className="m-0">
+                                    <Button onClick={handleInvestorFormCancel} className="h-10 px-4 rounded-lg">
                                         Cancel
                                     </Button>
                                 </Form.Item>
@@ -474,48 +568,60 @@ const ConfigParametersPage = () => {
                     </div>
                 </div>
 
-                <Title level={5} className="mb-3 text-gray-700">Existing Investors</Title>
-                <div className="max-h-64 overflow-y-auto pr-2 border border-gray-100 rounded-md">
+                <div className="flex items-center justify-between mb-3 mt-8">
+                    <span className="text-sm tracking-wide uppercase text-gray-500 font-bold">Existing Contexts</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">{investors.length} Total</span>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-xl">
                     {investors.length === 0 ? (
-                        <div className="text-center py-6 text-gray-400 text-sm">No investors added yet.</div>
+                        <div className="text-center py-10 bg-gray-50">
+                            <DatabaseOutlined className="text-3xl text-gray-300 mb-2 block mx-auto" />
+                            <div className="text-gray-400 font-medium">No contexts added yet</div>
+                        </div>
                     ) : (
                         <Table
-                            size="small"
+                            size="middle"
                             dataSource={investors}
                             rowKey="id"
                             pagination={false}
+                            className="border-0"
                             columns={[
                                 {
                                     title: "Name",
                                     dataIndex: "name",
                                     key: "name",
-                                    render: (text) => <span className="font-medium text-gray-800">{text}</span>
+                                    render: (text) => <span className="font-semibold text-gray-700">{text}</span>
                                 },
                                 {
                                     title: "Actions",
                                     key: "actions",
-                                    width: 100,
+                                    width: 120,
+                                    align: 'right',
                                     render: (_, record) => (
                                         <Space size="small">
-                                            <Button
-                                                type="text"
-                                                size="small"
-                                                icon={<EditOutlined className="text-blue-500" />}
-                                                onClick={() => handleInvestorEdit(record)}
-                                            />
-                                            <Popconfirm
-                                                title="Delete investor?"
-                                                description="Parameters linked to this investor will also be deleted."
-                                                onConfirm={() => handleInvestorDelete(record.id)}
-                                                okText="Yes"
-                                                cancelText="No"
-                                            >
+                                            <Tooltip title="Edit Context">
                                                 <Button
                                                     type="text"
-                                                    size="small"
-                                                    icon={<DeleteOutlined className="text-red-500" />}
+                                                    icon={<EditOutlined className="text-gray-400 hover:text-blue-500" />}
+                                                    onClick={() => handleInvestorEdit(record)}
                                                 />
-                                            </Popconfirm>
+                                            </Tooltip>
+                                            <Tooltip title="Delete Context">
+                                                <Popconfirm
+                                                    title="Delete context?"
+                                                    description="Parameters linked to this context will also be deleted."
+                                                    onConfirm={() => handleInvestorDelete(record.id)}
+                                                    okText="Yes"
+                                                    cancelText="No"
+                                                    okButtonProps={{ danger: true }}
+                                                >
+                                                    <Button
+                                                        type="text"
+                                                        icon={<DeleteOutlined className="text-gray-400 hover:text-red-500" />}
+                                                    />
+                                                </Popconfirm>
+                                            </Tooltip>
                                         </Space>
                                     ),
                                 }
