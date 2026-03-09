@@ -27,7 +27,9 @@ import {
   CheckCircleFilled,
   AppstoreOutlined,
   PlusCircleOutlined,
+  FileOutlined,
 } from "@ant-design/icons";
+import "./IngestPage.css";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI, investorAPI } from "../../services/api";
@@ -378,7 +380,7 @@ const IngestPage = () => {
   }
 
   return (
-    <div className="p-8 max-w-[1200px] mx-auto">
+    <div className="ingest-container">
       {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Ingest Guidelines</h1> */}
 
       <Form
@@ -429,77 +431,75 @@ const IngestPage = () => {
           </div>
         )} */}
 
-        {/* Investor & Version Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Form.Item
-            name="investor"
-            label={<span className="text-gray-600 font-medium">Investor</span>}
-            className="mb-0"
-          >
-            <Input size="large" placeholder="Enter investor name" className="rounded-md" />
-          </Form.Item>
+        {/* Document Details & Date Fields Card */}
+        <div className="ingest-card">
+          <div className="ingest-card-title">
+            <FileTextOutlined /> Document Information
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Form.Item
+              name="investor"
+              label="Investor"
+              className="mb-0"
+            >
+              <Input size="large" placeholder="Enter investor name" />
+            </Form.Item>
 
-          <Form.Item
-            name="version"
-            label={<span className="text-gray-600 font-medium">Version</span>}
-            className="mb-0"
-          >
-            <Input size="large" placeholder="Enter version (e.g., v1, v2)" className="rounded-md" />
-          </Form.Item>
-        </div>
+            <Form.Item
+              name="version"
+              label="Version"
+              className="mb-0"
+            >
+              <Input size="large" placeholder="Enter version (e.g., v1, v2)" />
+            </Form.Item>
 
-        {/* Date Fields Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Form.Item
-            name="effective_date"
-            label={<span className="text-gray-600 font-medium ">Effective Date</span>}
-            className="mb-0"
-          >
-            <DatePicker
-              size="large"
-              placeholder="Select date"
-              className="w-full rounded-md"
-              format="DD/MM/YYYY"
-            />
-          </Form.Item>
+            <Form.Item
+              name="effective_date"
+              label="Effective Date"
+              className="mb-0"
+            >
+              <DatePicker
+                size="large"
+                placeholder="Select date"
+                className="w-full"
+                format="DD/MM/YYYY"
+              />
+            </Form.Item>
 
-          <Form.Item
-            name="expiry_date"
-            label={<span className="text-gray-600 font-medium">Expiry Date</span>}
-            className="mb-0"
-          >
-            <DatePicker
-              size="large"
-              placeholder="Select date"
-              className="w-full rounded-md"
-              format="DD/MM/YYYY"
-            />
-          </Form.Item>
+            <Form.Item
+              name="expiry_date"
+              label="Expiry Date"
+              className="mb-0"
+            >
+              <DatePicker
+                size="large"
+                placeholder="Select date"
+                className="w-full"
+                format="DD/MM/YYYY"
+              />
+            </Form.Item>
+          </div>
         </div>
 
         {/* ===== Guideline Configuration Card ===== */}
-        <div className="guideline-card mb-8">
-          <div className="guideline-card__header">
-            {/* <div className="guideline-card__icon">
-              <AppstoreOutlined />
-            </div> */}
-            <div>
-              <p className="guideline-card__title">Guideline Configuration</p>
-              <p className="guideline-card__subtitle">Select investor context and document categories for extraction</p>
-            </div>
+        <div className="ingest-card">
+          <div className="ingest-card-title">
+            <AppstoreOutlined /> Guideline Configuration
+          </div>
+          <div className="mb-4">
+            <p className="text-gray-500 text-sm mb-6">Select investor context and document categories for extraction</p>
           </div>
 
           {/* Investor Selector */}
-          <div className="mb-5">
-            <label className="block text-gray-600 font-medium text-sm mb-2" style={{ fontFamily: 'Jura, sans-serif' }}>
-              <BankOutlined className="mr-1.5" /> Investor Context
+          <div className="mb-6">
+            <label className="block text-gray-500 font-medium text-sm mb-2">
+              <BankOutlined className="mr-2" /> Investor Context
             </label>
             <Form.Item name="guideline_investor_id" className="mb-0" initialValue="null">
               <Select
                 size="large"
-                className="investor-select w-full"
-                placeholder="Select an investor for targeted extraction"
-                suffixIcon={<BankOutlined style={{ color: '#597ef7' }} />}
+                className="w-full"
+                placeholder="Select an investor"
               >
                 <Option value="null">
                   <span className="flex items-center gap-2">
@@ -537,8 +537,8 @@ const IngestPage = () => {
             <div className="guideline-chips">
               {[
                 { value: "DSCR", label: "DSCR", activeClass: "guideline-chip--dscr" },
-                { value: "Full Doc", label: "Full Doc", activeClass: "guideline-chip--fulldoc" },
-                { value: "Alt Doc", label: "Alt Doc", activeClass: "guideline-chip--altdoc" },
+                { value: "Full Doc", label: "Full Doc", activeClass: "guideline-chip--dscr" },
+                { value: "Alt Doc", label: "Alt Doc", activeClass: "guideline-chip--dscr" },
               ].map((cat) => {
                 const isActive = selectedCategories.includes(cat.value);
                 return (
@@ -567,119 +567,107 @@ const IngestPage = () => {
         </div>
 
         {/* Program Type & Page Range Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Form.Item
-            name="program_type"
-            label={<span className="text-gray-600 font-medium">Program Type</span>}
-            className="mb-0"
-          >
-            <Input size="large" placeholder="e.g., Fixed, ARM" className="rounded-md" />
-          </Form.Item>
+        <div className="ingest-card">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Form.Item
+              name="program_type"
+              label="Program Type"
+              className="mb-0"
+            >
+              <Input size="large" placeholder="e.g., Fixed, ARM" />
+            </Form.Item>
 
-          <Form.Item
-            name="page_range"
-            label={<span className="text-gray-600 font-medium">Page Range (e.g., 1-5, 8)</span>}
-            className="mb-0"
-          >
-            <Input size="large" placeholder="Optional" className="rounded-md" />
-          </Form.Item>
+            <Form.Item
+              name="page_range"
+              label="Page Range (e.g., 1-5, 8)"
+              className="mb-0"
+            >
+              <Input size="large" placeholder="Optional" />
+            </Form.Item>
+          </div>
         </div>
 
         {/* Attach Documents Section */}
-        <div className="mb-8">
-          <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
-            Attach Documents
-          </h2>
+        <div className="ingest-card">
+          <div className="ingest-card-title">
+            <InboxOutlined /> Attach Documents
+          </div>
 
           {files.length === 0 ? (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200">
+            <div className="upload-wrapper">
               <Dragger
                 {...uploadProps}
                 className="!border-none"
-                style={{ padding: '16px', background: 'transparent' }}
+                style={{ background: 'transparent' }}
               >
-                <div className="py-6">
-                  <p className="ant-upload-drag-icon mb-2">
-                    <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
+                <div className="py-8">
+                  <p className="ant-upload-drag-icon">
+                    <InboxOutlined style={{ fontSize: '40px', color: '#3b82f6' }} />
                   </p>
-                  <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    Click to upload or drag and drop
+                  <p className="text-base font-semibold text-gray-700">
+                    Click or drag PDF to this area to upload
                   </p>
-                  <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    Supported Format: PDF • Multiple files allowed
+                  <p className="text-gray-500 text-xs mt-1">
+                    Multiple files supported
                   </p>
                 </div>
               </Dragger>
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* Header with file count and remove all button */}
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500 font-medium">
                   {files.length} file{files.length !== 1 ? 's' : ''} selected
                 </p>
-                <div className="flex items-center gap-3">
+                <Space>
                   <Button
-                    danger
                     onClick={handleRemoveAllFiles}
-                    style={{ fontFamily: 'Jura, sans-serif' }}
                   >
                     Remove All
                   </Button>
                   <Button
                     type="primary"
+                    size="large"
                     htmlType="submit"
                     loading={processing}
                     disabled={files.length === 0 || processing}
                   >
                     {processing ? "Processing..." : "Extract Guidelines"}
                   </Button>
-                </div>
+                </Space>
               </div>
 
-              {/* List of files */}
               {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="border-2 border-green-200 bg-green-50 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:shadow-md"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-green-100 p-2.5 rounded-lg">
-                      <FileTextOutlined className="text-green-600 text-lg" />
+                <div key={index} className="file-item">
+                  <div className="file-info">
+                    <div className="file-icon-box">
+                      <FileOutlined />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-800 text-sm" style={{ fontFamily: 'Jura, sans-serif' }}>
-                        {file.name}
-                      </p>
-                      <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                      <p className="file-name">{file.name}</p>
+                      <p className="file-size">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
                   </div>
                   <Button
                     danger
                     type="text"
-                    size="small"
                     icon={<DeleteOutlined />}
                     onClick={() => handleRemoveFile(file)}
-                    className="hover:bg-red-50"
-                    style={{ fontFamily: 'Jura, sans-serif' }}
                   >
                     Remove
                   </Button>
                 </div>
               ))}
 
-              {/* Add more files button */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200">
+              <div className="upload-wrapper">
                 <Dragger
                   {...uploadProps}
                   className="!border-none"
-                  style={{ padding: '12px', background: 'transparent' }}
+                  style={{ background: 'transparent' }}
                 >
-                  <div className="py-3">
-                    <p className="text-sm font-medium text-gray-600" style={{ fontFamily: 'Jura, sans-serif' }}>
-                      + Add more PDFs
+                  <div className="py-4">
+                    <p className="text-sm font-medium text-blue-500">
+                      + Add more documents
                     </p>
                   </div>
                 </Dragger>

@@ -26,8 +26,10 @@ import {
   DownOutlined,
   CloudUploadOutlined,
   EyeOutlined,
-  SearchOutlined
+  SearchOutlined,
+  FileOutlined,
 } from "@ant-design/icons";
+import "./ComparePage.css";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
@@ -515,7 +517,7 @@ const ComparePage = () => {
   }
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto">
+    <div className="compare-container">
       {/* <h1 className="text-2xl font-normal text-gray-700 mb-6">Compare Guidelines</h1> */}
 
       <Form
@@ -561,41 +563,47 @@ const ComparePage = () => {
           </div>
         )} */}
 
-        {/* Investor and Version Input Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <Form.Item
-            name="investor"
-            label={<span className="text-gray-700 font-medium">Investor</span>}
-            className="mb-0"
-          >
-            <Input
-              placeholder="Enter investor name"
-              size="large"
-              className="w-full"
-            />
-          </Form.Item>
+        {/* Document Context Card */}
+        <div className="compare-card">
+          <div className="compare-card-title">
+            <FileTextOutlined /> Document Context
+          </div>
+          <p className="compare-card-subtitle">Provide details for the final comparison document</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Form.Item
+              name="investor"
+              label="Investor"
+              className="mb-0"
+            >
+              <Input
+                placeholder="Enter investor name"
+                size="large"
+              />
+            </Form.Item>
 
-          <Form.Item
-            name="version"
-            label={<span className="text-gray-700 font-medium">Version</span>}
-            className="mb-0"
-          >
-            <Input
-              placeholder="Enter version (e.g., v1, v2)"
-              size="large"
-              className="w-full"
-            />
-          </Form.Item>
+            <Form.Item
+              name="version"
+              label="Version"
+              className="mb-0"
+            >
+              <Input
+                placeholder="Enter version (e.g., v1, v2)"
+                size="large"
+              />
+            </Form.Item>
+          </div>
         </div>
 
         {/* Database Selection Section */}
-        <div className="mb-8">
+        {/* Database Selection Card */}
+        <div className="compare-card">
+          <div className="compare-card-title">
+            <CloudUploadOutlined /> Select from Database
+          </div>
           <div className="flex items-center justify-between mb-4">
-            {/* <h2 className="text-base font-medium text-gray-700" style={{ fontFamily: 'Jura, sans-serif' }}>
-              Select from Database <span className="text-sm text-gray-500 font-normal">(Select exactly 2 guidelines)</span>
-            </h2> */}
+            <p className="text-gray-500 text-sm">Select exactly 2 guidelines to compare</p>
             <Input
-              placeholder="Search by investor, version, or file name..."
+              placeholder="Search history..."
               prefix={<SearchOutlined className="text-gray-400" />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -605,7 +613,7 @@ const ComparePage = () => {
             />
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-4">
+          <div className="compare-table-wrapper mb-6">
             <Table
               dataSource={filteredHistoryData}
               columns={dbColumns}
@@ -614,15 +622,16 @@ const ComparePage = () => {
               pagination={{
                 pageSize: 3,
                 showSizeChanger: true,
-                pageSizeOptions: ['3', '5', '10'],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
+                pageSizeOptions: ["3", "5", "10"],
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                position: ["bottomRight"],
               }}
               rowSelection={{
                 type: "checkbox",
-                selectedRowKeys: selectedDbRecords.map(r => r.id),
+                selectedRowKeys: selectedDbRecords.map((r) => r.id),
                 onChange: (keys, rows) => handleDbSelectionChange(keys, rows),
                 getCheckboxProps: (record) => ({
-                  disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find(r => r.id === record.id),
+                  disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find((r) => r.id === record.id),
                 }),
               }}
               scroll={{ x: 800 }}
@@ -630,90 +639,77 @@ const ComparePage = () => {
           </div>
 
           {selectedDbRecords.length === 2 && (
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center">
               <Button
                 type="primary"
+                size="large"
                 icon={<SwapOutlined />}
                 onClick={handleDbCompare}
+                className="db-compare-btn"
               >
-                Compare Selected Guidelines
+                Compare Selected Pair
               </Button>
             </div>
           )}
         </div>
 
         {/* Divider */}
-        <div className="relative mb-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-gray-50 text-gray-500 font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>OR</span>
-          </div>
+        <div className="compare-divider">
+          <span className="compare-divider-text">OR</span>
         </div>
 
         {/* Local File Upload Section */}
-        <div className="mb-8">
-          <h2 className="text-base font-medium text-gray-700 mb-3" style={{ fontFamily: 'Jura, sans-serif' }}>
-            Upload Local Files <span className="text-sm text-gray-500 font-normal">(Select exactly 2 Excel files)</span>
-          </h2>
+        <div className="compare-card">
+          <div className="compare-card-title">
+            <InboxOutlined /> Upload Local Files
+          </div>
+          <p className="compare-card-subtitle">Select exactly 2 Excel files from your device</p>
 
           {files.length < 2 ? (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all duration-200 mb-4">
+            <div className="compare-upload-wrapper mb-6">
               <Dragger
                 {...uploadProps}
                 className="!border-none"
-                style={{ padding: '16px', background: 'transparent' }}
+                style={{ background: 'transparent' }}
               >
-                <div className="py-6">
-                  <p className="ant-upload-drag-icon mb-2">
-                    <InboxOutlined style={{ fontSize: '36px', color: '#3b82f6' }} />
+                <div className="py-8">
+                  <p className="ant-upload-drag-icon">
+                    <InboxOutlined style={{ fontSize: '40px', color: '#3b82f6' }} />
                   </p>
-                  <p className="text-base font-medium text-blue-600 mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    Click to upload or drag and drop
+                  <p className="text-base font-semibold text-gray-700">
+                    Click or drag Excel files to upload
                   </p>
-                  <p className="text-gray-500 text-xs mb-1" style={{ fontFamily: 'Jura, sans-serif' }}>
-                    Excel files only
-                  </p>
-                  <p className="text-blue-500 text-xs font-medium" style={{ fontFamily: 'Jura, sans-serif' }}>
+                  <p className="text-gray-500 text-xs mt-1">
                     {files.length}/2 files selected
                   </p>
                 </div>
               </Dragger>
             </div>
           ) : (
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-4">
-              <p className="text-green-700 text-sm font-medium text-center" style={{ fontFamily: 'Jura, sans-serif' }}>
-                ✓ Both files selected. Ready to compare!
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
+              <p className="text-green-600 text-sm font-semibold text-center m-0">
+                ✓ Ready to compare local files
               </p>
             </div>
           )}
 
           {/* File Cards */}
           {files.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="compare-files-grid mb-6">
               {files.map((f, index) => (
-                <div
-                  key={index}
-                  className="border-2 border-blue-200 bg-blue-50 rounded-lg p-3 flex items-center justify-between transition-all duration-200 hover:shadow-md"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <FileTextOutlined className="text-blue-600 text-base" />
+                <div key={index} className="compare-file-item">
+                  <div className="compare-file-info">
+                    <div className="compare-file-icon-box">
+                      <FileOutlined />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 text-sm truncate" style={{ fontFamily: 'Jura, sans-serif' }}>
-                        {f.name}
-                      </p>
-                      <p className="text-gray-500 text-xs" style={{ fontFamily: 'Jura, sans-serif' }}>
-                        {(f.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                    <div>
+                      <p className="compare-file-name truncate">{f.name}</p>
+                      <p className="compare-file-size">{(f.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
                   </div>
                   <Button
                     danger
                     type="text"
-                    size="small"
                     icon={<DeleteOutlined />}
                     onClick={() => handleRemoveFile(index)}
                   />
@@ -721,20 +717,22 @@ const ComparePage = () => {
               ))}
             </div>
           )}
-        </div>
 
-        {/* Submit Button for Local Files */}
-        {files.length === 2 && (
-          <div className="flex justify-center">
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={processing}
-            >
-              {processing ? "Processing..." : "Compare Local Files"}
-            </Button>
-          </div>
-        )}
+          {/* Submit Button for Local Files */}
+          {files.length === 2 && (
+            <div className="flex justify-center">
+              <Button
+                type="primary"
+                size="large"
+                htmlType="submit"
+                loading={processing}
+                className="compare-submit-btn"
+              >
+                {processing ? "Processing..." : "Compare Selected Pair"}
+              </Button>
+            </div>
+          )}
+        </div>
       </Form>
 
       {/* Processing Modal */}

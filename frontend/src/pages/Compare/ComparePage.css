@@ -1,0 +1,158 @@
+.compare-container {
+    padding: 40px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.compare-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.compare-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #1e293b;
+}
+
+.compare-card-title .anticon {
+    color: #3b82f6;
+}
+
+.compare-card-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin: -16px 0 20px 0;
+}
+
+/* Table Styles - Minimalist */
+.compare-table-wrapper {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #f1f5f9;
+}
+
+.ant-table-thead>tr>th {
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    background-color: #f8fafc !important;
+}
+
+/* Upload Area */
+.compare-upload-wrapper {
+    border: 2px dashed #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.compare-upload-wrapper:hover {
+    border-color: #3b82f6;
+    background: #f8fafc;
+}
+
+.compare-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.compare-file-item:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.compare-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.compare-file-icon-box {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border-radius: 8px;
+    color: #64748b;
+}
+
+.compare-file-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+    max-width: 200px;
+}
+
+.compare-file-size {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* Divider */
+.compare-divider {
+    position: relative;
+    margin: 40px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compare-divider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.compare-divider-text {
+    position: relative;
+    background: #f8fafc;
+    padding: 0 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.1em;
+}
+
+/* Grid for files */
+.compare-files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Button styles */
+.compare-submit-btn {
+    height: 48px !important;
+    padding: 0 32px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+}
+
+.db-compare-btn {
+    border-radius: 20px !important;
+    font-weight: 600 !important;
+    padding: 0 24px !important;
+}
