@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Table, Button, Space, Tabs, Modal, Spin, Tag, Input } from "antd";
-import { EyeOutlined, DeleteOutlined, SearchOutlined } from "@ant-design/icons";
+import { Table, Button, Space, Tabs, Modal, Spin, Tag, Input, Tooltip, Empty, Typography } from "antd";
+import { EyeOutlined, DeleteOutlined, SearchOutlined, HistoryOutlined, FileTextOutlined } from "@ant-design/icons";
+import "./DashboardPage.css";
 import { useAuth } from "../../context/AuthContext";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import ConfirmModal from "../../components/ConfirmModal";
@@ -9,24 +10,20 @@ import { showToast } from "../../utils/toast";
 import { DashboardSkeleton } from "../../components/common/SkeletonLoader";
 
 const { TabPane } = Tabs;
+const { Title, Text } = Typography;
 
 const renderFileNames = (text) => {
     if (!text) return "-";
     const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
     return (
-        <Space size={[0, 4]} wrap={false} style={{ display: 'flex', overflowX: 'auto', paddingBottom: '4px' }}>
+        <Space size={[0, 4]} wrapStyle={{ flexWrap: 'wrap' }} style={{ display: 'flex', paddingBottom: '4px' }}>
             {files.map((file, idx) => (
                 <Tag
                     key={idx}
+                    className="file-tag"
                     color="blue"
-                    style={{
-                        margin: 0,
-                        whiteSpace: 'nowrap',
-                        height: 'auto',
-                        padding: '2px 8px',
-                        lineHeight: '1.5'
-                    }}
                 >
+                    <FileTextOutlined style={{ marginRight: '4px' }} />
                     {file}
                 </Tag>
             ))}
@@ -306,18 +303,24 @@ const DashboardPage = () => {
             width: 120,
             fixed: "right",
             render: (_, record) => (
-                <Space size="small">
-                    <Button
-                        type="text"
-                        icon={<EyeOutlined />}
-                        onClick={() => handleView(record)}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDelete(record)}
-                    />
+                <Space size="middle">
+                    <Tooltip title="View Preview">
+                        <Button
+                            type="text"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleView(record)}
+                            className="action-btn"
+                        />
+                    </Tooltip>
+                    <Tooltip title="Delete Record">
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(record)}
+                            className="action-btn delete"
+                        />
+                    </Tooltip>
                 </Space>
             ),
         },
@@ -366,18 +369,24 @@ const DashboardPage = () => {
             width: 120,
             fixed: "right",
             render: (_, record) => (
-                <Space size="small">
-                    <Button
-                        type="text"
-                        icon={<EyeOutlined />}
-                        onClick={() => handleView(record)}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDelete(record)}
-                    />
+                <Space size="middle">
+                    <Tooltip title="View Preview">
+                        <Button
+                            type="text"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleView(record)}
+                            className="action-btn"
+                        />
+                    </Tooltip>
+                    <Tooltip title="Delete Record">
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(record)}
+                            className="action-btn delete"
+                        />
+                    </Tooltip>
                 </Space>
             ),
         },
@@ -475,15 +484,9 @@ const DashboardPage = () => {
     });
 
     return (
-        <div style={{
-            height: 'calc(100vh - 56px)', // Full height minus header
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            padding: '0 24px'
-        }}>
-            <div className="flex justify-between items-center py-4 flex-shrink-0">
-                <div style={{ width: '50%' }}>
+        <div className="dashboard-container">
+            <header className="dashboard-header">
+                <div className="dashboard-search-wrapper">
                     <Input
                         placeholder="Search by investor, version, or file name..."
                         prefix={<SearchOutlined className="text-gray-400" />}
@@ -491,28 +494,28 @@ const DashboardPage = () => {
                         onChange={(e) => setSearchText(e.target.value)}
                         size="large"
                         allowClear
+                        className="dashboard-search-input"
                     />
                 </div>
-                <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={handleDeleteAll}
-                    disabled={activeTab === "ingest" ? ingestHistory.length === 0 : compareHistory.length === 0}
-                >
-                    Delete All
-                </Button>
-            </div>
+
+                <div className="dashboard-actions">
+                    <Button
+                        danger
+                        size="large"
+                        icon={<DeleteOutlined />}
+                        onClick={handleDeleteAll}
+                        disabled={activeTab === "ingest" ? ingestHistory.length === 0 : compareHistory.length === 0}
+                        className="action-btn"
+                    >
+                        Delete All
+                    </Button>
+                </div>
+            </header>
 
             <Tabs
                 activeKey={activeTab}
                 onChange={setActiveTab}
-                className="dashboard-tabs"
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden'
-                }}
+                className="dashboard-tabs-container"
             >
                 <TabPane tab="Ingest Guidelines" key="ingest">
                     <div style={{
@@ -532,9 +535,18 @@ const DashboardPage = () => {
                                 pageSize: 10,
                                 showSizeChanger: true,
                                 showTotal: (total) => `Total ${total} records`,
+                                position: ['bottomRight']
                             }}
                             locale={{
-                                emptyText: loading ? "Loading..." : "No ingest history found"
+                                emptyText: loading ? (
+                                    <div className="empty-container">
+                                        <Spin tip="Loading history..." />
+                                    </div>
+                                ) : (
+                                    <div className="empty-container">
+                                        <Empty description="No history found" />
+                                    </div>
+                                )
                             }}
                         />
                     </div>
@@ -558,9 +570,18 @@ const DashboardPage = () => {
                                 pageSize: 10,
                                 showSizeChanger: true,
                                 showTotal: (total) => `Total ${total} records`,
+                                position: ['bottomRight']
                             }}
                             locale={{
-                                emptyText: loading ? "Loading..." : "No compare history found"
+                                emptyText: loading ? (
+                                    <div className="empty-container">
+                                        <Spin tip="Loading history..." />
+                                    </div>
+                                ) : (
+                                    <div className="empty-container">
+                                        <Empty description="No history found" />
+                                    </div>
+                                )
                             }}
                         />
                     </div>

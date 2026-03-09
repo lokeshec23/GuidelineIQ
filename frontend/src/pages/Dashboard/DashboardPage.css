@@ -1,0 +1,96 @@
+.dashboard-container {
+    height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0 24px;
+    /* background-color removed to inherit from theme */
+}
+
+.dashboard-header {
+    padding: 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.dashboard-title h1 {
+    margin: 0 !important;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.dashboard-search-wrapper {
+    flex: 1;
+    max-width: 500px;
+    margin: 0 32px;
+}
+
+.dashboard-search-input {
+    border-radius: 8px !important;
+    transition: all 0.2s ease;
+}
+
+.dashboard-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.dashboard-tabs-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Ant Design Table Overrides - Minimalist */
+.ant-table-wrapper {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ant-table-thead>tr>th {
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+}
+
+.ant-table-tbody>tr>td {
+    font-size: 13px;
+}
+
+/* Custom Tag styling - Minimalist */
+.file-tag {
+    border-radius: 4px !important;
+    font-weight: 500 !important;
+    padding: 0 8px !important;
+}
+
+/* Action buttons */
+.action-btn {
+    border-radius: 6px !important;
+    transition: all 0.2s ease;
+}
+
+/* Tabs styling - Minimalist */
+.ant-tabs-nav {
+    margin-bottom: 16px !important;
+}
+
+.ant-tabs-tab {
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+.ant-tabs-ink-bar {
+    height: 2px !important;
+    border-radius: 2px 2px 0 0;
+}
+
+/* Empty data visualization */
+.empty-container {
+    padding: 80px 0;
+}
