@@ -257,8 +257,8 @@ const ComparePage = () => {
           model_name: modelName,
           system_prompt: systemPrompt,
           user_prompt: userPrompt,
-          investor: values.investor || "Unknown Investor",
-          version: values.version || "v1"
+          investor: values.investor || " - ",
+          version: values.version || " - "
         };
         res = await compareAPI.compareFromDB(payload);
       } else {
@@ -282,8 +282,8 @@ const ComparePage = () => {
         fd.append("user_prompt", userPrompt);
 
         // Add investor and version
-        fd.append("investor", values.investor || "Unknown Investor");
-        fd.append("version", values.version || "v1");
+        fd.append("investor", values.investor || " - ");
+        fd.append("version", values.version || " - ");
 
         // Use DSCR template comparison processor (same as DB comparison)
         res = await compareAPI.compareGuidelines(fd);
@@ -434,11 +434,13 @@ const ComparePage = () => {
       title: "Investor",
       dataIndex: "investor",
       key: "investor",
+      render: (text) => text || " - ",
     },
     {
       title: "Version",
       dataIndex: "version",
       key: "version",
+      render: (text) => text || " - ",
     },
     {
       title: "File Name",
@@ -507,7 +509,8 @@ const ComparePage = () => {
 
       return {
         dataIndex: key,
-        key: key
+        key: key,
+        render: (text) => text || " - "
       };
     });
   }, [previewData, isComparePreview, file1Display, file2Display]);

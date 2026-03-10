@@ -100,9 +100,13 @@ const DashboardPage = () => {
         const isIngest = record.investor !== undefined; // Simple heuristic or rely on activeTab
 
         if (isIngest) {
-            setPreviewTitle(`${record.investor} - ${record.version}`);
+            const investor = record.investor || " - ";
+            const version = record.version || " - ";
+            setPreviewTitle(`${investor} - ${version}`);
         } else {
-            setPreviewTitle(`${record.uploadedFile1} vs ${record.uploadedFile2}`);
+            const file1 = record.uploadedFile1 || " - ";
+            const file2 = record.uploadedFile2 || " - ";
+            setPreviewTitle(`${file1} vs ${file2}`);
         }
 
         setPreviewData(record.preview_data);
@@ -221,11 +225,13 @@ const DashboardPage = () => {
             title: "Investor",
             dataIndex: "investor",
             key: "investor",
+            render: (text) => text || " - ",
         },
         {
             title: "Version",
             dataIndex: "version",
             key: "version",
+            render: (text) => text || " - ",
         },
         {
             title: "Guideline Type",
@@ -337,12 +343,14 @@ const DashboardPage = () => {
             dataIndex: "investor",
             key: "investor",
             width: 150,
+            render: (text) => text || " - ",
         },
         {
             title: "Version",
             dataIndex: "version",
             key: "version",
             width: 100,
+            render: (text) => text || " - ",
         },
         {
             title: "Extracted File Name",

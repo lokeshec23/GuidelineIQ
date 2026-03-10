@@ -128,8 +128,8 @@ const ManagementPage = () => {
                     {/* <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 mb-3">
                         <TeamOutlined className="text-xl" />
                     </div> */}
-                    <Title level={2} className="!mb-1 tracking-tight">User Management</Title>
-                    <p className="text-gray-500 text-base">View, manage, and assign roles to registered users.</p>
+                    {/* <Title level={2} className="!mb-1 tracking-tight">User Management</Title> */}
+                    {/* <p className="text-gray-500 text-base">View, manage, and assign roles to registered users.</p> */}
                 </div>
             </div>
 

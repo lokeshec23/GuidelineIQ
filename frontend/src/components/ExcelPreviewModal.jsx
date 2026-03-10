@@ -307,7 +307,7 @@ const ExcelPreviewModal = ({
                     // Default rendering for other columns
                     return (
                         <div className="whitespace-pre-wrap break-words text-sm">
-                            {String(text || "")}
+                            {String(text || "-")}
                         </div>
                     );
                 },

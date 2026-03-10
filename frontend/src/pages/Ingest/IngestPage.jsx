@@ -187,9 +187,9 @@ const IngestPage = () => {
       files.forEach((file) => {
         formData.append("files", file); // Note: 'files' matches backend List[UploadFile]
       });
-      formData.append("investor", values.investor || "Unknown");
+      formData.append("investor", values.investor || " - ");
       formData.append("investor_id", values.guideline_investor_id || "null");
-      formData.append("version", values.version || "v1");
+      formData.append("version", values.version || " - ");
       formData.append("model_provider", modelProvider);
       formData.append("model_name", modelName);
 
@@ -370,7 +370,8 @@ const IngestPage = () => {
       return {
         // title: key, // Let ExcelPreviewModal handle formatting
         dataIndex: key,
-        key: key
+        key: key,
+        render: (text) => text || "-"
       };
     });
   }, [previewData]);
