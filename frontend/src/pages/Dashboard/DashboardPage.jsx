@@ -9,7 +9,6 @@ import { historyAPI, ingestAPI, compareAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { DashboardSkeleton } from "../../components/common/SkeletonLoader";
 
-const { TabPane } = Tabs;
 const { Title, Text } = Typography;
 
 const renderFileNames = (text) => {
@@ -516,80 +515,88 @@ const DashboardPage = () => {
                 activeKey={activeTab}
                 onChange={setActiveTab}
                 className="dashboard-tabs-container"
-            >
-                <TabPane tab="Ingest Guidelines" key="ingest">
-                    <div style={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden'
-                    }}>
-                        <Table
-                            columns={ingestColumns}
-                            dataSource={filteredIngestHistory}
-                            loading={loading}
-                            rowKey="id"
-                            bordered
-                            scroll={filteredIngestHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
-                            pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                showTotal: (total) => `Total ${total} records`,
-                                position: ['bottomRight']
-                            }}
-                            locale={{
-                                emptyText: loading ? (
-                                    <div className="empty-container">
-                                        <Spin tip="Loading history..." />
-                                    </div>
-                                ) : (
-                                    <div className="empty-container">
-                                        <Empty description="No history found" />
-                                    </div>
-                                )
-                            }}
-                        />
-                    </div>
-                </TabPane>
-
-                <TabPane tab="Compare Guidelines" key="compare">
-                    <div style={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        overflow: 'hidden'
-                    }}>
-                        <Table
-                            columns={compareColumns}
-                            dataSource={filteredCompareHistory}
-                            loading={loading}
-                            rowKey="id"
-                            bordered
-                            scroll={filteredCompareHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
-                            pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                showTotal: (total) => `Total ${total} records`,
-                                position: ['bottomRight']
-                            }}
-                            locale={{
-                                emptyText: loading ? (
-                                    <div className="empty-container">
-                                        <Spin tip="Loading history..." />
-                                    </div>
-                                ) : (
-                                    <div className="empty-container">
-                                        <Empty description="No history found" />
-                                    </div>
-                                )
-                            }}
-                        />
-                    </div>
-                </TabPane>
-            </Tabs>
+                items={[
+                    {
+                        key: "ingest",
+                        label: "Ingest Guidelines",
+                        children: (
+                            <div style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                            }}>
+                                <Table
+                                    columns={ingestColumns}
+                                    dataSource={filteredIngestHistory}
+                                    loading={loading}
+                                    rowKey="id"
+                                    bordered
+                                    scroll={filteredIngestHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
+                                    pagination={{
+                                        pageSize: 10,
+                                        showSizeChanger: true,
+                                        showTotal: (total) => `Total ${total} records`,
+                                        position: ['bottomRight']
+                                    }}
+                                    locale={{
+                                        emptyText: loading ? (
+                                            <div className="empty-container">
+                                                <Spin size="large"><div style={{ padding: 30 }} /></Spin>
+                                            </div>
+                                        ) : (
+                                            <div className="empty-container">
+                                                <Empty description="No history found" />
+                                            </div>
+                                        )
+                                    }}
+                                />
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "compare",
+                        label: "Compare Guidelines",
+                        children: (
+                            <div style={{
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                overflow: 'hidden'
+                            }}>
+                                <Table
+                                    columns={compareColumns}
+                                    dataSource={filteredCompareHistory}
+                                    loading={loading}
+                                    rowKey="id"
+                                    bordered
+                                    scroll={filteredCompareHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
+                                    pagination={{
+                                        pageSize: 10,
+                                        showSizeChanger: true,
+                                        showTotal: (total) => `Total ${total} records`,
+                                        position: ['bottomRight']
+                                    }}
+                                    locale={{
+                                        emptyText: loading ? (
+                                            <div className="empty-container">
+                                                <Spin size="large"><div style={{ padding: 30 }} /></Spin>
+                                            </div>
+                                        ) : (
+                                            <div className="empty-container">
+                                                <Empty description="No history found" />
+                                            </div>
+                                        )
+                                    }}
+                                />
+                            </div>
+                        ),
+                    },
+                ]}
+            />
 
             {/* Preview Modal */}
-            <React.Suspense fallback={<Modal open={previewVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large" tip="Loading preview..." /></div></Modal>}>
+            <React.Suspense fallback={<Modal open={previewVisible} footer={null} closable={false} centered><div className="p-10 text-center"><Spin size="large"><div style={{ padding: 30 }} /></Spin></div></Modal>}>
                 <ExcelPreviewModal
                     visible={previewVisible}
                     onClose={() => setPreviewVisible(false)}

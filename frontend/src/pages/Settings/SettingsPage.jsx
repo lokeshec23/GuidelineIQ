@@ -24,7 +24,6 @@ import { showToast } from "../../utils/toast";
 import { SettingsSkeleton } from "../../components/common/SkeletonLoader";
 
 const { Password } = Input;
-const { TabPane } = Tabs;
 
 const SettingsPage = () => {
   const [form] = Form.useForm();
@@ -128,37 +127,49 @@ const SettingsPage = () => {
             </div>
           }
         >
-          <Tabs defaultActiveKey="openai">
-            <TabPane tab="Azure OpenAI" key="openai">
-              <Form.Item label="API Key" name="openai_api_key">
-                <Password
-                  placeholder="Enter Azure OpenAI API Key"
-                  className="font-mono"
-                />
-              </Form.Item>
-              <Form.Item label="Endpoint" name="openai_endpoint">
-                <Input
-                  placeholder="https://your-resource.openai.azure.com"
-                  className="font-mono"
-                />
-              </Form.Item>
-              <Form.Item label="Deployment Name" name="openai_deployment">
-                <Input
-                  placeholder="e.g., gpt4o-deployment"
-                  className="font-mono"
-                />
-              </Form.Item>
-            </TabPane>
-
-            <TabPane tab="Google Gemini" key="gemini">
-              <Form.Item label="API Key" name="gemini_api_key">
-                <Password
-                  placeholder="Enter Google Gemini API Key"
-                  className="font-mono"
-                />
-              </Form.Item>
-            </TabPane>
-          </Tabs>
+          <Tabs
+            defaultActiveKey="openai"
+            items={[
+              {
+                key: "openai",
+                label: "Azure OpenAI",
+                children: (
+                  <>
+                    <Form.Item label="API Key" name="openai_api_key">
+                      <Password
+                        placeholder="Enter Azure OpenAI API Key"
+                        className="font-mono"
+                      />
+                    </Form.Item>
+                    <Form.Item label="Endpoint" name="openai_endpoint">
+                      <Input
+                        placeholder="https://your-resource.openai.azure.com"
+                        className="font-mono"
+                      />
+                    </Form.Item>
+                    <Form.Item label="Deployment Name" name="openai_deployment">
+                      <Input
+                        placeholder="e.g., gpt4o-deployment"
+                        className="font-mono"
+                      />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: "gemini",
+                label: "Google Gemini",
+                children: (
+                  <Form.Item label="API Key" name="gemini_api_key">
+                    <Password
+                      placeholder="Enter Google Gemini API Key"
+                      className="font-mono"
+                    />
+                  </Form.Item>
+                ),
+              },
+            ]}
+          />
         </Card>
 
         <Card

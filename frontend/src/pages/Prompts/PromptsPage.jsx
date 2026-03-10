@@ -7,7 +7,7 @@ import { promptsAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { PromptsSkeleton } from "../../components/common/SkeletonLoader";
 
-const { TabPane } = Tabs;
+
 const { TextArea } = Input;
 
 const PromptsPage = () => {
@@ -100,59 +100,74 @@ const PromptsPage = () => {
 
             <div className="bg-white rounded-lg shadow-sm p-6">
                 <Form form={form} layout="vertical">
-                    <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                        <TabPane tab="Ingest Prompts" key="ingest">
-                            <Form.Item
-                                label="System Prompt"
-                                name="ingest_system_prompt"
-                                tooltip="Defines the role and behavior of the AI"
-                            >
-                                <TextArea
-                                    rows={8}
-                                    placeholder="Enter system prompt for ingestion..."
-                                    className="font-mono text-sm"
-                                />
-                            </Form.Item>
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={setActiveTab}
+                        items={[
+                            {
+                                key: "ingest",
+                                label: "Ingest Prompts",
+                                children: (
+                                    <>
+                                        <Form.Item
+                                            label="System Prompt"
+                                            name="ingest_system_prompt"
+                                            tooltip="Defines the role and behavior of the AI"
+                                        >
+                                            <TextArea
+                                                rows={8}
+                                                placeholder="Enter system prompt for ingestion..."
+                                                className="font-mono text-sm"
+                                            />
+                                        </Form.Item>
 
-                            <Form.Item
-                                label="User Prompt"
-                                name="ingest_user_prompt"
-                                tooltip="Specific instructions for processing guidelines"
-                            >
-                                <TextArea
-                                    rows={12}
-                                    placeholder="Enter user prompt for ingestion..."
-                                    className="font-mono text-sm"
-                                />
-                            </Form.Item>
-                        </TabPane>
+                                        <Form.Item
+                                            label="User Prompt"
+                                            name="ingest_user_prompt"
+                                            tooltip="Specific instructions for processing guidelines"
+                                        >
+                                            <TextArea
+                                                rows={12}
+                                                placeholder="Enter user prompt for ingestion..."
+                                                className="font-mono text-sm"
+                                            />
+                                        </Form.Item>
+                                    </>
+                                ),
+                            },
+                            {
+                                key: "compare",
+                                label: "Compare Prompts",
+                                children: (
+                                    <>
+                                        <Form.Item
+                                            label="System Prompt"
+                                            name="compare_system_prompt"
+                                            tooltip="Defines the role and behavior of the AI"
+                                        >
+                                            <TextArea
+                                                rows={8}
+                                                placeholder="Enter system prompt for comparison..."
+                                                className="font-mono text-sm"
+                                            />
+                                        </Form.Item>
 
-                        <TabPane tab="Compare Prompts" key="compare">
-                            <Form.Item
-                                label="System Prompt"
-                                name="compare_system_prompt"
-                                tooltip="Defines the role and behavior of the AI"
-                            >
-                                <TextArea
-                                    rows={8}
-                                    placeholder="Enter system prompt for comparison..."
-                                    className="font-mono text-sm"
-                                />
-                            </Form.Item>
-
-                            <Form.Item
-                                label="User Prompt"
-                                name="compare_user_prompt"
-                                tooltip="Specific instructions for comparing guidelines"
-                            >
-                                <TextArea
-                                    rows={12}
-                                    placeholder="Enter user prompt for comparison..."
-                                    className="font-mono text-sm"
-                                />
-                            </Form.Item>
-                        </TabPane>
-                    </Tabs>
+                                        <Form.Item
+                                            label="User Prompt"
+                                            name="compare_user_prompt"
+                                            tooltip="Specific instructions for comparing guidelines"
+                                        >
+                                            <TextArea
+                                                rows={12}
+                                                placeholder="Enter user prompt for comparison..."
+                                                className="font-mono text-sm"
+                                            />
+                                        </Form.Item>
+                                    </>
+                                ),
+                            },
+                        ]}
+                    />
 
                     <div className="flex justify-end gap-3 mt-6">
                         <Button

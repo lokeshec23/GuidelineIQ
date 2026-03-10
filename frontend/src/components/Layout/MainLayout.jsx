@@ -210,7 +210,7 @@ const MainLayout = ({ children }) => {
           </Badge> */}
 
           <Dropdown
-            dropdownRender={() => userProfileCard}
+            popupRender={() => userProfileCard}
             placement="bottomRight"
             trigger={["click"]}
           >
