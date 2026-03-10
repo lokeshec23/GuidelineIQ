@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
@@ -34,6 +34,14 @@ const ConfigParametersPage = () => {
     const [editingInvestor, setEditingInvestor] = useState(null);
     const [investorsLoading, setInvestorsLoading] = useState(false);
     const [investorSubmitting, setInvestorSubmitting] = useState(false);
+
+    // Import from General Parameters State
+    const [isImportModalVisible, setIsImportModalVisible] = useState(false);
+    const [generalParams, setGeneralParams] = useState([]);
+    const [selectedParamIds, setSelectedParamIds] = useState([]);
+    const [importLoading, setImportLoading] = useState(false);
+    const [importSearchText, setImportSearchText] = useState("");
+    const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
 
     useEffect(() => {
         fetchInvestors();
@@ -99,7 +107,9 @@ const ConfigParametersPage = () => {
 
     const handleRemoveAll = async () => {
         try {
-            await dscrAPI.deleteAllParameters();
+            // Delete only the parameters for the currently selected context,
+            // NOT all parameters globally across all investors.
+            await Promise.all(parameters.map(p => dscrAPI.deleteParameter(p.id)));
             showToast.success("All parameters deleted successfully");
             fetchParameters();
         } catch (error) {
@@ -129,6 +139,56 @@ const ConfigParametersPage = () => {
             fetchParameters();
         } catch (error) {
             console.error("Failed to save parameter:", error);
+        }
+    };
+
+    /* === Import from General Parameters Flow === */
+    const fetchGeneralParameters = async () => {
+        setGeneralParamsLoading(true);
+        try {
+            const response = await dscrAPI.listParameters("null");
+            setGeneralParams(response.data);
+        } catch (error) {
+            console.error("Failed to fetch general parameters:", error);
+            showToast.error("Failed to load general parameters");
+        } finally {
+            setGeneralParamsLoading(false);
+        }
+    };
+
+    const handleOpenImportModal = async () => {
+        setSelectedParamIds([]);
+        setImportSearchText("");
+        setIsImportModalVisible(true);
+        await fetchGeneralParameters();
+    };
+
+    const handleImportParams = async () => {
+        if (selectedParamIds.length === 0) {
+            showToast.warning("Please select at least one parameter to import.");
+            return;
+        }
+        setImportLoading(true);
+        try {
+            const toImport = generalParams.filter(p => selectedParamIds.includes(p.id));
+            await Promise.all(
+                toImport.map(p =>
+                    dscrAPI.createParameter({
+                        parameter: p.parameter,
+                        category: p.category,
+                        subcategory: p.subcategory,
+                        guideline_type: p.guideline_type,
+                        investor_id: selectedInvestorId,
+                    })
+                )
+            );
+            showToast.success(`${toImport.length} parameter(s) imported successfully.`);
+            setIsImportModalVisible(false);
+            fetchParameters();
+        } catch (error) {
+            console.error("Failed to import parameters:", error);
+        } finally {
+            setImportLoading(false);
         }
     };
 
@@ -400,6 +460,23 @@ const ConfigParametersPage = () => {
                         allowClear
                     />
                     <div className="flex gap-3 w-full sm:w-auto">
+                        {selectedInvestorId !== "null" && (
+                            <Button
+                                icon={<DownloadOutlined />}
+                                onClick={handleOpenImportModal}
+                                className="rounded-lg font-medium border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400"
+                            >
+                                Import from General
+                            </Button>
+                        )}
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            className="bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm font-medium"
+                        >
+                            Add Parameter
+                        </Button>
                         <Popconfirm
                             title="Delete all parameters?"
                             description={`Are you sure you want to delete ALL parameters for the selected context?`}
@@ -417,14 +494,8 @@ const ConfigParametersPage = () => {
                                 Remove All
                             </Button>
                         </Popconfirm>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={handleAdd}
-                            className="bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm font-medium"
-                        >
-                            Add Parameter
-                        </Button>
+
+
                     </div>
                 </div>
 
@@ -521,6 +592,146 @@ const ConfigParametersPage = () => {
                         </Checkbox.Group>
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            {/* Import from General Parameters Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                        <DownloadOutlined className="text-blue-500" />
+                        Import from General Parameters
+                    </div>
+                }
+                open={isImportModalVisible}
+                onCancel={() => setIsImportModalVisible(false)}
+                onOk={handleImportParams}
+                okText={`Import Selected (${selectedParamIds.length})`}
+                okButtonProps={{
+                    className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6",
+                    loading: importLoading,
+                    disabled: selectedParamIds.length === 0,
+                }}
+                cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
+                width={680}
+                centered
+                destroyOnClose
+                maskClosable={false}
+            >
+                <div className="mt-4 flex flex-col gap-4">
+                    {/* Search within modal */}
+                    <Input
+                        placeholder="Search general parameters..."
+                        prefix={<SearchOutlined className="text-gray-400" />}
+                        value={importSearchText}
+                        onChange={e => setImportSearchText(e.target.value)}
+                        className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white"
+                        allowClear
+                    />
+
+                    {/* Select-all row */}
+                    {!generalParamsLoading && generalParams.length > 0 && (
+                        <div className="flex items-center justify-between px-1">
+                            <Checkbox
+                                indeterminate={
+                                    selectedParamIds.length > 0 &&
+                                    selectedParamIds.length < generalParams.filter(p =>
+                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                                    ).length
+                                }
+                                checked={
+                                    generalParams.filter(p =>
+                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                                    ).length > 0 &&
+                                    generalParams
+                                        .filter(p =>
+                                            p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                                            p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                                        )
+                                        .every(p => selectedParamIds.includes(p.id))
+                                }
+                                onChange={e => {
+                                    const visible = generalParams.filter(p =>
+                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                                    );
+                                    if (e.target.checked) {
+                                        setSelectedParamIds(prev => [
+                                            ...new Set([...prev, ...visible.map(p => p.id)])
+                                        ]);
+                                    } else {
+                                        const visibleIds = visible.map(p => p.id);
+                                        setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
+                                    }
+                                }}
+                            >
+                                <span className="text-sm font-medium text-gray-600">Select All Visible</span>
+                            </Checkbox>
+                            <span className="text-xs text-gray-400 font-medium">
+                                {selectedParamIds.length} selected
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Parameter list */}
+                    <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
+                        {generalParamsLoading ? (
+                            <div className="p-6">
+                                <TableSkeleton rows={5} columns={3} />
+                            </div>
+                        ) : generalParams.filter(p =>
+                            p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                            p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                        ).length === 0 ? (
+                            <div className="text-center py-12 text-gray-400">
+                                <DatabaseOutlined className="text-3xl mb-2 block mx-auto" />
+                                <div className="font-medium">{importSearchText ? "No matching parameters" : "No general parameters found"}</div>
+                            </div>
+                        ) : (
+                            generalParams
+                                .filter(p =>
+                                    p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
+                                    p.category.toLowerCase().includes(importSearchText.toLowerCase())
+                                )
+                                .map(param => (
+                                    <div
+                                        key={param.id}
+                                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-blue-50/50 ${selectedParamIds.includes(param.id) ? "bg-blue-50" : "bg-white"
+                                            }`}
+                                        onClick={() => setSelectedParamIds(prev =>
+                                            prev.includes(param.id)
+                                                ? prev.filter(id => id !== param.id)
+                                                : [...prev, param.id]
+                                        )}
+                                    >
+                                        <Checkbox
+                                            checked={selectedParamIds.includes(param.id)}
+                                            onChange={() => { }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-gray-800 text-sm truncate">{param.parameter}</div>
+                                            <div className="text-xs text-gray-400 mt-0.5">
+                                                <Tag className="bg-blue-50 text-blue-500 border-blue-100 text-[11px] px-2 py-0 rounded-full">{param.category}</Tag>
+                                                {param.subcategory && <span className="ml-1">{param.subcategory}</span>}
+                                            </div>
+                                        </div>
+                                        <Space size={[0, 4]} wrap className="justify-end shrink-0">
+                                            {(param.guideline_type || ["DSCR", "Full Doc", "Alt Doc"]).map(t => (
+                                                <Tag
+                                                    key={t}
+                                                    color={guidelineTypeColorMap[t]}
+                                                    className="text-[10px] px-2 rounded-full border-transparent"
+                                                >
+                                                    {t}
+                                                </Tag>
+                                            ))}
+                                        </Space>
+                                    </div>
+                                ))
+                        )}
+                    </div>
+                </div>
             </Modal>
 
             {/* Manage Investors Modal */}
