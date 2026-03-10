@@ -505,18 +505,20 @@ const ConfigParametersPage = () => {
                         <TableSkeleton rows={8} columns={5} />
                     </div>
                 ) : (
-                    <Table
-                        columns={columns}
-                        dataSource={filteredParameters}
-                        rowKey="id"
-                        pagination={{
-                            pageSize: 12,
-                            showSizeChanger: true,
-                            className: "px-6 pb-2"
-                        }}
-                        className="custom-table"
-                        rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
-                    />
+                    <div className="p-6">
+                        <Table
+                            columns={columns}
+                            dataSource={filteredParameters}
+                            rowKey="id"
+                            pagination={{
+                                pageSize: 12,
+                                showSizeChanger: true,
+                                className: "px-6 pb-2"
+                            }}
+                            className="custom-table"
+                            rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
+                        />
+                    </div>
                 )}
             </Card>
 

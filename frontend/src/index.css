@@ -460,3 +460,8 @@ code {
   border-color: #597ef7 !important;
   box-shadow: 0 0 0 2px rgba(89, 126, 247, 0.1) !important;
 }
+
+/* ===== Custom Table Padding ===== */
+.custom-table .ant-table-cell {
+  padding: 16px 16px !important;
+}
