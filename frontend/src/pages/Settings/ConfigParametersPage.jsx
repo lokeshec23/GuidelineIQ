@@ -717,15 +717,21 @@ const ConfigParametersPage = () => {
                                             </div>
                                         </div>
                                         <Space size={[0, 4]} wrap className="justify-end shrink-0">
-                                            {(param.guideline_type || ["DSCR", "Full Doc", "Alt Doc"]).map(t => (
-                                                <Tag
-                                                    key={t}
-                                                    color={guidelineTypeColorMap[t]}
-                                                    className="text-[10px] px-2 rounded-full border-transparent"
-                                                >
-                                                    {t}
-                                                </Tag>
-                                            ))}
+                                            {(() => {
+                                                let types = param.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                                                if (types.includes("All")) {
+                                                    types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+                                                }
+                                                return types.map(t => (
+                                                    <Tag
+                                                        key={t}
+                                                        color={guidelineTypeColorMap[t]}
+                                                        className="text-[10px] px-2 rounded-full border-transparent"
+                                                    >
+                                                        {t}
+                                                    </Tag>
+                                                ));
+                                            })()}
                                         </Space>
                                     </div>
                                 ))
