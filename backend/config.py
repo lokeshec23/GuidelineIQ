@@ -8,7 +8,8 @@ DB_SERVER = os.getenv("DB_SERVER", "localhost")
 DB_PORT = os.getenv("DB_PORT", "1433")
 DB_USER = os.getenv("DB_USER", "sa")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "Loandna@2026")
-DB_NAME = os.getenv("DB_NAME", "guidelineiq_db")
+DB_NAME = os.getenv("DB_NAME", "guidelineiq_db_demo")
+# DB_NAME = os.getenv("DB_NAME", "guidelineiq_db")
 
 # URL-encode the password for the connection URI
 from urllib.parse import quote_plus

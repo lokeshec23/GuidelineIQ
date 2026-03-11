@@ -9,7 +9,8 @@ def create_database():
     port = os.getenv("DB_PORT", "1433")
     user = os.getenv("DB_USER", "sa")
     password = os.getenv("DB_PASSWORD", "Loandna@2026")
-    db_name = os.getenv("DB_NAME", "guidelineiq_db")
+    db_name = os.getenv("DB_NAME", "guidelineiq_db_demo")
+    # db_name = os.getenv("DB_NAME", "guidelineiq_db")
     
     print(f"Connecting to {server}:{port} as {user}...")
     
