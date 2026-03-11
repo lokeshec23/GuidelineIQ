@@ -225,12 +225,14 @@ const DashboardPage = () => {
             title: "Investor",
             dataIndex: "investor",
             key: "investor",
+            width: 150,
             render: (text) => text || " - ",
         },
         {
             title: "Version",
             dataIndex: "version",
             key: "version",
+            width: 100,
             render: (text) => text || " - ",
         },
         {
@@ -239,20 +241,6 @@ const DashboardPage = () => {
             key: "guideline_type",
             width: 120,
             render: renderFileNames,
-        },
-        {
-            title: "Program Type",
-            dataIndex: "program_type",
-            key: "program_type",
-            width: 120,
-            render: (text) => text || "-",
-        },
-        {
-            title: "Page Range",
-            dataIndex: "page_range",
-            key: "page_range",
-            width: 100,
-            render: (text) => text || "All",
         },
         {
             title: "Effective Date",
@@ -289,6 +277,20 @@ const DashboardPage = () => {
                     return "-";
                 }
             },
+        },
+        {
+            title: "Program Type",
+            dataIndex: "program_type",
+            key: "program_type",
+            width: 120,
+            render: (text) => text || "-",
+        },
+        {
+            title: "Page Range",
+            dataIndex: "page_range",
+            key: "page_range",
+            width: 100,
+            render: (text) => text || "All",
         },
         {
             title: "Uploaded File Name",
@@ -351,6 +353,49 @@ const DashboardPage = () => {
             key: "version",
             width: 100,
             render: (text) => text || " - ",
+        },
+        {
+            title: "Guideline Type",
+            dataIndex: "guideline_type",
+            key: "guideline_type",
+            width: 120,
+            render: (text) => text ? renderFileNames(text) : " - ",
+        },
+        {
+            title: "Effective Date",
+            dataIndex: "effective_date",
+            key: "effective_date",
+            width: 130,
+            render: (date) => {
+                if (!date) return "-";
+                try {
+                    return new Date(date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                } catch {
+                    return "-";
+                }
+            },
+        },
+        {
+            title: "Expiry Date",
+            dataIndex: "expiry_date",
+            key: "expiry_date",
+            width: 130,
+            render: (date) => {
+                if (!date) return "-";
+                try {
+                    return new Date(date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                } catch {
+                    return "-";
+                }
+            },
         },
         {
             title: "Extracted File Name",
