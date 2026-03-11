@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sql_database import get_db
-from auth.models import find_user_by_email, create_user, get_all_users, get_user_by_id, update_user_password, update_user_role
+from auth.models import find_user_by_email, find_user_by_username, create_user, get_all_users, get_user_by_id, update_user_password, update_user_role
 from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword, UserRoleUpdate
 from auth.utils import hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token
 from utils.logger import setup_logger
@@ -16,9 +16,14 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ✅ Register new user
 @router.post("/register", response_model=UserOut)
 async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    existing_user = await find_user_by_email(db, user.email)
-    if existing_user:
+    existing_user_email = await find_user_by_email(db, user.email)
+    if existing_user_email:
         raise HTTPException(status_code=400, detail="Email already registered")
+        
+    if user.username:
+        existing_user_username = await find_user_by_username(db, user.username)
+        if existing_user_username:
+            raise HTTPException(status_code=400, detail="Username already registered")
 
     hashed_pw = hash_password(user.password)
     user_data = {

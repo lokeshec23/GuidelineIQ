@@ -8,6 +8,11 @@ async def find_user_by_email(db: AsyncSession, email: str):
     result = await db.execute(select(User).where(User.email == email))
     return result.scalars().first()
 
+async def find_user_by_username(db: AsyncSession, username: str):
+    """Find a user by username."""
+    result = await db.execute(select(User).where(User.username == username))
+    return result.scalars().first()
+
 async def get_user_by_id(db: AsyncSession, user_id: str):
     """Find a user by their ID."""
     result = await db.execute(select(User).where(User.id == user_id))
