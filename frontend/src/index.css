@@ -11,15 +11,17 @@
     --color-success: #10B981;
     --text-primary: #1E293B;
     --text-secondary: #64748B;
+    --color-border: #E2E8F0;
   }
 
   .dark {
-    --bg-base: #0B0E14;
-    --bg-surface: #151921;
+    --bg-base: #0F172A;
+    --bg-surface: #1E293B;
     --color-accent: #3B82F6;
     --color-success: #10B981;
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
+    --color-border: #334155;
   }
 }
 

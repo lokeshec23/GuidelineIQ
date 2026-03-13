@@ -567,7 +567,7 @@ const DashboardPage = () => {
             <Tabs
                 activeKey={activeTab}
                 onChange={setActiveTab}
-                className="dashboard-tabs-container"
+                className="dashboard-tabs-container dashboard-content-wrapper"
                 items={[
                     {
                         key: "ingest",

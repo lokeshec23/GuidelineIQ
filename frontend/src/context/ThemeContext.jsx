@@ -28,28 +28,30 @@ export const ThemeProvider = ({ children }) => {
     token: {
       colorPrimary: isDarkMode ? '#3B82F6' : '#2563EB',
       colorSuccess: '#10B981',
-      colorBgBase: isDarkMode ? '#0B0E14' : '#FAFAFA',
-      colorBgContainer: isDarkMode ? '#151921' : '#FFFFFF',
-      colorBgElevated: isDarkMode ? '#1E293B' : '#FFFFFF', // Tooltips/dropdowns
-      colorBgLayout: isDarkMode ? '#0B0E14' : '#FAFAFA',
+      colorBgBase: isDarkMode ? '#0F172A' : '#FAFAFA', // Deep slate base (no more pure black)
+      colorBgContainer: isDarkMode ? '#1E293B' : '#FFFFFF', // Elevated surface
+      colorBgElevated: isDarkMode ? '#334155' : '#FFFFFF', // Tooltips/dropdowns
+      colorBgLayout: isDarkMode ? '#0F172A' : '#FAFAFA',
       colorTextBase: isDarkMode ? '#F8FAFC' : '#1E293B',
       fontFamily: '"Inter", "Jura", sans-serif',
-      colorBorder: isDarkMode ? '#334155' : '#E2E8F0',
+      colorBorder: isDarkMode ? '#334155' : '#E2E8F0', // Visible subtle borders
       colorBorderSecondary: isDarkMode ? '#1E293B' : '#F1F5F9',
     },
     components: {
       Layout: {
-        bodyBg: isDarkMode ? '#0B0E14' : '#FAFAFA',
-        headerBg: isDarkMode ? '#151921' : '#FFFFFF',
-        siderBg: isDarkMode ? '#151921' : '#FAFAFA',
+        bodyBg: isDarkMode ? '#0F172A' : '#FAFAFA',
+        headerBg: isDarkMode ? '#1E293B' : '#FFFFFF',
+        siderBg: isDarkMode ? '#1E293B' : '#FAFAFA', // Align sidebar with header for unity
       },
       Table: {
-        headerBg: isDarkMode ? '#151921' : '#F8FAFC',
+        headerBg: isDarkMode ? '#334155' : '#F8FAFC', // slightly lighter for table headers
         headerColor: isDarkMode ? '#F8FAFC' : '#1E293B',
-        rowHoverBg: isDarkMode ? '#1E293B' : '#F1F5F9',
+        rowHoverBg: isDarkMode ? '#334155' : '#F1F5F9',
+        borderColor: isDarkMode ? '#334155' : '#E2E8F0',
       },
       Card: {
-        colorBgContainer: isDarkMode ? '#151921' : '#FFFFFF',
+        colorBgContainer: isDarkMode ? '#1E293B' : '#FFFFFF',
+        colorBorderSecondary: isDarkMode ? '#334155' : '#E2E8F0',
       }
     }
   };
