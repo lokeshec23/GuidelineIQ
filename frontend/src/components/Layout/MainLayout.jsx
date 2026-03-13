@@ -196,19 +196,20 @@ const MainLayout = ({ children }) => {
             onClick={() => navigate("/")}
           >
             <img
-              src="/gc_logo.svg"
+              src={isDarkMode ? "/GuidelineIQ Dark logo.svg" : "/gc_logo.svg"}
               alt="Logo"
-              className="h-10 object-contain"
+              className="h-10 w-44 object-contain object-left"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-5">
-          <Button
-            type="text"
-            icon={isDarkMode ? <BulbFilled className="text-yellow-400" /> : <BulbOutlined className="text-gray-500" />}
-            onClick={toggleTheme}
-            className="flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800"
+          <Switch
+            checked={isDarkMode}
+            onChange={toggleTheme}
+            checkedChildren={<BulbFilled className="text-yellow-400" />}
+            unCheckedChildren={<BulbOutlined className="text-white" />}
+            className="theme-switch mt-1"
           />
 
           {/* <Badge count={3} size="small" offset={[-2, 2]} color="#1890ff">

@@ -5,18 +5,23 @@
   --chat-blue-primary: #3b82f6;
   --chat-blue-hover: #60a5fa;
   --chat-blue-light: #93c5fd;
-  --chat-blue-bg: #eff6ff;
+  --chat-blue-bg: var(--bg-surface); /* Will adapt to dark mode */
   
-  /* White & Gray Colors */
-  --chat-white: #ffffff;
-  --chat-gray-50: #f9fafb;
-  --chat-gray-100: #f3f4f6;
-  --chat-gray-200: #e5e7eb;
+  /* White & Gray Colors mapping to global theme */
+  --chat-white: var(--bg-surface);
+  --chat-gray-50: var(--bg-base);
+  --chat-gray-100: var(--bg-base);
+  --chat-gray-200: var(--color-border);
   --chat-gray-300: #d1d5db;
-  --chat-border: #e2e8f0;
-  --chat-divider: #f1f5f9;
-  --chat-text: #1f2937;
-  --chat-text-secondary: #6b7280;
+  --chat-border: var(--color-border);
+  --chat-divider: var(--color-border);
+  --chat-text: var(--text-primary);
+  --chat-text-secondary: var(--text-secondary);
+}
+
+.dark {
+  --chat-blue-bg: rgba(59, 130, 246, 0.1);
+  --chat-gray-300: #475569;
 }
 
 /* Message entrance animation */
@@ -141,7 +146,7 @@
 .chat-input-field:focus-within {
   background-color: var(--chat-white);
   border-color: var(--chat-blue-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 /* Send Button */
@@ -195,8 +200,8 @@
 }
 
 .chat-delete-button:hover {
-  background-color: #fee2e2 !important;
-  color: #dc2626 !important;
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
 }
 
 /* Loading Spinner */

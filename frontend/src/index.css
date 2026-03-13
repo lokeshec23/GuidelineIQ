@@ -119,10 +119,21 @@ body,
   color: #374151 !important;
 }
 
+.dark .ant-btn-default {
+  border-color: #475569 !important;
+  color: #F8FAFC !important; /* White text for buttons in dark mode */
+}
+
 .ant-btn-default:hover:not(:disabled) {
   border-color: #2563eb !important;
   color: #2563eb !important;
   background: rgba(37, 99, 235, 0.04) !important;
+}
+
+.dark .ant-btn-default:hover:not(:disabled) {
+  border-color: #3B82F6 !important;
+  color: #3B82F6 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
 }
 
 /* Danger default (outlined red — for Remove All, Delete All) */
@@ -148,6 +159,13 @@ body,
 .ant-btn-dangerous.ant-btn-primary:hover:not(:disabled) {
   background: #dc2626 !important;
   border-color: #dc2626 !important;
+}
+
+.dark .ant-btn-text {
+  color: #F8FAFC !important;
+}
+.dark .ant-btn-text:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Text buttons (icon-only in tables, nav) — no min-width */

@@ -318,11 +318,11 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                         >
                                             <div className="flex justify-between items-start">
                                                 <div className="flex-1 mr-2">
-                                                    <div className="font-medium text-sm text-gray-800 truncate">
+                                                    <div className="font-medium text-sm text-text-primary truncate">
                                                         {conv.title || 'New Conversation'}
                                                     </div>
                                                     {conv.last_message && (
-                                                        <div className="text-xs text-gray-500 truncate mt-1">
+                                                        <div className="text-xs text-text-secondary truncate mt-1">
                                                             {conv.last_message}
                                                         </div>
                                                     )}
@@ -452,7 +452,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                 : 'chat-message-assistant group relative'
                                             }
                                         >
-                                            <div className={`markdown-content ${item.role === 'user' ? 'text-white' : 'text-gray-800 pr-6'}`}>
+                                            <div className="markdown-content text-text-primary pr-6">
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
                                                     components={{
@@ -464,13 +464,13 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                         code: ({ node, inline, className, children, ...props }) => {
                                                             const match = /language-(\w+)/.exec(className || '')
                                                             return !inline && match ? (
-                                                                <div className="bg-gray-800 rounded p-2 my-2 overflow-x-auto">
+                                                                <div className="bg-base rounded p-2 my-2 overflow-x-auto border" style={{ borderColor: 'var(--color-border)' }}>
                                                                     <code className={className} {...props}>
                                                                         {children}
                                                                     </code>
                                                                 </div>
                                                             ) : (
-                                                                <code className="bg-gray-100 px-1 rounded text-sm font-mono text-red-500" {...props}>
+                                                                <code className="bg-base px-1 rounded text-sm font-mono text-blue-500 border border-solid" style={{ borderColor: 'var(--color-border)' }} {...props}>
                                                                     {children}
                                                                 </code>
                                                             )
@@ -499,7 +499,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                 {item.suggestions.map((suggestion, idx) => (
                                                     <div
                                                         key={idx}
-                                                        className="chat-suggestion-chip cursor-pointer bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 rounded-md px-2 py-1.5 text-xs transition-colors flex items-start gap-1.5 w-full sm:w-fit whitespace-normal text-left leading-tight"
+                                                        className="chat-suggestion-chip cursor-pointer text-text-secondary px-2 py-1.5 text-xs flex items-start w-full sm:w-fit whitespace-normal text-left leading-tight"
                                                         onClick={() => handleSendMessage(suggestion)}
                                                     >
                                                         <BulbOutlined style={{ color: '#3b82f6', fontSize: '12px', marginTop: '2px' }} />
@@ -582,7 +582,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                 className="chat-modal"
                 zIndex={2000}
             >
-                <p className="mb-2 text-gray-600">
+                <p className="mb-2 text-text-secondary">
                     Provide specific instructions for the AI (e.g., "Reply in 2 lines", "Format as a list").
                     These instructions will be applied to every message until you clear them.
                 </p>

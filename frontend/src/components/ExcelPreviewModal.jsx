@@ -402,11 +402,15 @@ const ExcelPreviewModal = ({
                     padding: 0,
                     display: "flex",
                     flexDirection: "column",
+                    backgroundColor: "var(--bg-surface)",
                 }}
                 onCancel={onClose}
             >
                 {/* Header - fixed */}
-                <div className="flex justify-between items-center px-4 py-2 border-b bg-white relative">
+                <div 
+                    className="flex justify-between items-center px-5 py-3 border-b bg-surface text-text-primary relative"
+                    style={{ borderColor: "var(--color-border)" }}
+                >
                     <div className="flex items-center gap-3">
                         <div className={`${iconBgColor} p-2 rounded-full`}>
                             <IconComponent className={`${iconColor} text-xl`} />
@@ -446,7 +450,10 @@ const ExcelPreviewModal = ({
                 </div>
 
                 {/* Search bar - fixed below header */}
-                <div className="px-4 py-1.5 bg-gray-50 border-b flex items-center gap-3">
+                <div 
+                    className="px-5 py-2 bg-base border-b flex items-center gap-3"
+                    style={{ borderColor: "var(--color-border)" }}
+                >
                     {!searchExpanded ? (
                         <Button
                             icon={<SearchOutlined />}
@@ -481,17 +488,12 @@ const ExcelPreviewModal = ({
 
                 {/* Content area - table scrolls, footer fixed */}
                 <div
-                    className="p-1 bg-gray-50 relative flex flex-col"
+                    className="p-2 bg-base relative flex flex-col"
                     style={{ flex: 1, overflow: "hidden" }}
                 >
                     {/* Scrollable table container */}
                     <div
-                        className="flex-1"
-                        style={{
-                            overflow: "auto",
-                            scrollbarWidth: "thin", // For Firefox
-                            scrollbarColor: "#888 #f1f1f1", // For Firefox
-                        }}
+                        className="flex-1 overflow-hidden"
                     >
                         <style>{`
                             /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
@@ -500,35 +502,28 @@ const ExcelPreviewModal = ({
                                 height: 12px;
                             }
                             .flex-1::-webkit-scrollbar-track {
-                                background: #f1f1f1;
-                                border-radius: 10px;
+                                background: var(--bg-surface);
                             }
                             .flex-1::-webkit-scrollbar-thumb {
-                                background: #888;
+                                background: var(--color-border);
                                 border-radius: 10px;
                             }
                             .flex-1::-webkit-scrollbar-thumb:hover {
-                                background: #555;
+                                background: var(--color-accent);
                             }
 
-                            /* Excel-like Table Styles */
+                            /* Adaptive Excel-like Table Styles */
                             .antd-excel-table .ant-table-thead > tr > th {
-                                background-color: #1F4E78 !important; /* Dark Blue from Excel Export */
-                                color: white !important;
-                                font-weight: bold !important;
-                                border-bottom: 1px solid #d9d9d9 !important;
-                                border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+                                border-bottom: 1px solid var(--color-border) !important;
+                                border-right: 1px solid var(--color-border) !important;
                                 text-align: center !important;
                             }
                             
                             .antd-excel-table .ant-table-tbody > tr > td {
-                                border-right: 1px solid #f0f0f0 !important;
+                                border-right: 1px solid var(--color-border) !important;
+                                border-bottom: 1px solid var(--color-border) !important;
                                 vertical-align: top !important;
-                                padding: 4px 8px !important;
-                            }
-
-                            .antd-excel-table .ant-table-tbody > tr:hover > td {
-                                background-color: #f5faff !important;
+                                padding: 6px 12px !important;
                             }
 
                             .antd-excel-column {
@@ -551,7 +546,7 @@ const ExcelPreviewModal = ({
                     </div>
 
                     {/* Footer - fixed inside modal */}
-                    <div className="flex justify-end items-center mt-4 gap-4">
+                    <div className="flex justify-end items-center mt-4 gap-4 bg-surface p-3 rounded-lg border border-solid" style={{ borderColor: 'var(--color-border)' }}>
                         <Pagination
                             current={currentPage}
                             pageSize={currentPageSize}

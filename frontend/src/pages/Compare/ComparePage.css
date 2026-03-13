@@ -5,8 +5,8 @@
 }
 
 .compare-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
@@ -19,7 +19,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #1e293b;
+    color: var(--text-primary);
 }
 
 .compare-card-title .anticon {
@@ -36,7 +36,7 @@
 .compare-table-wrapper {
     border-radius: 8px;
     overflow: hidden;
-    border: 1px solid #f1f5f9;
+    border: 1px solid var(--color-border);
 }
 
 .ant-table-thead>tr>th {
@@ -44,7 +44,13 @@
     text-transform: uppercase;
     font-size: 11px;
     letter-spacing: 0.05em;
-    background-color: #f8fafc !important;
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+}
+
+.dark .ant-table-thead>tr>th {
+    background-color: #334155 !important;
 }
 
 /* Upload Area */
@@ -56,7 +62,7 @@
 
 .compare-upload-wrapper:hover {
     border-color: #3b82f6;
-    background: #f8fafc;
+    background: var(--bg-base);
 }
 
 .compare-file-item {
@@ -64,8 +70,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     transition: all 0.2s ease;
 }
@@ -95,7 +101,7 @@
 .compare-file-name {
     font-size: 14px;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin: 0;
     max-width: 200px;
 }
@@ -122,16 +128,16 @@
     right: 0;
     top: 50%;
     height: 1px;
-    background: #e2e8f0;
+    background: var(--color-border);
 }
 
 .compare-divider-text {
     position: relative;
-    background: #f8fafc;
+    background: var(--bg-base);
     padding: 0 16px;
     font-size: 12px;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--text-secondary);
     letter-spacing: 0.1em;
 }
 

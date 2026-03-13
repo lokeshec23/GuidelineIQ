@@ -123,12 +123,15 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
             destroyOnClose={true}
         >
             {/* Header */}
-            <div className="flex justify-between items-center px-4 py-2 border-b bg-gray-50 flex-shrink-0" style={{ minHeight: '56px' }}>
+            <div 
+                className="flex justify-between items-center px-5 py-3 border-b bg-surface text-text-primary flex-shrink-0" 
+                style={{ minHeight: '56px', borderColor: 'var(--color-border)' }}
+            >
                 {/* Left: Title & Count */}
                 <div className="flex items-center gap-3 w-1/3">
-                    <h3 className="font-semibold text-lg m-0">{title}</h3>
+                    <h3 className="font-semibold text-lg m-0 text-text-primary">{title}</h3>
                     {pdfFiles.length > 0 && (
-                        <span className="text-sm text-gray-500 whitespace-nowrap">
+                        <span className="text-sm text-text-secondary whitespace-nowrap">
                             ({pdfFiles.length} {pdfFiles.length === 1 ? 'file' : 'files'})
                         </span>
                     )}
@@ -138,7 +141,7 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                 <div className="flex justify-center w-1/3">
                     {pdfFiles.length > 1 && (
                         <div className="flex items-center gap-2 w-full max-w-md">
-                            <span className="font-medium text-gray-700 whitespace-nowrap">Select PDF:</span>
+                            <span className="font-medium text-text-secondary whitespace-nowrap">Select PDF:</span>
                             <Select
                                 value={activeTab}
                                 onChange={handleTabChange}
@@ -187,15 +190,15 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                                     }}
                                 >
                                     {loading && !hasLoadedData && isSelected && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                                        <div className="absolute inset-0 flex items-center justify-center bg-base z-10">
                                             <Spin size="large" tip="Loading PDF..." />
                                         </div>
                                     )}
                                     {error && isSelected && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                                        <div className="absolute inset-0 flex items-center justify-center bg-base z-10">
                                             <div className="text-center">
                                                 <p className="text-red-500 text-lg mb-2">Failed to load PDF</p>
-                                                <p className="text-gray-600">{error}</p>
+                                                <p className="text-text-secondary">{error}</p>
                                                 <Button type="primary" onClick={() => fetchPdfByIndex(idx)} className="mt-4">
                                                     Retry
                                                 </Button>
@@ -221,17 +224,17 @@ const PdfViewerModal = ({ visible, onClose, sessionId, title = "PDF Viewer", ini
                     </div>
                 </div>
             ) : (
-                <div className="relative flex-1 bg-gray-100 overflow-hidden">
+                <div className="relative flex-1 bg-base overflow-hidden">
                     {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="absolute inset-0 flex items-center justify-center bg-base z-10">
                             <Spin size="large" tip="Loading PDFs..." />
                         </div>
                     )}
                     {error && !loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
+                        <div className="absolute inset-0 flex items-center justify-center bg-base z-10">
                             <div className="text-center">
                                 <p className="text-red-500 text-lg mb-2">Failed to load PDFs</p>
-                                <p className="text-gray-600">{error}</p>
+                                <p className="text-text-secondary">{error}</p>
                                 <Button type="primary" onClick={fetchPdfList} className="mt-4">
                                     Retry
                                 </Button>
