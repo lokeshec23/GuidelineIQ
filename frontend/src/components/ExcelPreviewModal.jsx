@@ -478,7 +478,7 @@ const ExcelPreviewModal = ({
                     <Button onClick={clearFilters} size="small">
                         Clear Filters
                     </Button>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-text-secondary">
                         {(getFilteredDataForFilters.length !==
                             tableData.length ||
                             searchText) &&

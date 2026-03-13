@@ -75,13 +75,13 @@ const ConfirmModal = ({
                         fontSize: '16px',
                         fontWeight: 500,
                         marginBottom: '8px',
-                        color: 'rgba(0, 0, 0, 0.88)'
+                        color: 'var(--text-primary)'
                     }}>
                         {title}
                     </div>
                     <div style={{
                         fontSize: '14px',
-                        color: 'rgba(0, 0, 0, 0.65)',
+                        color: 'var(--text-secondary)',
                         lineHeight: '1.5715'
                     }}>
                         {message}

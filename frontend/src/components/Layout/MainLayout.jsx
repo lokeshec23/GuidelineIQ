@@ -55,17 +55,17 @@ const MainLayout = ({ children }) => {
 
   // User Profile Dropdown - Memoized to prevent re-renders
   const userProfileCard = React.useMemo(() => (
-    <div className="bg-white rounded-xl shadow-lg w-72 overflow-hidden border border-gray-100 font-sans mt-2">
-      <div className="h-20 bg-sky-50 relative overflow-hidden">
-        <div className="absolute -top-2 -right-2 w-16 h-16 bg-sky-100 rounded-full opacity-50"></div>
-        <div className="absolute top-2 right-8 w-4 h-4 bg-sky-200 rounded-full opacity-50"></div>
+    <div className="bg-[var(--bg-surface)] rounded-2xl shadow-2xl w-72 overflow-hidden border border-[var(--color-border)] font-sans mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+      <div className="h-24 bg-gradient-to-br from-[var(--color-accent)] to-[#4f46e5] relative overflow-hidden opacity-90">
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+        <div className="absolute top-4 right-12 w-8 h-8 bg-white/5 rounded-full blur-lg"></div>
       </div>
-      <div className="px-6 pb-4">
-        <div className="relative -mt-10 mb-3 flex justify-center">
-          <div className="p-1 bg-white rounded-full">
+      <div className="px-6 pb-5">
+        <div className="relative -mt-12 mb-4 flex justify-center">
+          <div className="p-1.5 bg-[var(--bg-surface)] rounded-full shadow-md">
             <Avatar
-              size={72}
-              className="bg-gray-100 text-gray-700 text-3xl font-normal flex items-center justify-center shadow-sm"
+              size={84}
+              className="bg-[var(--bg-base)] text-[var(--text-primary)] text-4xl font-normal flex items-center justify-center border-2 border-[var(--bg-surface)]"
               src={user?.avatarUrl}
             >
               {user?.username?.[0]?.toUpperCase() || "M"}
@@ -73,21 +73,20 @@ const MainLayout = ({ children }) => {
           </div>
         </div>
         <div className="text-center mb-6">
-          <h3 className="font-semibold text-lg text-gray-900 m-0">
-            {user?.username || "Michael Brown"}
+          <h3 className="font-bold text-xl text-[var(--text-primary)] m-0 tracking-tight">
+            {user?.username || "Admin"}
           </h3>
-          <div className="flex items-center justify-center gap-1 text-gray-500 text-sm mt-1">
+          <div className="flex items-center justify-center gap-1.5 text-[var(--text-secondary)] text-sm mt-1 font-medium bg-[var(--bg-base)] w-fit mx-auto px-3 py-0.5 rounded-full border border-[var(--color-border)]">
             <LockOutlined className="text-xs" />
             <span>{isAdmin ? "Admin" : "User"}</span>
           </div>
         </div>
-        <div className="pt-2 border-t border-gray-100">
+        <div className="pt-4 border-t border-[var(--color-border)]">
           <Button
             type="text"
-            danger
             icon={<LogoutOutlined />}
             onClick={handleLogout}
-            className="w-full text-left flex items-center justify-start px-2 hover:bg-red-50 font-medium"
+            className="w-full h-11 text-[var(--text-secondary)] flex items-center justify-center px-4 hover:bg-red-500/10 hover:text-red-500 font-semibold rounded-xl transition-all duration-200 border border-transparent hover:border-red-500/20"
           >
             Logout
           </Button>

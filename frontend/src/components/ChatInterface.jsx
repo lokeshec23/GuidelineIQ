@@ -326,7 +326,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                             {conv.last_message}
                                                         </div>
                                                     )}
-                                                    <div className="text-xs text-gray-400 mt-1">
+                                                    <div className="text-xs text-text-secondary mt-1">
                                                         {new Date(conv.updated_at).toLocaleDateString()}
                                                     </div>
                                                 </div>
@@ -487,7 +487,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                                         size="small"
                                                         icon={copiedId === item.id ? <CheckOutlined style={{ color: '#52c41a' }} /> : <CopyOutlined />}
                                                         onClick={() => handleCopy(item.id, item.content)}
-                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 hover:bg-gray-100 z-10"
+                                                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/80 hover:bg-base z-10"
                                                     />
                                                 </Tooltip>
                                             )}
@@ -530,7 +530,7 @@ const ChatInterface = ({ sessionId, data, visible, onClose, selectedRecordIds = 
                                 {globalSuggestions.map((suggestion, idx) => (
                                     <div
                                         key={idx}
-                                        className="chat-suggestion-chip w-full sm:w-auto cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-start gap-1.5 whitespace-normal text-left leading-tight"
+                                        className="chat-suggestion-chip w-full sm:w-auto cursor-pointer bg-accent/10 hover:bg-accent/20 border border-accent/20 text-accent rounded-md px-2.5 py-1.5 text-xs transition-colors flex items-start gap-1.5 whitespace-normal text-left leading-tight"
                                         onClick={() => handleSendMessage(suggestion)}
                                     >
                                         <BulbOutlined style={{ fontSize: '12px', marginTop: '2px' }} />
