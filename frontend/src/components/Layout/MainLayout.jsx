@@ -161,16 +161,16 @@ const MainLayout = ({ children }) => {
       return {
         key: item.key,
         label: (
-          <span className={`ml-1 transition-all duration-200 ${isActive ? "font-semibold text-blue-600" : "text-gray-600"}`}>
+          <span className={`ml-1 transition-all duration-200 ${isActive ? "font-semibold text-[var(--color-accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}>
             {item.label}
           </span>
         ),
         icon: (
-          <div className={`menu-item-icon-wrapper ${isActive ? "text-blue-600" : "text-gray-500"}`}>
+          <div className={`menu-item-icon-wrapper ${isActive ? "text-[var(--color-accent)]" : "text-[var(--text-secondary)]"}`}>
             {React.cloneElement(item.icon, { style: { fontSize: "18px" } })}
           </div>
         ),
-        className: `menu-item-refined ${collapsed ? "sidebar-collapsed-item" : ""}`,
+        className: `menu-item-refined ${collapsed ? "sidebar-collapsed-item" : ""} ${isActive ? "menu-item-active" : ""}`,
       };
     });
   }, [isAdmin, location.pathname, collapsed]);
@@ -263,7 +263,7 @@ const MainLayout = ({ children }) => {
             {/* Collapse Toggle */}
             <div className="flex items-center justify-end p-4 h-14 mb-2">
               {!collapsed && !isMobile && (
-                <span className="text-gray-400 text-xs mr-2 uppercase tracking-wider font-medium">
+                <span className="text-[var(--text-secondary)] text-xs mr-3 uppercase tracking-[0.1em] font-bold opacity-80">
                   Collapse
                 </span>
               )}
@@ -271,7 +271,7 @@ const MainLayout = ({ children }) => {
                 <Button
                   type="text"
                   size="small"
-                  className="text-gray-400 hover:text-gray-600 border border-gray-300 bg-white shadow-sm"
+                  className="text-[var(--text-secondary)] hover:text-[var(--color-accent)] border border-[var(--color-border)] bg-[var(--bg-base)] shadow-sm hover:shadow-md transition-all duration-300"
                   icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                   onClick={() => setCollapsed(!collapsed)}
                 />
