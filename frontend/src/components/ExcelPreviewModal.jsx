@@ -488,28 +488,35 @@ const ExcelPreviewModal = ({
 
                 {/* Content area - table scrolls, footer fixed */}
                 <div
-                    className="p-2 bg-base relative flex flex-col"
-                    style={{ flex: 1, overflow: "hidden" }}
+                    className="p-5 bg-base flex flex-col"
+                    style={{ flex: 1, overflow: "hidden", paddingBottom: "30px" }}
                 >
                     {/* Scrollable table container */}
-                    <div
-                        className="flex-1 overflow-hidden"
-                    >
+                    <div className="flex-1 overflow-visible">
                         <style>{`
-                            /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
-                            .flex-1::-webkit-scrollbar {
+                            /* Custom scrollbar for ALL possible Ant Table scroll containers */
+                            .antd-excel-table *::-webkit-scrollbar {
                                 width: 12px;
                                 height: 12px;
+                                display: block !important;
                             }
-                            .flex-1::-webkit-scrollbar-track {
-                                background: var(--bg-surface);
-                            }
-                            .flex-1::-webkit-scrollbar-thumb {
-                                background: var(--color-border);
+                            .antd-excel-table *::-webkit-scrollbar-track {
+                                background: rgba(0, 0, 0, 0.1) !important;
                                 border-radius: 10px;
                             }
-                            .flex-1::-webkit-scrollbar-thumb:hover {
-                                background: var(--color-accent);
+                            .antd-excel-table *::-webkit-scrollbar-thumb {
+                                background: #1890ff !important; /* High contrast blue for confirmation */
+                                border-radius: 10px;
+                                border: 2px solid rgba(0, 0, 0, 0.1);
+                            }
+                            .antd-excel-table *::-webkit-scrollbar-thumb:hover {
+                                background: #40a9ff !important;
+                            }
+
+                            /* Ensure the container doesn't clip the scrollbar */
+                            .antd-excel-table .ant-table-body,
+                            .antd-excel-table .ant-table-content {
+                                overflow: auto !important;
                             }
 
                             /* Adaptive Excel-like Table Styles */
@@ -529,7 +536,7 @@ const ExcelPreviewModal = ({
                              }
 
                             .antd-excel-column {
-                                min-width: 50px;
+                                min-width: 150px !important;
                             }
                         `}</style>
                              <Table
@@ -541,10 +548,9 @@ const ExcelPreviewModal = ({
                                      setSortedInfo(sorter);
                                  }}
                                  pagination={false}
-                                 scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
+                                 scroll={{ x: "max-content", y: "calc(90vh - 320px)" }}
                                  bordered
                                  size="small"
-                                 tableLayout="fixed"
                              />
                     </div>
 
