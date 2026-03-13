@@ -488,12 +488,12 @@ const IngestPage = () => {
             <AppstoreOutlined /> Guideline Configuration
           </div>
           <div className="mb-4">
-            <p className="text-gray-500 text-sm mb-6">Select investor context and document categories for extraction</p>
+            <p className="text-[var(--text-secondary)] text-sm mb-6">Select investor context and document categories for extraction</p>
           </div>
 
           {/* Investor Selector */}
           <div className="mb-6">
-            <label className="block text-gray-500 font-medium text-sm mb-2">
+            <label className="block text-[var(--text-secondary)] font-medium text-sm mb-2">
               <BankOutlined className="mr-2" /> Investor Context
             </label>
             <Form.Item name="guideline_investor_id" className="mb-0" initialValue="null">
@@ -605,10 +605,10 @@ const IngestPage = () => {
                   <p className="ant-upload-drag-icon">
                     <InboxOutlined style={{ fontSize: '40px', color: '#3b82f6' }} />
                   </p>
-                  <p className="text-base font-semibold text-gray-700">
+                  <p className="text-base font-semibold text-[var(--text-primary)]">
                     Click or drag PDF to this area to upload
                   </p>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="text-[var(--text-secondary)] text-xs mt-1">
                     Multiple files supported
                   </p>
                 </div>
@@ -617,7 +617,7 @@ const IngestPage = () => {
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500 font-medium">
+                <p className="text-sm text-[var(--text-secondary)] font-medium">
                   {files.length} file{files.length !== 1 ? 's' : ''} selected
                 </p>
                 <Space>
@@ -702,7 +702,7 @@ const IngestPage = () => {
               '100%': '#87d068',
             }}
           />
-          <p className="mt-4 text-gray-600 text-center">{progressMessage}</p>
+          <p className="mt-4 text-[var(--text-secondary)] text-center">{progressMessage}</p>
         </div>
       </Modal>
 

@@ -53,7 +53,7 @@ const ManagementPage = () => {
             title: "S.No",
             key: "index",
             width: 80,
-            render: (text, record, index) => <span className="text-gray-500 font-medium">{index + 1}</span>,
+            render: (text, record, index) => <span className="text-[var(--text-secondary)] font-medium">{index + 1}</span>,
         },
         {
             title: "Username",
@@ -64,7 +64,7 @@ const ManagementPage = () => {
                     <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs uppercase border border-blue-100">
                         {text.charAt(0)}
                     </div>
-                    <span className="font-semibold text-gray-800">{text}</span>
+                    <span className="font-semibold text-[var(--text-primary)]">{text}</span>
                 </div>
             ),
         },
@@ -72,7 +72,7 @@ const ManagementPage = () => {
             title: "Email",
             dataIndex: "email",
             key: "email",
-            render: (text) => <span className="text-gray-600">{text}</span>,
+            render: (text) => <span className="text-[var(--text-secondary)]">{text}</span>,
         },
         {
             title: "Role",
@@ -84,7 +84,7 @@ const ManagementPage = () => {
                         value={role || "user"}
                         style={{ width: 130 }}
                         bordered={false}
-                        className="bg-gray-50 rounded-lg admin-role-select"
+                        className="bg-[var(--bg-base)] rounded-lg admin-role-select text-[var(--text-primary)]"
                         onChange={(value) => handleRoleChange(record.id, value)}
                         onClick={(e) => e.stopPropagation()}
                         options={[
@@ -104,7 +104,7 @@ const ManagementPage = () => {
             dataIndex: "created_at",
             key: "created_at",
             render: (date) => (
-                <span className="text-gray-500 text-sm">
+                <span className="text-[var(--text-secondary)] text-sm">
                     {date ? dayjs(date).format("MMM D, YYYY h:mm A") : "N/A"}
                 </span>
             ),
@@ -136,16 +136,16 @@ const ManagementPage = () => {
             {/* Stats Overview */}
             <Row gutter={[24, 24]} className="mb-8">
                 <Col xs={24} sm={8}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
+                    <Card className="shadow-sm border-[var(--color-border)] bg-[var(--bg-surface)] rounded-2xl hover:shadow-md transition-shadow h-full">
                         <Statistic
-                            title={<span className="text-gray-500 font-medium flex items-center gap-2"><TeamOutlined /> Total Users</span>}
+                            title={<span className="text-[var(--text-secondary)] font-medium flex items-center gap-2"><TeamOutlined /> Total Users</span>}
                             value={totalUsers}
-                            valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '28px' }}
+                            valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '28px' }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
+                    <Card className="shadow-sm border-[var(--color-border)] bg-[var(--bg-surface)] rounded-2xl hover:shadow-md transition-shadow h-full">
                         <Statistic
                             title={<span className="text-emerald-500 font-medium flex items-center gap-2"><SafetyCertificateOutlined /> Admins</span>}
                             value={adminCount}
@@ -154,7 +154,7 @@ const ManagementPage = () => {
                     </Card>
                 </Col>
                 <Col xs={24} sm={8}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
+                    <Card className="shadow-sm border-[var(--color-border)] bg-[var(--bg-surface)] rounded-2xl hover:shadow-md transition-shadow h-full">
                         <Statistic
                             title={<span className="text-blue-500 font-medium flex items-center gap-2"><UserOutlined /> Regular Users</span>}
                             value={userCount}
@@ -167,15 +167,15 @@ const ManagementPage = () => {
             {loading ? (
                 <TableSkeleton rows={10} columns={5} />
             ) : (
-                <Card className="shadow-sm border-gray-200 rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
+                <Card className="shadow-sm border-[var(--color-border)] bg-[var(--bg-surface)] rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
                     {/* Table Header Controls */}
-                    <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center">
+                    <div className="p-5 border-b border-[var(--color-border)] bg-[var(--bg-surface)] flex justify-between items-center">
                         <Input
                             placeholder="Search by username or email..."
-                            prefix={<SearchOutlined className="text-gray-400" />}
+                            prefix={<SearchOutlined className="text-[var(--text-secondary)]" />}
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
-                            className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
+                            className="max-w-md h-10 rounded-lg bg-[var(--bg-base)] border-transparent focus:bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)] transition-colors text-[var(--text-primary)]"
                             allowClear
                         />
                     </div>
@@ -193,7 +193,7 @@ const ManagementPage = () => {
                                 className: "pb-2"
                             }}
                             className="custom-table"
-                            rowClassName={() => "hover:bg-blue-50/30 transition-colors"}
+                            rowClassName={() => "hover:bg-blue-500/10 transition-colors"}
                         />
                     </div>
                 </Card>

@@ -267,7 +267,7 @@ const ConfigParametersPage = () => {
             dataIndex: "parameter",
             key: "parameter",
             sorter: (a, b) => a.parameter.localeCompare(b.parameter),
-            render: (text) => <span className="font-semibold text-gray-800">{text}</span>
+            render: (text) => <span className="font-semibold text-[var(--text-primary)]">{text}</span>
         },
         {
             title: "Category",
@@ -284,7 +284,7 @@ const ConfigParametersPage = () => {
             title: "Subcategory",
             dataIndex: "subcategory",
             key: "subcategory",
-            render: (text) => <span className="text-gray-600">{text || "—"}</span>
+            render: (text) => <span className="text-[var(--text-secondary)]">{text || "—"}</span>
         },
         {
             title: "Guideline Type",
@@ -378,19 +378,19 @@ const ConfigParametersPage = () => {
         <div className="max-w-7xl mx-auto pb-10">
             {/* Header / Context Filter Bar */}
             <div className="mb-6">
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 w-full md:w-1/2 flex items-center gap-4">
-                    <span className="text-gray-500 font-semibold text-sm flex items-center gap-2 ml-2 whitespace-nowrap uppercase tracking-wider">
+                <div className="bg-[var(--bg-surface)] p-3 rounded-2xl shadow-sm border border-[var(--color-border)] w-full md:w-1/2 flex items-center gap-4">
+                    <span className="text-[var(--text-secondary)] font-semibold text-sm flex items-center gap-2 ml-2 whitespace-nowrap uppercase tracking-wider">
                         <DatabaseOutlined className="text-blue-500 text-lg" /> Active Context
                     </span>
                     <Select
                         value={selectedInvestorId}
                         onChange={(val) => setSelectedInvestorId(val)}
-                        className="bg-gray-50 rounded-xl investor-select flex-1"
+                        className="bg-[var(--bg-base)] rounded-xl investor-select flex-1"
                         size="large"
                         bordered={false}
                         options={[
-                            { label: <span className="font-medium text-gray-700">General parameters</span>, value: "null" },
-                            ...investors.map(inv => ({ label: <span className="font-medium text-gray-700">{inv.name}</span>, value: inv.id }))
+                            { label: <span className="font-medium text-[var(--text-primary)]">General parameters</span>, value: "null" },
+                            ...investors.map(inv => ({ label: <span className="font-medium text-[var(--text-primary)]">{inv.name}</span>, value: inv.id }))
                         ]}
                     />
                     {isAdmin && (
@@ -409,37 +409,37 @@ const ConfigParametersPage = () => {
             {/* Stats Overview */}
             <Row gutter={[24, 24]} className="mb-8 flex items-stretch">
                 <Col xs={24} md={12}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full flex flex-col justify-center">
+                    <Card className="shadow-sm border-[var(--color-border)] rounded-2xl hover:shadow-md transition-shadow h-full flex flex-col justify-center bg-[var(--bg-surface)]">
                         <Statistic
-                            title={<span className="text-gray-500 font-medium flex items-center gap-2"><AppstoreOutlined /> Total Parameters</span>}
+                            title={<span className="text-[var(--text-secondary)] font-medium flex items-center gap-2"><AppstoreOutlined /> Total Parameters</span>}
                             value={totalParams}
-                            valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '28px' }}
+                            valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '28px' }}
                             formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "60px", height: "38px", borderRadius: "6px" }} /> : val}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} md={12}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
-                        <span className="text-gray-500 font-medium flex items-center gap-2 mb-3 text-sm"><TagsOutlined /> Types Breakdown</span>
+                    <Card className="shadow-sm border-[var(--color-border)] rounded-2xl hover:shadow-md transition-shadow h-full bg-[var(--bg-surface)]">
+                        <span className="text-[var(--text-secondary)] font-medium flex items-center gap-2 mb-3 text-sm"><TagsOutlined /> Types Breakdown</span>
                         <div className="flex justify-between items-center w-full">
                             <Statistic
                                 title={<span className="text-blue-500 font-semibold text-[11px] uppercase tracking-wider">DSCR</span>}
                                 value={dscrCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '20px' }}
                                 formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
-                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
+                            <Divider type="vertical" className="h-8 border-[var(--color-border)] mx-1 lg:mx-2" />
                             <Statistic
                                 title={<span className="text-green-500 font-semibold text-[11px] uppercase tracking-wider">Full Doc</span>}
                                 value={fullDocCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '20px' }}
                                 formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
-                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
+                            <Divider type="vertical" className="h-8 border-[var(--color-border)] mx-1 lg:mx-2" />
                             <Statistic
                                 title={<span className="text-purple-500 font-semibold text-[11px] uppercase tracking-wider">Alt Doc</span>}
                                 value={altDocCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                valueStyle={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '20px' }}
                                 formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
                             />
                         </div>
@@ -448,15 +448,15 @@ const ConfigParametersPage = () => {
             </Row>
 
             {/* Main Content Area */}
-            <Card className="shadow-sm border-gray-200 rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
+            <Card className="shadow-sm border-[var(--color-border)] rounded-2xl overflow-hidden bg-[var(--bg-surface)]" bordered={false} bodyStyle={{ padding: 0 }}>
                 {/* Table Header Controls */}
-                <div className="p-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="p-5 border-b border-[var(--color-border)] bg-[var(--bg-surface)] flex flex-col sm:flex-row justify-between items-center gap-4">
                     <Input
                         placeholder="Search parameters or categories..."
                         prefix={<SearchOutlined className="text-gray-400" />}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
-                        className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
+                        className="max-w-md h-10 rounded-lg bg-[var(--bg-base)] border-transparent focus:bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)] transition-colors text-[var(--text-primary)]"
                         allowClear
                     />
                     <div className="flex gap-3 w-full sm:w-auto">
@@ -525,7 +525,7 @@ const ConfigParametersPage = () => {
             {/* Parameter Modal */}
             <Modal
                 title={
-                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                    <div className="flex items-center gap-2 text-[var(--text-primary)] text-lg font-semibold">
                         {editingParam ? <EditOutlined className="text-blue-500" /> : <PlusOutlined className="text-blue-500" />}
                         {editingParam ? "Edit Parameter" : "Add New Parameter"}
                     </div>
@@ -550,44 +550,44 @@ const ConfigParametersPage = () => {
                 >
                     <Form.Item
                         name="parameter"
-                        label={<span className="font-medium text-gray-700">Parameter Name</span>}
+                        label={<span className="font-medium text-[var(--text-primary)]">Parameter Name</span>}
                         rules={[{ required: true, message: "Please enter parameter name" }]}
                     >
-                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-[var(--bg-base)] text-[var(--text-primary)] focus:bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)]" />
                     </Form.Item>
 
                     <div className="grid grid-cols-2 gap-5 mt-2">
                         <Form.Item
                             name="category"
-                            label={<span className="font-medium text-gray-700">Category</span>}
+                            label={<span className="font-medium text-[var(--text-primary)]">Category</span>}
                             rules={[{ required: true, message: "Please enter category" }]}
                         >
-                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-[var(--bg-base)] text-[var(--text-primary)] focus:bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)]" />
                         </Form.Item>
 
                         <Form.Item
                             name="subcategory"
-                            label={<span className="font-medium text-gray-700">Subcategory</span>}
+                            label={<span className="font-medium text-[var(--text-primary)]">Subcategory</span>}
                             initialValue="Feature Eligibility"
                         >
-                            <Input placeholder="Optional" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                            <Input placeholder="Optional" className="h-11 rounded-lg bg-[var(--bg-base)] text-[var(--text-primary)] focus:bg-[var(--bg-surface)] hover:bg-[var(--bg-surface)]" />
                         </Form.Item>
                     </div>
 
                     <Form.Item
                         name="guideline_type"
-                        label={<span className="font-medium text-gray-700">Guideline Compatibility</span>}
+                        label={<span className="font-medium text-[var(--text-primary)]">Guideline Compatibility</span>}
                         rules={[{ required: true, message: "Please select at least one guideline type" }]}
                         className="mt-2 mb-0"
                     >
                         <Checkbox.Group
                             onChange={handleGuidelineTypeChange}
-                            className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
+                            className="w-full bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--color-border)]"
                         >
                             <div className="flex gap-6 flex-wrap">
                                 {GUIDELINE_TYPE_OPTIONS.map(option => (
                                     <Checkbox key={option} value={option}>
-                                        <span className="text-gray-700 font-medium ml-1">{option}</span>
+                                        <span className="text-[var(--text-primary)] font-medium ml-1">{option}</span>
                                     </Checkbox>
                                 ))}
                             </div>
@@ -599,7 +599,7 @@ const ConfigParametersPage = () => {
             {/* Import from General Parameters Modal */}
             <Modal
                 title={
-                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                    <div className="flex items-center gap-2 text-[var(--text-primary)] text-lg font-semibold">
                         <DownloadOutlined className="text-blue-500" />
                         Import from General Parameters
                     </div>
@@ -626,7 +626,7 @@ const ConfigParametersPage = () => {
                         prefix={<SearchOutlined className="text-gray-400" />}
                         value={importSearchText}
                         onChange={e => setImportSearchText(e.target.value)}
-                        className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white"
+                        className="h-10 rounded-lg bg-[var(--bg-base)] border-transparent focus:bg-[var(--bg-surface)] text-[var(--text-primary)]"
                         allowClear
                     />
 
@@ -668,7 +668,7 @@ const ConfigParametersPage = () => {
                                     }
                                 }}
                             >
-                                <span className="text-sm font-medium text-gray-600">Select All Visible</span>
+                                <span className="text-sm font-medium text-[var(--text-secondary)]">Select All Visible</span>
                             </Checkbox>
                             <span className="text-xs text-gray-400 font-medium">
                                 {selectedParamIds.length} selected
@@ -677,7 +677,7 @@ const ConfigParametersPage = () => {
                     )}
 
                     {/* Parameter list */}
-                    <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
+                    <div className="max-h-80 overflow-y-auto border border-[var(--color-border)] rounded-xl divide-y divide-[var(--color-border)]">
                         {generalParamsLoading ? (
                             <div className="p-6">
                                 <TableSkeleton rows={5} columns={3} />
@@ -699,7 +699,7 @@ const ConfigParametersPage = () => {
                                 .map(param => (
                                     <div
                                         key={param.id}
-                                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-blue-50/50 ${selectedParamIds.includes(param.id) ? "bg-blue-50" : "bg-white"
+                                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-blue-500/10 ${selectedParamIds.includes(param.id) ? "bg-blue-500/10" : "bg-[var(--bg-surface)]"
                                             }`}
                                         onClick={() => setSelectedParamIds(prev =>
                                             prev.includes(param.id)
@@ -712,8 +712,8 @@ const ConfigParametersPage = () => {
                                             onChange={() => { }}
                                         />
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-gray-800 text-sm truncate">{param.parameter}</div>
-                                            <div className="text-xs text-gray-400 mt-0.5">
+                                            <div className="font-semibold text-[var(--text-primary)] text-sm truncate">{param.parameter}</div>
+                                            <div className="text-xs text-[var(--text-secondary)] mt-0.5">
                                                 <Tag className="bg-blue-50 text-blue-500 border-blue-100 text-[11px] px-2 py-0 rounded-full">{param.category}</Tag>
                                                 {param.subcategory && <span className="ml-1">{param.subcategory}</span>}
                                             </div>
@@ -745,7 +745,7 @@ const ConfigParametersPage = () => {
             {/* Manage Investors Modal */}
             <Modal
                 title={
-                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                    <div className="flex items-center gap-2 text-[var(--text-primary)] text-lg font-semibold">
                         <TeamOutlined className="text-blue-500" />
                         Manage Contexts (Investors)
                     </div>
@@ -758,7 +758,7 @@ const ConfigParametersPage = () => {
                 centered
             >
                 <div className="mb-6 mt-4">
-                    <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                    <div className="bg-[var(--bg-base)] p-5 rounded-xl border border-[var(--color-border)]">
                         <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
                             {editingInvestor ? "Edit Context" : "Add New Context"}
                         </span>
@@ -773,7 +773,7 @@ const ConfigParametersPage = () => {
                                 rules={[{ required: true, message: 'Name is required' }]}
                                 className="flex-grow m-0"
                             >
-                                <Input placeholder="e.g. Rocket Mortgage" className="h-10 rounded-lg" />
+                                <Input placeholder="e.g. Rocket Mortgage" className="h-10 rounded-lg bg-[var(--bg-surface)] text-[var(--text-primary)]" />
                             </Form.Item>
                             <Form.Item className="m-0">
                                 <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-10 px-6 rounded-lg font-medium shadow-sm">
@@ -792,15 +792,15 @@ const ConfigParametersPage = () => {
                 </div>
 
                 <div className="flex items-center justify-between mb-3 mt-8">
-                    <span className="text-sm tracking-wide uppercase text-gray-500 font-bold">Existing Contexts</span>
-                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">{investors.length} Total</span>
+                    <span className="text-sm tracking-wide uppercase text-[var(--text-secondary)] font-bold">Existing Contexts</span>
+                    <span className="bg-[var(--bg-base)] text-[var(--text-primary)] px-2 py-0.5 rounded-full text-xs font-semibold">{investors.length} Total</span>
                 </div>
 
-                <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-xl">
+                <div className="max-h-72 overflow-y-auto border border-[var(--color-border)] rounded-xl">
                     {investors.length === 0 ? (
-                        <div className="text-center py-10 bg-gray-50">
-                            <DatabaseOutlined className="text-3xl text-gray-300 mb-2 block mx-auto" />
-                            <div className="text-gray-400 font-medium">No contexts added yet</div>
+                        <div className="text-center py-10 bg-[var(--bg-base)]">
+                            <DatabaseOutlined className="text-3xl text-[var(--text-secondary)] mb-2 block mx-auto" />
+                            <div className="text-[var(--text-secondary)] font-medium">No contexts added yet</div>
                         </div>
                     ) : (
                         <Table
@@ -814,7 +814,7 @@ const ConfigParametersPage = () => {
                                     title: "Name",
                                     dataIndex: "name",
                                     key: "name",
-                                    render: (text) => <span className="font-semibold text-gray-700">{text}</span>
+                                    render: (text) => <span className="font-semibold text-[var(--text-primary)]">{text}</span>
                                 },
                                 {
                                     title: "Actions",

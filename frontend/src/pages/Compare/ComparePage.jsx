@@ -604,7 +604,7 @@ const ComparePage = () => {
             <CloudUploadOutlined /> Access the stored information
           </div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-gray-500 text-sm">Select exactly 2 guidelines to compare</p>
+            {/* <p className="text-gray-500 text-sm">Select exactly 2 guidelines to compare</p> */}
             <Input
               placeholder="Search history..."
               prefix={<SearchOutlined className="text-gray-400" />}

@@ -5,8 +5,8 @@
 }
 
 .ingest-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
@@ -20,7 +20,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #1e293b;
+    color: var(--text-primary);
 }
 
 .ingest-card-title .anticon {
@@ -30,7 +30,7 @@
 /* Form Styles */
 .ant-form-item-label label {
     font-weight: 500 !important;
-    color: #64748b !important;
+    color: var(--text-secondary) !important;
 }
 
 .ant-input-lg,
@@ -41,8 +41,8 @@
 
 /* Custom Ingest Card from old code cleanup */
 .guideline-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 24px;
 }
@@ -50,13 +50,13 @@
 .guideline-card__title {
     font-size: 16px;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .guideline-card__subtitle {
     font-size: 13px;
-    color: #64748b;
+    color: var(--text-secondary);
     margin: 4px 0 0 0;
 }
 
@@ -71,7 +71,7 @@
 .chip-controls__label {
     font-size: 14px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--text-secondary);
 }
 
 .chip-controls__toggle {
@@ -93,27 +93,27 @@
 .guideline-chip {
     padding: 8px 16px;
     border-radius: 20px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border: 1px solid var(--color-border);
+    background: var(--bg-base);
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 13px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--text-secondary);
     transition: all 0.2s ease;
 }
 
 .guideline-chip:hover {
-    border-color: #cbd5e1;
-    background: #f1f5f9;
+    border-color: var(--color-accent);
+    background: var(--bg-surface);
 }
 
 .guideline-chip--dscr {
-    background: #eff6ff !important;
-    border-color: #bfdbfe !important;
-    color: #1d4ed8 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+    border-color: var(--color-accent) !important;
+    color: var(--color-accent) !important;
 }
 
 .chip-icon {
@@ -124,14 +124,14 @@
 
 /* Upload Area */
 .upload-wrapper {
-    border: 2px dashed #e2e8f0;
+    border: 2px dashed var(--color-border);
     border-radius: 12px;
     transition: all 0.2s ease;
 }
 
 .upload-wrapper:hover {
-    border-color: #3b82f6;
-    background: #f8fafc;
+    border-color: var(--color-accent);
+    background: var(--bg-base);
 }
 
 .file-item {
@@ -139,8 +139,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-surface);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     margin-bottom: 10px;
     transition: all 0.2s ease;
@@ -163,20 +163,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f1f5f9;
+    background: var(--bg-base);
     border-radius: 8px;
-    color: #64748b;
+    color: var(--text-secondary);
 }
 
 .file-name {
     font-size: 14px;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .file-size {
     font-size: 12px;
-    color: #64748b;
+    color: var(--text-secondary);
     margin: 0;
 }
