@@ -48,7 +48,6 @@
 /* Ant Design Table Overrides - Minimalist */
 .ant-table-wrapper {
     border-radius: 8px;
-    overflow: hidden;
 }
 
 .ant-table-thead>tr>th {

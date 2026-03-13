@@ -585,7 +585,7 @@ const DashboardPage = () => {
                                     loading={loading}
                                     rowKey="id"
                                     bordered
-                                    scroll={filteredIngestHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
+                                    scroll={filteredIngestHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 420px)' } : undefined}
                                     pagination={{
                                         pageSize: 10,
                                         showSizeChanger: true,
@@ -623,7 +623,7 @@ const DashboardPage = () => {
                                     loading={loading}
                                     rowKey="id"
                                     bordered
-                                    scroll={filteredCompareHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
+                                    scroll={filteredCompareHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 420px)' } : undefined}
                                     pagination={{
                                         pageSize: 10,
                                         showSizeChanger: true,
