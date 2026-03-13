@@ -3,6 +3,25 @@
 @tailwind utilities;
 /* import 'antd/dist/reset.css'; */
 
+@layer base {
+  :root {
+    --bg-base: #FAFAFA;
+    --bg-surface: #FFFFFF;
+    --color-accent: #2563EB;
+    --color-success: #10B981;
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+  }
+
+  .dark {
+    --bg-base: #0B0E14;
+    --bg-surface: #151921;
+    --color-accent: #3B82F6;
+    --color-success: #10B981;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+  }
+}
 
 /* to load font */
 @font-face {
@@ -45,18 +64,19 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1890ff;
+  background: var(--color-accent);
   border-radius: 1px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #40a9ff;
+  background: var(--color-accent);
+  opacity: 0.8;
 }
 
 /* Firefox support */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1890ff transparent;
+  scrollbar-color: var(--color-accent) transparent;
 }
 
 /* ===== Global Button Standardization ===== */
@@ -78,8 +98,8 @@ body,
 
 /* Primary (positive/contained) — filled blue */
 .ant-btn-primary {
-  background: #2563eb !important;
-  border-color: #2563eb !important;
+  background: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
   color: #fff !important;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2) !important;
 }
@@ -178,7 +198,8 @@ body {
   font-family: "Jura", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f0f2f5;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
   /* A slightly softer background color */
 }
 
@@ -197,7 +218,7 @@ code {
 }
 
 :where(.css-dev-only-do-not-override-11mmrso).ant-layout-header {
-  background-color: #fff !important;
+  background-color: var(--bg-surface) !important;
 }
 
 /*  Auth page background */

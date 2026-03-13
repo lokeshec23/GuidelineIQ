@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import MainLayout from "./components/Layout/MainLayout";
 import { PromptProvider } from "./context/PromptContext";
 import { Spin } from "antd";
@@ -194,46 +195,48 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <PromptProvider>
-          <AppRoutes />
-          <Toaster
-            position="bottom-right"
-            reverseOrder={false}
-            gutter={8}
-            containerStyle={{
-              bottom: 20,
-              right: 20,
-            }}
-            toastOptions={{
-              // Default options for all toasts
-              duration: 3000,
-              style: {
-                borderRadius: '8px',
-                background: '#333',
-                color: '#fff',
-                padding: '12px 16px',
-                fontSize: '14px',
-                maxWidth: '500px',
-              },
-              // Specific options for success toasts
-              success: {
+        <ThemeProvider>
+          <PromptProvider>
+            <AppRoutes />
+            <Toaster
+              position="bottom-right"
+              reverseOrder={false}
+              gutter={8}
+              containerStyle={{
+                bottom: 20,
+                right: 20,
+              }}
+              toastOptions={{
+                // Default options for all toasts
                 duration: 3000,
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
+                style: {
+                  borderRadius: '8px',
+                  background: '#333',
+                  color: '#fff',
+                  padding: '12px 16px',
+                  fontSize: '14px',
+                  maxWidth: '500px',
                 },
-              },
-              // Specific options for error toasts
-              error: {
-                duration: 4000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
+                // Specific options for success toasts
+                success: {
+                  duration: 3000,
+                  iconTheme: {
+                    primary: '#10b981',
+                    secondary: '#fff',
+                  },
                 },
-              },
-            }}
-          />
-        </PromptProvider>
+                // Specific options for error toasts
+                error: {
+                  duration: 4000,
+                  iconTheme: {
+                    primary: '#ef4444',
+                    secondary: '#fff',
+                  },
+                },
+              }}
+            />
+          </PromptProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

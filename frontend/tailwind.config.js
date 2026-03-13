@@ -2,6 +2,7 @@
 const defaultTheme = require("tailwindcss/defaultTheme"); // ✅ Import defaultTheme
 
 module.exports = {
+  darkMode: 'class',
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
@@ -13,8 +14,14 @@ module.exports = {
         poppins: ["Poppins", ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: "#1890ff",
-        secondary: "#52c41a",
+        base: "var(--bg-base)",
+        surface: "var(--bg-surface)",
+        accent: "var(--color-accent)",
+        success: "var(--color-success)",
+        "text-primary": "var(--text-primary)",
+        "text-secondary": "var(--text-secondary)",
+        primary: "var(--color-accent)", // Update to our accent
+        secondary: "var(--color-success)", // Update to our success
       },
     },
   },

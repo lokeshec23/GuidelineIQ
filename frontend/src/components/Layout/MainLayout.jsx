@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Layout, Menu, Avatar, Dropdown, Badge, Button } from "antd";
+import { Layout, Menu, Avatar, Dropdown, Button, Switch } from "antd";
 import {
   FileTextOutlined,
   SwapOutlined,
@@ -12,18 +12,22 @@ import {
   AppstoreOutlined,
   MessageOutlined,
   LikeOutlined,
+  BulbOutlined,
+  BulbFilled,
   ArrowRightOutlined,
   EditOutlined,
   TeamOutlined,
   SlidersOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = ({ children }) => {
   const { user, logout, isAdmin } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -172,10 +176,10 @@ const MainLayout = ({ children }) => {
   }, [isAdmin, location.pathname, collapsed]);
 
   return (
-    <Layout className="h-screen overflow-hidden font-sans bg-white">
+    <Layout className="h-screen overflow-hidden font-sans bg-base text-text-primary">
       {/* HEADER */}
       <Header
-        className="bg-white shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200"
+        className="bg-surface shadow-sm flex items-center justify-between px-6 fixed w-full z-20 border-b border-gray-200 dark:border-gray-800"
         style={{ paddingInline: "24px", height: "56px" }}
       >
         <div className="flex items-center gap-3">
@@ -200,6 +204,13 @@ const MainLayout = ({ children }) => {
         </div>
 
         <div className="flex items-center gap-5">
+          <Button
+            type="text"
+            icon={isDarkMode ? <BulbFilled className="text-yellow-400" /> : <BulbOutlined className="text-gray-500" />}
+            onClick={toggleTheme}
+            className="flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800"
+          />
+
           {/* <Badge count={3} size="small" offset={[-2, 2]} color="#1890ff">
             <Button
               type="text"
@@ -242,12 +253,12 @@ const MainLayout = ({ children }) => {
             top: "56px",
             height: "calc(100vh - 56px)",
             zIndex: isMobile ? 1000 : 10,
-            background: "#f8fafc",
+            background: "var(--bg-surface)",
             transition: "all 0.3s cubic-bezier(0.2, 0, 0, 1)",
           }}
-          className="border-r border-gray-200 h-full flex flex-col justify-between sidebar-refined"
+          className="border-r border-gray-200 dark:border-gray-800 h-full flex flex-col justify-between sidebar-refined"
         >
-          <div className="flex flex-col h-full bg-[#f9fafb] pb-6">
+          <div className="flex flex-col h-full bg-surface pb-6">
             {/* Collapse Toggle */}
             <div className="flex items-center justify-end p-4 h-14 mb-2">
               {!collapsed && !isMobile && (
@@ -325,13 +336,13 @@ const MainLayout = ({ children }) => {
 
         {/* MAIN CONTENT */}
         <Layout
-          className="bg-white transition-all duration-300 ease-in-out"
+          className="bg-base transition-all duration-300 ease-in-out"
           style={{
             marginLeft: isMobile ? 0 : (collapsed ? "80px" : "260px"),
             width: isMobile ? "100vw" : (collapsed ? "calc(100vw - 80px)" : "calc(100vw - 260px)")
           }}
         >
-          <Content className="h-full overflow-y-auto p-8 bg-white">
+          <Content className="h-full overflow-y-auto p-8 bg-base">
             {children}
           </Content>
         </Layout>
