@@ -165,12 +165,13 @@ const MainLayout = ({ children }) => {
             {item.label}
           </span>
         ),
-        icon: (
-          <div className={`menu-item-icon-wrapper ${isActive ? "text-[var(--color-accent)]" : "text-[var(--text-secondary)]"}`}>
-            {React.cloneElement(item.icon, { style: { fontSize: "18px" } })}
-          </div>
-        ),
-        className: `menu-item-refined ${collapsed ? "sidebar-collapsed-item" : ""} ${isActive ? "menu-item-active" : ""}`,
+        icon: React.cloneElement(item.icon, { 
+          style: { 
+            fontSize: "20px",
+            color: isActive ? "var(--color-accent)" : "var(--text-secondary)"
+          } 
+        }),
+        className: `menu-item-refined ${isActive ? "menu-item-active" : ""}`,
       };
     });
   }, [isAdmin, location.pathname, collapsed]);
@@ -291,6 +292,7 @@ const MainLayout = ({ children }) => {
             <div className="flex-grow overflow-y-auto custom-scrollbar px-1">
               <Menu
                 mode="inline"
+                inlineCollapsed={collapsed}
                 selectedKeys={[location.pathname]}
                 items={menuItems}
                 onClick={({ key }) => navigate(key)}

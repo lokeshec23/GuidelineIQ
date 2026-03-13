@@ -529,6 +529,23 @@ code {
   width: calc(100% - 24px) !important;
   border-radius: 12px !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 16px !important;
+}
+
+/* Adjust for collapsed state */
+.ant-layout-sider-collapsed .sidebar-refined .ant-menu-item {
+  margin: 6px 8px !important;
+  width: calc(100% - 16px) !important;
+  padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.ant-layout-sider-collapsed .sidebar-refined .ant-menu-item .ant-menu-item-icon {
+  margin: 0 !important;
+  line-height: 1 !important;
 }
 
 .sidebar-refined .ant-menu-item:hover {
@@ -553,27 +570,21 @@ code {
   content: "";
   position: absolute;
   left: 0;
-  top: 12px;
-  bottom: 12px;
-  width: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
   background: var(--color-accent);
   border-radius: 0 4px 4px 0;
-  box-shadow: 0 0 10px var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+  transition: all 0.3s ease;
 }
 
-.sidebar-collapsed-item {
-  margin: 6px 8px !important;
-  width: calc(100% - 16px) !important;
-  display: flex !important;
-  justify-content: center !important;
-  padding: 0 !important;
-}
-
-.sidebar-collapsed-item .menu-item-icon-wrapper {
-  margin: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+/* Hide indicator line in collapsed mode for cleaner center look if desired, 
+   but usually users like it. Let's make it more subtle in collapsed mode. */
+.ant-layout-sider-collapsed .menu-item-active::before {
+  left: 0;
+  top: 12px;
+  bottom: 12px;
 }
 
 .menu-item-refined span {
