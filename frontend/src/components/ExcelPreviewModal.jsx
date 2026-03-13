@@ -513,36 +513,39 @@ const ExcelPreviewModal = ({
                             }
 
                             /* Adaptive Excel-like Table Styles */
-                            .antd-excel-table .ant-table-thead > tr > th {
-                                border-bottom: 1px solid var(--color-border) !important;
-                                border-right: 1px solid var(--color-border) !important;
-                                text-align: center !important;
-                            }
+                             .antd-excel-table .ant-table-thead > tr > th {
+                                 border-bottom: 1px solid var(--color-border) !important;
+                                 border-right: 1px solid var(--color-border) !important;
+                                 text-align: left !important;
+                                 padding: 12px 12px !important;
+                             }
                             
-                            .antd-excel-table .ant-table-tbody > tr > td {
-                                border-right: 1px solid var(--color-border) !important;
-                                border-bottom: 1px solid var(--color-border) !important;
-                                vertical-align: top !important;
-                                padding: 6px 12px !important;
-                            }
+                             .antd-excel-table .ant-table-tbody > tr > td {
+                                 border-right: 1px solid var(--color-border) !important;
+                                 border-bottom: 1px solid var(--color-border) !important;
+                                 vertical-align: top !important;
+                                 padding: 12px 12px !important;
+                                 text-align: left !important;
+                             }
 
                             .antd-excel-column {
                                 min-width: 50px;
                             }
                         `}</style>
-                        <Table
-                            dataSource={paginatedData}
-                            columns={tableColumns}
-                            className="antd-excel-table"
-                            onChange={(pagination, filters, sorter) => {
-                                setFilteredInfo(filters);
-                                setSortedInfo(sorter);
-                            }}
-                            pagination={false}
-                            scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
-                            bordered
-                            size="small"
-                        />
+                             <Table
+                                 dataSource={paginatedData}
+                                 columns={tableColumns}
+                                 className="antd-excel-table"
+                                 onChange={(pagination, filters, sorter) => {
+                                     setFilteredInfo(filters);
+                                     setSortedInfo(sorter);
+                                 }}
+                                 pagination={false}
+                                 scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
+                                 bordered
+                                 size="small"
+                                 tableLayout="fixed"
+                             />
                     </div>
 
                     {/* Footer - fixed inside modal */}
