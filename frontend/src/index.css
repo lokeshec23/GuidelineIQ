@@ -12,6 +12,8 @@
     --text-primary: #1E293B;
     --text-secondary: #64748B;
     --color-border: #E2E8F0;
+    --transition-speed: 0.3s;
+    --transition-curve: ease;
   }
 
   .dark {
@@ -22,6 +24,18 @@
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
     --color-border: #334155;
+  }
+
+  * {
+    transition: background-color var(--transition-speed) var(--transition-curve),
+                border-color var(--transition-speed) var(--transition-curve);
+  }
+
+  /* View Transition customization for premium feel */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.4s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 

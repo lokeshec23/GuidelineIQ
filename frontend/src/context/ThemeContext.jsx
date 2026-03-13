@@ -18,7 +18,15 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [isDarkMode]);
 
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
+  const toggleTheme = () => {
+    if (!document.startViewTransition) {
+      setIsDarkMode(prev => !prev);
+      return;
+    }
+    document.startViewTransition(() => {
+      setIsDarkMode(prev => !prev);
+    });
+  };
 
   // Map our premium colors to Ant Design tokens
   // Light mode: base is FAFAFA, surface is FFFFFF
