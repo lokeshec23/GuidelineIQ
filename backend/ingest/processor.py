@@ -263,13 +263,15 @@ async def process_guideline_background(
 
                     # Prepare documents for embedding
                     items_to_embed = []
+                    dynamic_col_name = f"{investor}_{version}"
+                    
                     for idx, item in enumerate(dscr_results):
                         # Skip items with no useful info
-                        summary = item.get('NQMF Investor DSCR', '')
-                        if not summary or summary in ["Not present", "NA", "Error extraction", "No summary provided."]:
+                        summary = item.get(dynamic_col_name, item.get('NQMF Investor DSCR', ''))
+                        if not summary or summary in ["Not present", "NA", "N/A", "Error extraction", "No summary provided."]:
                             continue
                             
-                        # keys in dscr_results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, NQMF Investor DSCR
+                        # keys in dscr_results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, {investor}_{version}
                         text_content = f"Parameter: {item['DSCR_Parameters']}\n" \
                                        f"Category: {item.get('Variance_Category', '')} - {item.get('SubCategory', '')}\n" \
                                        f"Rule/Guideline: {summary}"

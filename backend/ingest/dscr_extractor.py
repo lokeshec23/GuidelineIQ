@@ -117,7 +117,7 @@ async def extract_dscr_parameters_safe(
                         "Variance_Category": category,
                         "SubCategory": subcategory,
                         "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": "Not present"
+                        f"{investor}_{version}": "Not present"
                     }
                 
                 # Enhanced Prompt for Detailed Extraction
@@ -158,7 +158,7 @@ async def extract_dscr_parameters_safe(
                         "Variance_Category": category,
                         "SubCategory": subcategory,
                         "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": data_json.get("summary", "No summary provided.")
+                        f"{investor}_{version}": data_json.get("summary", "No summary provided.")
                     }
                 except Exception as json_err:
                     print(f"JSON Parse Error for {param}: {json_err}")
@@ -167,7 +167,7 @@ async def extract_dscr_parameters_safe(
                         "Variance_Category": category,
                         "SubCategory": subcategory,
                         "PPE_Field_Type": ppe_field,
-                        "NQMF Investor DSCR": response_text.strip()
+                        f"{investor}_{version}": response_text.strip()
                     }
                 
             except Exception as e:
@@ -177,7 +177,7 @@ async def extract_dscr_parameters_safe(
                     "Variance_Category": category,
                     "SubCategory": subcategory, 
                     "PPE_Field_Type": ppe_field,
-                    "NQMF Investor DSCR": "Error extraction"
+                    f"{investor}_{version}": "Error extraction"
                 }
 
     # Execute
@@ -320,6 +320,9 @@ async def summarize_dscr_aggregated_results(
         async with semaphore:
             extractions = param_data["extractions"]
             
+            # Use dynamic column name
+            dynamic_col_name = f"{param_data.get('investor', 'NQMF Investor')}_{param_data.get('version', 'DSCR')}"
+            
             # If only one extraction or all are "Not present", no summarization needed
             unique_summaries = set(e["summary"] for e in extractions)
             
@@ -329,9 +332,9 @@ async def summarize_dscr_aggregated_results(
                     "Variance_Category": param_data["category"],
                     "SubCategory": param_data["subcategory"],
                     "PPE_Field_Type": param_data["ppe_field"],
-                    "NQMF Investor DSCR": extractions[0]["summary"]
+                    dynamic_col_name: extractions[0]["summary"]
                 }
-            
+
             # Check if all are "Not present" or similar
             if all(s.lower().strip() in ["not present", "na", "n/a", "none"] or "not found" in s.lower() or "error" in s.lower() for s in unique_summaries):
                 return {
@@ -339,7 +342,7 @@ async def summarize_dscr_aggregated_results(
                     "Variance_Category": param_data["category"],
                     "SubCategory": param_data["subcategory"],
                     "PPE_Field_Type": param_data["ppe_field"],
-                    "NQMF Investor DSCR": "Not present"
+                    dynamic_col_name: "Not present"
                 }
             
             # Build context for LLM
@@ -402,7 +405,7 @@ Be concise but complete. If information is consistent across PDFs, state it once
                 "Variance_Category": param_data["category"],
                 "SubCategory": param_data["subcategory"],
                 "PPE_Field_Type": param_data["ppe_field"],
-                "NQMF Investor DSCR": summarized_text
+                dynamic_col_name: summarized_text
             }
     
     # Summarize all parameters concurrently
@@ -430,7 +433,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type", 
-        f"NQMF Investor DSCR (1-4 Units) Generated {datetime.date.today()}"
+        f"{investor}_{version} (1-4 Units) Generated {datetime.date.today()}"
     ]
     
     ws.append(headers)
@@ -472,7 +475,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
             item.get('Variance_Category', ''),  # Column B
             item.get('SubCategory', ''),    # Column C
             item.get('PPE_Field_Type', ''), # Column D
-            item['NQMF Investor DSCR']     # Column E
+            item.get(f"{investor}_{version}", "Not present")     # Column E
         ]
         ws.append(row)
         
@@ -572,7 +575,7 @@ def create_dscr_excel_multi_pdf(
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type",  # Header name (content is Hard/Soft classification)
-        f"NQMF Investor DSCR (Aggregated from {len(pdf_filenames)} PDFs)"
+        f"{investor}_{version} (Aggregated from {len(pdf_filenames)} PDFs)"
     ]
     
     ws.append(headers)
@@ -608,7 +611,7 @@ def create_dscr_excel_multi_pdf(
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
             item.get('Hard_Soft_Classification', ''),  # Replaced PPE_Field_Type
-            item['NQMF Investor DSCR']
+            item.get(f"{investor}_{version}", "Not present")
         ]
         ws.append(row)
         
@@ -623,7 +626,7 @@ def create_dscr_excel_multi_pdf(
                 cell.fill = fill_light_green 
             elif col_idx == 4:  # Hard/Soft column
                 cell.fill = fill_light_yellow
-            elif col_idx == 5:  # NQMF Investor DSCR column
+            elif col_idx == 5:  # Dynamic Investor_Version column
                 cell.fill = fill_light_yellow
 
     # Column Widths
@@ -631,7 +634,7 @@ def create_dscr_excel_multi_pdf(
     ws.column_dimensions['B'].width = 25
     ws.column_dimensions['C'].width = 25
     ws.column_dimensions['D'].width = 12  # Hard/Soft column
-    ws.column_dimensions['E'].width = 80  # NQMF Investor DSCR column
+    ws.column_dimensions['E'].width = 80  # Dynamic Investor_Version column
     
     # File Path
     filename = f"{investor}_{version}_{session_id[:8]}.xlsx"

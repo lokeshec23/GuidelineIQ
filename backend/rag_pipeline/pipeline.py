@@ -24,6 +24,8 @@ from rag_pipeline.extraction.llm_verifier import LLMVerifier
 
 logger = logging.getLogger(__name__)
 
+DSCR_COL_PREFIX = "NQMF Investor DSCR" # Legacy fallback
+
 
 class RAGPipeline:
     """
@@ -193,7 +195,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "HARD",
-                            "NQMF Investor DSCR": extraction_result.hard_value,
+                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": extraction_result.hard_value,
                             "Classification": "Extracted",
                             "Notes": self._format_citations(extraction_result.hard_citations),
                             "_verification": verification_result.to_dict() if verification_result else None
@@ -207,7 +209,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "SOFT",
-                            "NQMF Investor DSCR": extraction_result.soft_value,
+                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": extraction_result.soft_value,
                             "Classification": "Extracted",
                             "Notes": self._format_citations(extraction_result.soft_citations),
                             "_verification": verification_result.to_dict() if verification_result else None
@@ -221,7 +223,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "",
-                            "NQMF Investor DSCR": "Not present",
+                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": "Not present",
                             "Classification": "Not Found",
                             "Notes": "",
                             "_verification": None
@@ -237,7 +239,7 @@ class RAGPipeline:
                         "SubCategory": param_config.get("subcategory", "General"),
                         "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                         "Hard_Soft_Classification": "",
-                        "NQMF Investor DSCR": "Error during extraction",
+                        f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": "Error during extraction",
                         "Classification": "Clarification Required",
                         "Notes": f"Error: {str(e)}",
                         "_verification": None
