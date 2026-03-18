@@ -443,7 +443,56 @@ const IngestPage = () => {
               label="Investor"
               className="mb-0"
             >
-              <Input size="large" placeholder="Enter investor name" />
+              <Select
+                size="large"
+                className="w-full"
+                placeholder="Select or enter investor"
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) => {
+                  const label = String(option?.children ?? '').toLowerCase();
+                  return label.includes(input.toLowerCase());
+                }}
+                allowClear
+                // Allow user to enter custom value
+                onSearch={(inputValue) => {
+                  // If user types a value not in the list, set it as the value
+                  if (
+                    inputValue &&
+                    !investors.some(inv => inv.name.toLowerCase() === inputValue.toLowerCase())
+                  ) {
+                    // Set the value in the form
+                    form.setFieldsValue({ investor: inputValue });
+                  }
+                }}
+                onSelect={(value) => {
+                  form.setFieldsValue({ investor: value });
+                }}
+                onBlur={(e) => {
+                  // If user leaves the field with a custom value, keep it
+                  const inputValue = form.getFieldValue('investor');
+                  if (
+                    inputValue &&
+                    !investors.some(inv => inv.name.toLowerCase() === inputValue.toLowerCase())
+                  ) {
+                    form.setFieldsValue({ investor: inputValue });
+                  }
+                }}
+                notFoundContent={null}
+              >
+                <Option value="">
+                  <span className="flex items-center gap-2">
+                    <span style={{ color: '#8c8ca1' }}>●</span> General Parameters
+                  </span>
+                </Option>
+                {investors.map(inv => (
+                  <Option key={inv.name} value={inv.name}>
+                    <span className="flex items-center gap-2">
+                      <span style={{ color: '#597ef7' }}>●</span> {inv.name}
+                    </span>
+                  </Option>
+                ))}
+              </Select>
             </Form.Item>
 
             <Form.Item
