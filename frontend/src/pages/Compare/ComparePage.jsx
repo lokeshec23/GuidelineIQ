@@ -257,8 +257,8 @@ const ComparePage = () => {
           model_name: modelName,
           system_prompt: systemPrompt,
           user_prompt: userPrompt,
-          investor: values.investor || " - ",
-          version: values.version || " - "
+          investor: values.investor || "General",
+          version: values.version || ""
         };
         res = await compareAPI.compareFromDB(payload);
       } else {
@@ -282,8 +282,8 @@ const ComparePage = () => {
         fd.append("user_prompt", userPrompt);
 
         // Add investor and version
-        fd.append("investor", values.investor || " - ");
-        fd.append("version", values.version || " - ");
+        fd.append("investor", values.investor || "General");
+        fd.append("version", values.version || "");
 
         // Use DSCR template comparison processor (same as DB comparison)
         res = await compareAPI.compareGuidelines(fd);

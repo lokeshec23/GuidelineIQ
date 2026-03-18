@@ -187,9 +187,9 @@ const IngestPage = () => {
       files.forEach((file) => {
         formData.append("files", file); // Note: 'files' matches backend List[UploadFile]
       });
-      formData.append("investor", values.investor || " - ");
+      formData.append("investor", values.investor || "General");
       formData.append("investor_id", values.guideline_investor_id || "null");
-      formData.append("version", values.version || " - ");
+      formData.append("version", values.version || "");
       formData.append("model_provider", modelProvider);
       formData.append("model_name", modelName);
 
