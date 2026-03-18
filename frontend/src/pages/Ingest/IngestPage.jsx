@@ -32,7 +32,7 @@ import {
 import "./IngestPage.css";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
-import { ingestAPI, settingsAPI, promptsAPI, investorAPI } from "../../services/api";
+import { ingestAPI, settingsAPI, promptsAPI, investorAPI, dscrAPI } from "../../services/api";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
 import { IngestSkeleton } from "../../components/common/SkeletonLoader";
@@ -150,6 +150,20 @@ const IngestPage = () => {
     // if (!files || files.length === 0) return showToast.error("Please upload at least one PDF file");
 
     try {
+      // Validate that the selected investor context has at least one parameter
+      const investorIdForCheck = values.guideline_investor_id || "null";
+      try {
+        const paramsRes = await dscrAPI.listParameters(investorIdForCheck);
+        if (!paramsRes.data || paramsRes.data.length === 0) {
+          showToast.error("Parameters are empty");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to validate parameters:", err);
+        showToast.error("Failed to validate parameters");
+        return;
+      }
+
       setProcessing(true);
       setProgress(25); // Set to 25% initially for immediate feedback
       setProgressMessage("Starting ingestion...");
