@@ -321,7 +321,9 @@ async def summarize_dscr_aggregated_results(
             extractions = param_data["extractions"]
             
             # Use dynamic column name
-            dynamic_col_name = f"{param_data.get('investor', 'NQMF Investor')}_{param_data.get('version', 'DSCR')}"
+            safe_investor = param_data.get('investor', 'NQMF_Investor').replace(' ', '_')
+            safe_version = param_data.get('version', 'DSCR').replace(' ', '_')
+            dynamic_col_name = f"{safe_investor}_{safe_version}"
             
             # If only one extraction or all are "Not present", no summarization needed
             unique_summaries = set(e["summary"] for e in extractions)
@@ -428,12 +430,14 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     ws.title = "DSCR 1-4 RAG Output"
 
     # Exact 5 headers 
+    safe_investor = investor.replace(' ', '_')
+    safe_version = version.replace(' ', '_')
     headers = [
         "DSCR Parameters\n(Investor / Business Purpose Loans)", 
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type", 
-        f"{investor}_{version} (1-4 Units) Generated {datetime.date.today()}"
+        f"{safe_investor}_{safe_version} (1-4 Units) Generated {datetime.date.today()}"
     ]
     
     ws.append(headers)
@@ -475,7 +479,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
             item.get('Variance_Category', ''),  # Column B
             item.get('SubCategory', ''),    # Column C
             item.get('PPE_Field_Type', ''), # Column D
-            item.get(f"{investor}_{version}", "Not present")     # Column E
+            item.get(f"{safe_investor}_{safe_version}", "Not present")     # Column E
         ]
         ws.append(row)
         
@@ -501,7 +505,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     ws.column_dimensions['E'].width = 80
     
     # File Path
-    filename = f"{investor}_{version}_{session_id[:8]}.xlsx"
+    filename = f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}_{session_id[:8]}.xlsx"
     
     # Save to 'results' folder in backend
     base_dir = os.getcwd()
@@ -554,6 +558,8 @@ def create_dscr_excel_multi_pdf(
     title_cell.alignment = Alignment(horizontal="center", vertical="center")
     
     # Metadata info
+    safe_investor = investor.replace(' ', '_')
+    safe_version = version.replace(' ', '_')
     ws.append([f"Investor: {investor}"])
     ws.append([f"Version: {version}"])
     ws.append([f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
@@ -575,7 +581,7 @@ def create_dscr_excel_multi_pdf(
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type",  # Header name (content is Hard/Soft classification)
-        f"{investor}_{version} (Aggregated from {len(pdf_filenames)} PDFs)"
+        f"{safe_investor}_{safe_version} (Aggregated from {len(pdf_filenames)} PDFs)"
     ]
     
     ws.append(headers)
@@ -611,7 +617,7 @@ def create_dscr_excel_multi_pdf(
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
             item.get('Hard_Soft_Classification', ''),  # Replaced PPE_Field_Type
-            item.get(f"{investor}_{version}", "Not present")
+            item.get(f"{safe_investor}_{safe_version}", "Not present")
         ]
         ws.append(row)
         
@@ -637,7 +643,7 @@ def create_dscr_excel_multi_pdf(
     ws.column_dimensions['E'].width = 80  # Dynamic Investor_Version column
     
     # File Path
-    filename = f"{investor}_{version}_{session_id[:8]}.xlsx"
+    filename = f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}_{session_id[:8]}.xlsx"
     
     # Save to 'results' folder in backend
     base_dir = os.getcwd()

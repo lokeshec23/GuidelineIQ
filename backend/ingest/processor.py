@@ -263,7 +263,10 @@ async def process_guideline_background(
 
                     # Prepare documents for embedding
                     items_to_embed = []
-                    dynamic_col_name = f"{investor}_{version}"
+                    # Ensure investor and version use underscores
+                    safe_investor = investor.replace(" ", "_")
+                    safe_version = version.replace(" ", "_")
+                    dynamic_col_name = f"{safe_investor}_{safe_version}"
                     
                     for idx, item in enumerate(dscr_results):
                         # Skip items with no useful info
@@ -382,7 +385,7 @@ async def process_guideline_background(
                 progress_store[session_id].update({
                     "excel_path": dscr_excel_path,  # Use DSCR excel as main download
                     "preview_data": dscr_results,  # Use DSCR results for preview
-                    "filename": f"{investor}_{version}.xlsx",
+                    "filename": f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}.xlsx",
                     "status": "completed",
                     "total_chunks": sum(r.get("chunks", 0) for r in results),
                     "failed_chunks": len([r for r in results if r["status"] == "failed"]),
@@ -410,7 +413,7 @@ async def process_guideline_background(
                         "investor": investor,
                         "version": version,
                         "uploaded_file": ", ".join(filenames),  # Store all filenames
-                        "extracted_file": f"{investor}_{version}.xlsx",
+                        "extracted_file": f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}.xlsx",
                         "preview_data": dscr_results,
                         "effective_date": effective_date,
                         "expiry_date": expiry_date,
