@@ -55,6 +55,9 @@ const LoginPage = () => {
 
   return (
     <div className="auth-background">
+      <div className="circle circle-left"></div>
+      <div className="circle circle-right"></div>
+      <div className="bottom-curve"></div>
       <Card className="w-full max-w-sm shadow-2xl rounded-xl login-card">
         <Logo />
         <div className="text-center mb-4">

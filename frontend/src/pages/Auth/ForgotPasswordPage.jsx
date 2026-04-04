@@ -105,7 +105,10 @@ const ForgotPasswordPage = () => {
 
     return (
         <div className="auth-background">
-            <Card className="w-full max-w-sm shadow-2xl rounded-xl p-4">
+            <div className="circle circle-left"></div>
+            <div className="circle circle-right"></div>
+            <div className="bottom-curve"></div>
+            <Card className="w-full max-w-sm shadow-2xl rounded-xl login-card">
                 <Logo />
                 <div className="text-center mb-4">
                     <Title level={3} className="!font-poppins text-gray-700">
