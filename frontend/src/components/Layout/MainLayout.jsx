@@ -194,7 +194,7 @@ const MainLayout = ({ children }) => {
             <img
               src="/gc_logo.svg"
               alt="Logo"
-              className="h-[28px] object-contain"
+              className="h-10 object-contain"
             />
           </div>
         </div>

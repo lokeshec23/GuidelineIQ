@@ -15,7 +15,7 @@ const Logo = () => (
     <img
       src="/gc_logo.svg"
       alt="GuidelineIQ Logo"
-      className="h-[36px] mx-auto" // Adjusted for cropped SVG
+      className="h-10 mx-auto" // Adjust height (h-10) as needed
     />
   </div>
 );

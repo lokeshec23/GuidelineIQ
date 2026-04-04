@@ -17,7 +17,7 @@ const { Title, Text } = Typography;
 // Reusable Logo component
 const Logo = () => (
   <div className="text-center mb-6">
-    <img src="/gc_logo.svg" alt="GuidelineIQ Logo" className="h-[36px] mx-auto" />
+    <img src="/gc_logo.svg" alt="GuidelineIQ Logo" className="h-10 mx-auto" />
   </div>
 );
 
