@@ -140,7 +140,7 @@ const LoginPage = () => {
           <Button
             block
             size="large"
-            icon={<img src="https://authjs.dev/img/providers/microsoft.svg" alt="Microsoft" style={{ width: 18, marginRight: 8 }} />}
+            icon={<img src="/Microsoft_logo.png" alt="Microsoft" style={{ width: 18, marginRight: 8 }} />}
             onClick={handleMicrosoftLogin}
             className="flex items-center justify-center border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all font-medium rounded-lg h-[45px]"
           >
