@@ -20,6 +20,7 @@ const IngestionPromptPage = lazy(() => import("./pages/Prompts/IngestionPromptPa
 const ComparisonPromptPage = lazy(() => import("./pages/Prompts/ComparisonPromptPage"));
 const ManagementPage = lazy(() => import("./pages/Management/ManagementPage"));
 const ConfigParametersPage = lazy(() => import("./pages/Settings/ConfigParametersPage"));
+const SSOPage = lazy(() => import("./pages/Auth/SSOPage"));
 
 // Admin Route Component
 const AdminRoute = ({ children }) => {
@@ -96,6 +97,14 @@ function AppRoutes() {
           element={
             <PublicRoute>
               <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/sso"
+          element={
+            <PublicRoute>
+              <SSOPage />
             </PublicRoute>
           }
         />

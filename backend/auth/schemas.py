@@ -77,3 +77,17 @@ class ResetPassword(BaseModel):
 # Schema for updating a user's role
 class UserRoleUpdate(BaseModel):
     role: str
+
+# SSO Verify Request
+class SSOVerifyModel(BaseModel):
+    token: str
+
+# SSO Token Response
+class SSOTokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    email: str
+    role: str
+    username: str
+    status: str = "active"
+    is_first_time_user: bool = False

@@ -101,6 +101,7 @@ export const authAPI = {
   updateUserRole: (userId, data) => api.put(`/auth/users/${userId}/role`, data),
   forgotPasswordCheck: (data) => api.post("/auth/forgot-password/check", data),
   resetPassword: (data) => api.post("/auth/forgot-password/reset", data),
+  ssoExchange: (token) => api.post("/auth/sso-exchange", { token }),
 };
 
 // ==================== SETTINGS APIs ====================

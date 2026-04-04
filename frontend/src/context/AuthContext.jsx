@@ -133,13 +133,35 @@ export const AuthProvider = ({ children }) => {
     showToast.info("Logged out successfully");
   };
 
+  const ssoLogin = async (ssoData) => {
+    try {
+      const { access_token, refresh_token, ...userData } = ssoData;
+      
+      // Store in session storage by default for SSO
+      sessionStorage.setItem("access_token", access_token);
+      sessionStorage.setItem("refresh_token", refresh_token);
+      sessionStorage.setItem("user", JSON.stringify(userData));
+
+      setUser(userData);
+      setIsAdmin(userData?.role === "admin");
+      
+      showToast.success(`Welcome back, ${userData.username || userData.email}!`);
+      return true;
+    } catch (error) {
+      logger.error("SSO Login storage failed", error);
+      showToast.error("Failed to initialize session. Please try again.");
+      return false;
+    }
+  };
+
   const value = React.useMemo(() => ({
     user,
     loading,
     login,
     register,
     logout,
-    isAdmin
+    isAdmin,
+    ssoLogin
   }), [user, loading, isAdmin]);
 
   return (

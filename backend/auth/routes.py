@@ -3,15 +3,234 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sql_database import get_db
 from auth.models import find_user_by_email, find_user_by_username, create_user, get_all_users, get_user_by_id, update_user_password, update_user_role
-from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword, UserRoleUpdate
-from auth.utils import hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token
+from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword, UserRoleUpdate, SSOVerifyModel, SSOTokenResponse
+from auth.utils import hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token, hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token
 from utils.logger import setup_logger
-from datetime import datetime
+from datetime import datetime, timedelta
+import urllib.parse
+import random
+import base64
+import zlib
+import xmltodict
+import uuid
+import os
+from fastapi import Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 logger = setup_logger(__name__)
 
+# SSO temporary store for tokens
+SSO_TEMP_STORE = {}
+SSO_TOKEN_TTL = 300 # 5 minutes
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# SSO Routes
+@router.get("/ValidateAzureAD")
+async def login_azure():
+    logger.info("SSO: Azure AD Login Triggered")
+    
+    tenant_id = os.getenv('TENANT_ID')
+    sso_reply_url = os.getenv('SSO_REPLY_URL')
+    
+    if not tenant_id or not sso_reply_url:
+        logger.error("SSO: Missing TENANT_ID or SSO_REPLY_URL in environment")
+        raise HTTPException(status_code=500, detail="SSO configuration missing")
+
+    number = random.randint(100000, 999999)
+    unique_id = f"_{number}"
+    issue_instant = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    sso_login_url = f"https://login.microsoftonline.com/{tenant_id}/saml2"
+    application_base_url = os.getenv('APPLICATION_BASE_URL', "LoanDNAPlatform")
+
+    xml = f"""<samlp:AuthnRequest
+    xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"
+    xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
+    ID="{unique_id}"
+    Version="2.0"
+    IssueInstant="{issue_instant}"
+    Destination="{sso_login_url}"
+    AssertionConsumerServiceURL="{sso_reply_url}"
+    ForceAuthn="false">
+    <saml:Issuer>{application_base_url}</saml:Issuer>
+    <samlp:NameIDPolicy
+        Format="urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+        AllowCreate="true"/>
+</samlp:AuthnRequest>"""
+
+    def deflate_raw(data: bytes) -> bytes:
+        compressor = zlib.compressobj(level=9, wbits=-15)
+        compressed = compressor.compress(data)
+        compressed += compressor.flush()
+        return compressed
+
+    xml_bytes = xml.encode("utf-8")
+    deflated = deflate_raw(xml_bytes)
+    base64_encoded = base64.b64encode(deflated).decode("utf-8")
+    url_encoded = urllib.parse.quote(base64_encoded)
+
+    relay_state = "IncomeAnalyzer"
+    redirect_url = f"{sso_login_url}?SAMLRequest={url_encoded}&RelayState={urllib.parse.quote(relay_state)}"
+
+    logger.info(f"SSO: Redirecting to Microsoft: {sso_login_url}")
+    return RedirectResponse(url=redirect_url)
+
+
+@router.post("/api/SSOReplyURI")
+async def sso_reply(req: Request):
+    form = await req.form()
+    saml_response = form.get("SAMLResponse")
+    logger.info("SSO: Reply Received from Microsoft")
+
+    if not saml_response:
+        logger.warning("SSO: Missing SAMLResponse in form data")
+        raise HTTPException(status_code=400, detail="Missing SAMLResponse")
+
+    try:
+        decoded_xml = base64.b64decode(saml_response).decode("utf-8")
+        parsed = xmltodict.parse(decoded_xml)
+    except Exception as e:
+        logger.error(f"SSO: Failed to decode/parse SAML response: {e}")
+        raise HTTPException(status_code=400, detail="Invalid SAML response")
+
+    # Try various SAML response namespaces
+    response = (
+        parsed.get("samlp:Response") or
+        parsed.get("saml2p:Response") or
+        parsed.get("Response") or
+        parsed.get("{urn:oasis:names:tc:SAML:2.0:protocol}Response")
+    )
+
+    if not response:
+        logger.warning("SSO: Invalid SAML response - no response key found")
+        raise HTTPException(status_code=400, detail="Invalid SAML response structure")
+
+    assertion = (
+        response.get("saml:Assertion") or
+        response.get("saml2:Assertion") or
+        response.get("Assertion") or
+        response.get("{urn:oasis:names:tc:SAML:2.0:assertion}Assertion")
+    )
+
+    if not assertion:
+        logger.warning("SSO: SAML Assertion missing or encrypted")
+        raise HTTPException(status_code=400, detail="SAML Assertion missing")
+
+    attr_stmt = (
+        assertion.get("saml:AttributeStatement", {}) or
+        assertion.get("saml2:AttributeStatement", {}) or
+        assertion.get("AttributeStatement", {})
+    )
+
+    attributes = (
+        attr_stmt.get("saml:Attribute", []) or
+        attr_stmt.get("saml2:Attribute", []) or
+        attr_stmt.get("Attribute", [])
+    )
+
+    if isinstance(attributes, dict):
+        attributes = [attributes]
+
+    sso_email = None
+    for attr in attributes:
+        name = attr.get("@Name", "")
+        if "email" in name.lower() or "mail" in name.lower():
+            attr_value = (
+                attr.get("saml:AttributeValue") or
+                attr.get("saml2:AttributeValue") or
+                attr.get("AttributeValue")
+            )
+            
+            if isinstance(attr_value, dict):
+                sso_email = attr_value.get("#text") or attr_value.get("text")
+            elif isinstance(attr_value, str):
+                sso_email = attr_value
+            elif isinstance(attr_value, list) and len(attr_value) > 0:
+                first_val = attr_value[0]
+                if isinstance(first_val, dict):
+                    sso_email = first_val.get("#text") or first_val.get("text")
+                else:
+                    sso_email = first_val
+
+            if sso_email:
+                break
+
+    if not sso_email:
+        logger.warning("SSO: Email not found in SAML attributes")
+        raise HTTPException(status_code=400, detail="SSO email not found")
+
+    sso_email = sso_email.lower()
+    
+    # Check if user exists in DB
+    # Note: We need a db session here, but this endpoint is usually called by Microsoft's browser redirect.
+    # We'll use a temporary token and let the frontend 'exchange' it where we can easily use Depends(get_db).
+    
+    temp_token = str(uuid.uuid4())
+    SSO_TEMP_STORE[temp_token] = {
+        "email": sso_email,
+        "expires": datetime.utcnow() + timedelta(seconds=SSO_TOKEN_TTL)
+    }
+    
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    redirect_to = f"{frontend_url}/sso?token={temp_token}"
+    
+    logger.info(f"SSO: Success for {sso_email}. Redirecting to frontend with temp token.")
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="refresh" content="0; url={redirect_to}">
+        <title>Redirecting...</title>
+    </head>
+    <body>
+        <p>Login successful. Redirecting...</p>
+        <script>
+            window.location.href = "{redirect_to}";
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+
+@router.post("/sso-exchange", response_model=SSOTokenResponse)
+async def sso_exchange(payload: SSOVerifyModel, db: AsyncSession = Depends(get_db)):
+    token = payload.token
+    if not token:
+        raise HTTPException(status_code=400, detail="Token is required")
+
+    data = SSO_TEMP_STORE.pop(token, None)
+    if not data:
+        logger.warning(f"SSO: Invalid or expired token exchange attempt: {token[:8]}...")
+        raise HTTPException(status_code=401, detail="Invalid or expired SSO token")
+
+    if data["expires"] < datetime.utcnow():
+        logger.warning(f"SSO: Expired token for email: {data.get('email')}")
+        raise HTTPException(status_code=401, detail="SSO token has expired")
+
+    email = data.get("email")
+    user = await find_user_by_email(db, email)
+    
+    if not user:
+        logger.warning(f"SSO: Access denied - unregistered email: {email}")
+        raise HTTPException(status_code=403, detail="Account not registered. Please contact your administrator.")
+
+    access_token, refresh_token = create_tokens(str(user.id), user.email, user.username)
+    
+    logger.info(f"SSO: Final login successful for {email}")
+
+    return SSOTokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        email=user.email,
+        role=user.role,
+        username=user.username,
+        status="active",
+        is_first_time_user=getattr(user, "is_first_time_user", False)
+    )
+
 
 # ✅ Register new user
 @router.post("/register", response_model=UserOut)

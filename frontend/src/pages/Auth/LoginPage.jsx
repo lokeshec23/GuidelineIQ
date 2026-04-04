@@ -5,6 +5,7 @@ import { Form, Input, Button, Card, Typography, Checkbox } from "antd";
 import { UserOutlined, LockOutlined, LoginOutlined } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { API_BASE_URL } from "../../services/api";
 
 const { Title, Text } = Typography;
 
@@ -34,6 +35,11 @@ const LoginPage = () => {
     if (success) {
       navigate("/ingest");
     }
+  };
+
+  const handleMicrosoftLogin = () => {
+    // Redirect to backend endpoint that initiates SAML flow
+    window.location.href = `${API_BASE_URL}/auth/ValidateAzureAD`;
   };
 
   const handleFormError = (errorInfo) => {
@@ -119,6 +125,27 @@ const LoginPage = () => {
               Login
             </Button>
           </Form.Item>
+
+          <div className="relative my-8">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500 uppercase tracking-widest text-[10px] font-bold">
+                OR LOG IN WITH
+              </span>
+            </div>
+          </div>
+
+          <Button
+            block
+            size="large"
+            icon={<img src="https://authjs.dev/img/providers/microsoft.svg" alt="Microsoft" style={{ width: 18, marginRight: 8 }} />}
+            onClick={handleMicrosoftLogin}
+            className="flex items-center justify-center border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all font-medium rounded-lg h-[45px]"
+          >
+            Microsoft
+          </Button>
 
           <div className="text-center mt-4">
             <Text type="secondary">
