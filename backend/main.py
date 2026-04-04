@@ -20,7 +20,7 @@ os.environ.pop("REQUESTS_CA_BUNDLE", None)
 os.environ["AZURE_CLI_DISABLE_CONNECTION_VERIFICATION"] = "1"
 
 # Import routers
-from auth.routes import router as auth_router
+from auth.routes import router as auth_router, sso_router
 from settings.routes import router as settings_router
 from ingest.routes import router as ingest_router
 from compare.routes import router as compare_router
@@ -87,6 +87,7 @@ app.add_middleware(LogContextMiddleware)
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(sso_router)
 app.include_router(settings_router)
 app.include_router(ingest_router)
 app.include_router(compare_router)

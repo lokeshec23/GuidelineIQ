@@ -24,6 +24,7 @@ SSO_TEMP_STORE = {}
 SSO_TOKEN_TTL = 300 # 5 minutes
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+sso_router = APIRouter(tags=["SSO"])
 
 # SSO Routes
 @router.get("/ValidateAzureAD")
@@ -77,7 +78,7 @@ async def login_azure():
     return RedirectResponse(url=redirect_url)
 
 
-@router.post("/api/SSOReplyURI")
+@sso_router.post("/api/SSOReplyURI")
 async def sso_reply(req: Request):
     form = await req.form()
     saml_response = form.get("SAMLResponse")
