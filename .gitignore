@@ -9,3 +9,4 @@ guidelineiq_venv
 backend_old/
 docs/
 .agent/
+sso_code.py

@@ -196,7 +196,7 @@ code {
   font-family: "Jura", sans-serif;
 }
 
-:where(.css-dev-only-do-not-override-11mmrso).ant-layout-header {
+.ant-layout-header {
   background-color: #fff !important;
 }
 
