@@ -17,7 +17,7 @@ const { Title, Text } = Typography;
 // Reusable Logo component
 const Logo = () => (
   <div className="text-center mb-6">
-    <img src="/loandna_logo.png" alt="LoanDNA Logo" className="h-10 mx-auto" />
+    <img src="/gc_logo.svg" alt="GuidelineIQ Logo" className="h-10 mx-auto" />
   </div>
 );
 

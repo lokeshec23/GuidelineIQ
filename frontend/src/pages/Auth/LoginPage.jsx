@@ -12,10 +12,9 @@ const { Title, Text } = Typography;
 // Logo component now uses the image from the public folder
 const Logo = () => (
   <div className="text-center mb-4">
-    {/* Assumes your logo is named 'loandna-logo.png' in the public folder */}
     <img
-      src="/loandna_logo.png"
-      alt="LoanDNA Logo"
+      src="/gc_logo.svg"
+      alt="GuidelineIQ Logo"
       className="h-10 mx-auto" // Adjust height (h-10) as needed
     />
   </div>

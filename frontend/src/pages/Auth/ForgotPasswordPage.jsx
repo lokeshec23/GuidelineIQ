@@ -18,8 +18,8 @@ const { Title, Text } = Typography;
 const Logo = () => (
     <div className="text-center mb-6">
         <img
-            src="/loandna_logo.png"
-            alt="LoanDNA Logo"
+            src="/gc_logo.svg"
+            alt="GuidelineIQ Logo"
             className="h-10 mx-auto"
         />
     </div>
