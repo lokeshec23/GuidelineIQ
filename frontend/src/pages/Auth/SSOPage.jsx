@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
@@ -12,6 +12,9 @@ const SSOPage = () => {
     const navigate = useNavigate();
     const { ssoLogin } = useAuth();
 
+    const exchangeStarted = useRef(false);
+    const successRef = useRef(false);
+
     useEffect(() => {
         const token = searchParams.get('token');
 
@@ -21,22 +24,30 @@ const SSOPage = () => {
             return;
         }
 
+        // Prevent double-call in React Strict Mode or due to re-renders
+        if (exchangeStarted.current) return;
+        exchangeStarted.current = true;
+
         const performExchange = async () => {
             try {
                 const response = await authAPI.ssoExchange(token);
                 if (response.data) {
                     const success = await ssoLogin(response.data);
                     if (success) {
+                        successRef.current = true;
                         navigate('/dashboard');
                     } else {
                         navigate('/login');
                     }
                 }
             } catch (error) {
-                console.error("SSO Exchange Error:", error);
-                const errorDetail = error.response?.data?.detail || "Authentication failed. Your account might not be registered in the system.";
-                showToast.error(errorDetail);
-                navigate('/login');
+                // Only show error toast if another request hasn't already succeeded
+                if (!successRef.current) {
+                    console.error("SSO Exchange Error:", error);
+                    const errorDetail = error.response?.data?.detail || "Authentication failed. Your account might not be registered in the system.";
+                    showToast.error(errorDetail);
+                    navigate('/login');
+                }
             }
         };
 
