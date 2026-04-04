@@ -20,7 +20,7 @@ const Logo = () => (
         <img
             src="/gc_logo.svg"
             alt="GuidelineIQ Logo"
-            className="h-10 mx-auto"
+            className="h-[36px] mx-auto"
         />
     </div>
 );
