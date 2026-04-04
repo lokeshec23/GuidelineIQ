@@ -212,7 +212,20 @@ code {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.5rem;
+}
+
+/* Compact Auth Form */
+.login-card .ant-form-item {
+  margin-bottom: 14px !important;
+}
+
+.login-card .ant-card-body {
+  padding: 24px 32px !important;
+}
+
+.login-card .ant-typography {
+  margin-bottom: 0 !important;
 }
 
 /* Ensure pagination dropdown has pointer cursor */

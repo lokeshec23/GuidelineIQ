@@ -11,7 +11,7 @@ const { Title, Text } = Typography;
 
 // Logo component now uses the image from the public folder
 const Logo = () => (
-  <div className="text-center mb-6">
+  <div className="text-center mb-4">
     {/* Assumes your logo is named 'loandna-logo.png' in the public folder */}
     <img
       src="/loandna_logo.png"
@@ -55,9 +55,9 @@ const LoginPage = () => {
 
   return (
     <div className="auth-background">
-      <Card className="w-full max-w-sm shadow-2xl rounded-xl p-4">
+      <Card className="w-full max-w-sm shadow-2xl rounded-xl login-card">
         <Logo />
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <Title level={3} className="!font-poppins text-gray-700">
             Log In
           </Title>
@@ -112,7 +112,7 @@ const LoginPage = () => {
 
           {/* CAPTCHA section is now removed */}
 
-          <Form.Item className="mt-6">
+          <Form.Item className="mt-4">
             <Button
               type="primary"
               htmlType="submit"
@@ -126,7 +126,7 @@ const LoginPage = () => {
             </Button>
           </Form.Item>
 
-          <div className="relative my-8">
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
