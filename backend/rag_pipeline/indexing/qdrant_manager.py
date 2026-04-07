@@ -232,13 +232,16 @@ class QdrantManager:
         filter_conditions: Optional[Dict[str, str]] = None
     ) -> List[Dict]:
         """
-        Search for similar chunks
-        
+        Search for similar chunks.
+
+        Uses client.query_points() (qdrant-client >= 1.7).
+        Falls back to client.search() for older versions.
+
         Args:
             query_vector: Query embedding vector
             top_k: Number of results to return
             filter_conditions: Metadata filters (e.g., {"lender": "NQMF", "program": "DSCR"})
-        
+
         Returns:
             List of search results with score and payload
         """
@@ -254,31 +257,40 @@ class QdrantManager:
                     for key, value in filter_conditions.items()
                 ]
                 query_filter = Filter(must=must_conditions)
-            
-            # Search
-            search_results = self.client.search(
-                collection_name=self.collection_name,
-                query_vector=query_vector,
-                limit=top_k,
-                query_filter=query_filter
-            )
-            
+
+            # qdrant-client >= 1.7 replaced .search() with .query_points()
+            if hasattr(self.client, "query_points"):
+                response = self.client.query_points(
+                    collection_name=self.collection_name,
+                    query=query_vector,
+                    limit=top_k,
+                    query_filter=query_filter,
+                    with_payload=True,
+                )
+                hits = response.points  # List[ScoredPoint]
+            else:
+                # Legacy fallback (qdrant-client < 1.7)
+                hits = self.client.search(
+                    collection_name=self.collection_name,
+                    query_vector=query_vector,
+                    limit=top_k,
+                    query_filter=query_filter,
+                )
+
             # Format results
+            core_fields = {"chunk_id", "text", "chunk_type", "section_path", "page_start", "page_end"}
             results = []
-            for hit in search_results:
-                payload = hit.payload
-                # Core fields to exclude from metadata (since they are in top-level Chunk)
-                core_fields = ["chunk_id", "text", "chunk_type", "section_path", "page_start", "page_end"]
-                
+            for hit in hits:
+                payload = hit.payload or {}
                 results.append({
                     "id": payload.get("chunk_id"),
                     "text": payload.get("text"),
                     "score": hit.score,
-                    "metadata": {k: v for k, v in payload.items() if k not in core_fields}
+                    "metadata": {k: v for k, v in payload.items() if k not in core_fields},
                 })
-            
+
             return results
-        
+
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return []

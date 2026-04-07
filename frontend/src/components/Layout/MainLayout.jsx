@@ -130,11 +130,11 @@ const MainLayout = ({ children }) => {
         icon: <TeamOutlined />,
         label: "Management",
       },
-      // {
-      //   key: "/settings",
-      //   icon: <SettingOutlined />,
-      //   label: "Settings",
-      // },
+      {
+        key: "/settings",
+        icon: <SettingOutlined />,
+        label: "Settings",
+      },
 
     ];
 

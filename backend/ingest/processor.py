@@ -546,6 +546,8 @@ Start with '[' and end with ']'. No markdown, no explanations."""
 
 
 def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> LLMProvider:
+    import os
+
     params = {
         "temperature": user_settings.get("temperature", 0.5),
         "max_tokens": user_settings.get("max_output_tokens", 8192),
@@ -554,12 +556,47 @@ def initialize_llm_provider(user_settings: dict, provider: str, model: str) -> L
     }
 
     if provider == "openai":
+        # Prefer DB-stored user settings; fall back to .env values if missing.
+        api_key = (
+            user_settings.get("openai_api_key")
+            or os.getenv("AZURE_OPENAI_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+        )
+        endpoint = (
+            user_settings.get("openai_endpoint")
+            or os.getenv("AZURE_OPENAI_ENDPOINT")
+        )
+        deployment = (
+            user_settings.get("openai_deployment")
+            or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+            or os.getenv("AZURE_OPENAI_DEPLOYMENT")
+        )
+
+        if not all([api_key, endpoint, deployment]):
+            missing = [
+                k for k, v in {
+                    "api_key": api_key,
+                    "endpoint": endpoint,
+                    "deployment": deployment,
+                }.items() if not v
+            ]
+            raise ValueError(
+                f"Azure OpenAI requires api_key, endpoint, and deployment. "
+                f"Missing: {missing}. Set them in the user settings or .env file."
+            )
+
+        logger.info(
+            "[LLM] Azure OpenAI initializing — endpoint: %s, deployment: %s",
+            endpoint,
+            deployment,
+        )
+
         return LLMProvider(
             provider="openai",
-            api_key=user_settings.get("openai_api_key"),
+            api_key=api_key,
             model=model,
-            azure_endpoint=user_settings.get("openai_endpoint"),
-            azure_deployment=user_settings.get("openai_deployment"),
+            azure_endpoint=endpoint,
+            azure_deployment=deployment,
             **params,
         )
 
