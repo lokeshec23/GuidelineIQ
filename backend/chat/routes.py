@@ -68,21 +68,43 @@ async def chat_with_session(
     azure_params = {}
 
     if provider == "openai":
-        api_key = settings.get("openai_api_key")
+        # Prefer DB-stored settings; fall back to .env if missing (same pattern as ingest/processor.py)
+        api_key = (
+            settings.get("openai_api_key")
+            or os.getenv("AZURE_OPENAI_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+        )
         if not api_key:
-             raise HTTPException(status_code=400, detail="OpenAI API key not configured")
-        
-        # Check for Azure
-        if settings.get("openai_endpoint"):
-            # ✅ Fallback to .env if embedding deployment not set in database
-            embedding_deployment = settings.get("openai_embedding_deployment") or os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
-            
-            azure_params = {
-                "azure_endpoint": settings.get("openai_endpoint"),
-                "azure_deployment": settings.get("openai_deployment"),
-                "azure_embedding_deployment": embedding_deployment
-            }
-            
+            raise HTTPException(status_code=400, detail="OpenAI API key not configured. Set it in Admin Settings or AZURE_OPENAI_API_KEY in .env")
+
+        # Resolve endpoint and deployment with .env fallback
+        endpoint = (
+            settings.get("openai_endpoint")
+            or os.getenv("AZURE_OPENAI_ENDPOINT")
+        )
+        deployment = (
+            settings.get("openai_deployment")
+            or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+            or os.getenv("AZURE_OPENAI_DEPLOYMENT")
+        )
+        embedding_deployment = (
+            settings.get("openai_embedding_deployment")
+            or os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT")
+        )
+
+        if not all([endpoint, deployment]):
+            missing = [k for k, v in {"endpoint": endpoint, "deployment": deployment}.items() if not v]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Azure OpenAI configuration incomplete. Missing: {missing}. Set in Admin Settings or .env"
+            )
+
+        azure_params = {
+            "azure_endpoint": endpoint,
+            "azure_deployment": deployment,
+            "azure_embedding_deployment": embedding_deployment
+        }
+
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}. Only 'openai' (Azure OpenAI) is supported.")
     
