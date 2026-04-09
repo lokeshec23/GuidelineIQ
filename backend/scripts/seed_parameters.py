@@ -17,9 +17,9 @@ if sys.stdout.encoding != 'utf-8':
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import text, inspect
+from sqlalchemy import text, inspect, select, func, delete
 from sql_database import engine, AsyncSessionLocal
-from models.sql_models import DSCRParameter, Base
+from models.sql_models import DSCRParameter, Investor, Base
 
 
 # ===================== PARAMETER LISTS =====================
@@ -86,57 +86,95 @@ async def seed_parameters(force: bool = False):
     """
     Seed parameters with the unified list.
     If force is False, it will skip if parameters already exist.
+    Uses upsert logic with indexes for speed.
     """
     
     # First, ensure column exists
     await add_column_if_not_exists()
     
     unified = build_unified_parameters()
-    print(f"\n📋 Unified parameter list: {len(unified)} unique parameters")
-    
-    # Count by type
-    type_counts = {"Full Doc": 0, "Alt Doc": 0, "DSCR": 0}
-    for p in unified:
-        for t in p["guideline_type"]:
-            type_counts[t] = type_counts.get(t, 0) + 1
-    
-    for t, c in type_counts.items():
-        print(f"  - {t}: {c} parameters")
+    print(f"\n📋 Unified parameter count from Excel: {len(unified)}")
     
     async with AsyncSessionLocal() as db:
-        # Check if already seeded
+        # Ensure Investor "AB" exists
+        result = await db.execute(select(Investor).where(Investor.name == "AB"))
+        ab_investor = result.scalar_one_or_none()
+        if not ab_investor:
+            print("👤 Creating Investor: AB")
+            ab_investor = Investor(name="AB")
+            db.add(ab_investor)
+            await db.commit()
+            await db.refresh(ab_investor)
+        
+        ab_id = ab_investor.id
+
+        # Check if already seeded (Skip only if not forced AND some records exist)
         if not force:
-            from sqlalchemy import select, func
-            result = await db.execute(select(func.count()).select_from(DSCRParameter))
-            if result.scalar() > 0:
-                print("📋 DSCR Parameters already exist in database. Skipping seed.")
+            count_res = await db.execute(select(func.count()).select_from(DSCRParameter))
+            if count_res.scalar() > 0:
+                print("📋 DSCR Parameters already exist. Skipping seed. (Use --force to update)")
                 return
 
-        # Clear existing if forced or if we reached here
-        from sqlalchemy import delete
-        await db.execute(delete(DSCRParameter))
+        if force:
+            print("🗑️ Force flag active. Clearing existing parameters for fresh sync...")
+            await db.execute(delete(DSCRParameter))
+            await db.commit()
+
+        # Load existing parameters into memory for fast lookup (Index: investor_id, category, parameter)
+        print("🔍 Loading existing parameters for sync...")
+        existing_res = await db.execute(select(DSCRParameter))
+        existing_params = existing_res.scalars().all()
+        lookup = {(p.investor_id, p.category, p.parameter): p for p in existing_params}
+
+        new_count = 0
+        update_count = 0
+        
+        # We handle two sets: General (None) and AB Investor
+        target_investors = [None, ab_id]
+        
+        for investor_id in target_investors:
+            inv_label = "General" if investor_id is None else "AB"
+            print(f"🔄 Syncing parameters for {inv_label}...")
+            
+            for p_data in unified:
+                key = (investor_id, p_data["category"], p_data["parameter"])
+                
+                if key in lookup:
+                    # Check for updates
+                    existing = lookup[key]
+                    changed = False
+                    
+                    if existing.subcategory != p_data["subcategory"]:
+                        existing.subcategory = p_data["subcategory"]
+                        changed = True
+                    
+                    if existing.guideline_type != p_data["guideline_type"]:
+                        existing.guideline_type = p_data["guideline_type"]
+                        changed = True
+                        
+                    if changed:
+                        update_count += 1
+                else:
+                    # Insert new
+                    new_param = DSCRParameter(
+                        parameter=p_data["parameter"],
+                        category=p_data["category"],
+                        subcategory=p_data["subcategory"],
+                        ppe_field=p_data["ppe_field"],
+                        guideline_type=p_data["guideline_type"],
+                        investor_id=investor_id
+                    )
+                    db.add(new_param)
+                    new_count += 1
+
         await db.commit()
-        print("\n🗑️  Cleared existing parameters")
+        print(f"\n✅ Sync complete:")
+        print(f"   - Newly Created: {new_count}")
+        print(f"   - Updated: {update_count}")
         
-        # Insert new
-        import json
-        for p in unified:
-            param = DSCRParameter(
-                parameter=p["parameter"],
-                category=p["category"],
-                subcategory=p["subcategory"],
-                ppe_field=p["ppe_field"],
-                guideline_type=p["guideline_type"]
-            )
-            db.add(param)
-        
-        await db.commit()
-        print(f"✅ Seeded {len(unified)} parameters successfully!")
-        
-        # Verify
-        from sqlalchemy import select, func
-        count = await db.execute(select(func.count()).select_from(DSCRParameter))
-        total = count.scalar()
+        # Verify total
+        count_res = await db.execute(select(func.count()).select_from(DSCRParameter))
+        total = count_res.scalar()
         print(f"📊 Total parameters in DB: {total}")
 
 
@@ -145,5 +183,7 @@ if __name__ == "__main__":
     print("  Parameter Seed Script")
     print("  Seeds Full Doc, Alt Doc, and DSCR parameters")
     print("=" * 60)
-    asyncio.run(seed_parameters())
+    
+    force_seed = "--force" in sys.argv
+    asyncio.run(seed_parameters(force=force_seed))
     print("\n✅ Done!")
