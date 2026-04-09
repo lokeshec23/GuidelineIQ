@@ -473,6 +473,7 @@ const IngestPage = () => {
               name="guideline_investor_id"
               label="Investor"
               className="mb-0"
+              rules={[{ required: true, message: "Please select an investor" }]}
             >
               <Select
                 size="large"

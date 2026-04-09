@@ -577,6 +577,7 @@ const ComparePage = () => {
               name="investor"
               label="Investor"
               className="mb-0"
+              rules={[{ required: true, message: "Please enter investor name" }]}
             >
               <Input
                 placeholder="Enter investor name"
