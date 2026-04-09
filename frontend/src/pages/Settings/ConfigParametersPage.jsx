@@ -26,7 +26,7 @@ const ConfigParametersPage = () => {
 
     // Investor State
     const [investors, setInvestors] = useState([]);
-    const [selectedInvestorId, setSelectedInvestorId] = useState("null"); // 'null' represents General
+    const [selectedInvestorId, setSelectedInvestorId] = useState(null);
 
     // Manage Investors Modal State
     const [isManageInvestorsVisible, setIsManageInvestorsVisible] = useState(false);
@@ -55,12 +55,16 @@ const ConfigParametersPage = () => {
         try {
             const response = await investorAPI.listInvestors();
             setInvestors(response.data);
+            if (response.data && response.data.length > 0) {
+                setSelectedInvestorId(response.data[0].id);
+            }
         } catch (error) {
             console.error("Failed to fetch investors:", error);
         }
     };
 
     const fetchParameters = async () => {
+        if (!selectedInvestorId) return;
         setLoading(true);
         try {
             const response = await dscrAPI.listParameters(selectedInvestorId);
@@ -123,7 +127,7 @@ const ConfigParametersPage = () => {
 
             // Inject selected investor ID if not general
             const payload = { ...values };
-            if (selectedInvestorId !== "null") {
+            if (selectedInvestorId) {
                 payload.investor_id = selectedInvestorId;
             }
 
@@ -207,7 +211,7 @@ const ConfigParametersPage = () => {
         try {
             await investorAPI.deleteInvestor(id);
             showToast.success("Investor deleted successfully");
-            if (selectedInvestorId === id) setSelectedInvestorId("null");
+            if (selectedInvestorId === id) setSelectedInvestorId(null);
             fetchInvestors();
         } catch (error) {
             console.error("Failed to delete investor", error);
@@ -370,9 +374,7 @@ const ConfigParametersPage = () => {
     const fullDocCount = getTypeCount("Full Doc");
     const altDocCount = getTypeCount("Alt Doc");
 
-    const activeContextName = selectedInvestorId === "null"
-        ? "General Properties"
-        : investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
+    const activeContextName = investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
 
     return (
         <div className="max-w-7xl mx-auto pb-10">
@@ -389,7 +391,6 @@ const ConfigParametersPage = () => {
                         size="large"
                         bordered={false}
                         options={[
-                            { label: <span className="font-medium text-gray-700">General parameters</span>, value: "null" },
                             ...investors.map(inv => ({ label: <span className="font-medium text-gray-700">{inv.name}</span>, value: inv.id }))
                         ]}
                     />
@@ -460,7 +461,7 @@ const ConfigParametersPage = () => {
                         allowClear
                     />
                     <div className="flex gap-3 w-full sm:w-auto">
-                        {selectedInvestorId !== "null" && (
+                        {selectedInvestorId && (
                             <Button
                                 icon={<DownloadOutlined />}
                                 onClick={handleOpenImportModal}
