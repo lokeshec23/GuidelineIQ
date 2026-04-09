@@ -189,11 +189,13 @@ const IngestPage = () => {
         console.warn("⚠️ Could not fetch prompts from prompts API, using empty strings");
       }
 
-      // Find investor name from selected ID for Guideline Type
-      let guidelineInvestorName = "General";
-      if (values.guideline_investor_id && values.guideline_investor_id !== "null") {
-        const inv = investors.find(i => i.id === values.guideline_investor_id);
-        if (inv) guidelineInvestorName = inv.name;
+      // Find investor name from selected ID
+      let selectedInvestorName = "General";
+      const selectedId = values.guideline_investor_id || "null";
+      
+      if (selectedId !== "null") {
+        const inv = investors.find(i => String(i.id) === String(selectedId));
+        if (inv) selectedInvestorName = inv.name;
       }
 
       const formData = new FormData();
@@ -201,8 +203,8 @@ const IngestPage = () => {
       files.forEach((file) => {
         formData.append("files", file); // Note: 'files' matches backend List[UploadFile]
       });
-      formData.append("investor", values.investor || "General");
-      formData.append("investor_id", values.guideline_investor_id || "null");
+      formData.append("investor", selectedInvestorName);
+      formData.append("investor_id", selectedId);
       formData.append("version", values.version || "");
       formData.append("model_provider", modelProvider);
       formData.append("model_name", modelName);
@@ -453,54 +455,24 @@ const IngestPage = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Form.Item
-              name="investor"
+              name="guideline_investor_id"
               label="Investor"
               className="mb-0"
             >
               <Select
                 size="large"
                 className="w-full"
-                placeholder="Select or enter investor"
+                placeholder="Select investor"
                 showSearch
                 optionFilterProp="children"
                 filterOption={(input, option) => {
-                  const label = String(option?.children ?? '').toLowerCase();
+                  const label = String(option?.children?.props?.children[2] ?? option?.children ?? '').toLowerCase();
                   return label.includes(input.toLowerCase());
                 }}
                 allowClear
-                // Allow user to enter custom value
-                onSearch={(inputValue) => {
-                  // If user types a value not in the list, set it as the value
-                  if (
-                    inputValue &&
-                    !investors.some(inv => inv.name.toLowerCase() === inputValue.toLowerCase())
-                  ) {
-                    // Set the value in the form
-                    form.setFieldsValue({ investor: inputValue });
-                  }
-                }}
-                onSelect={(value) => {
-                  form.setFieldsValue({ investor: value });
-                }}
-                onBlur={(e) => {
-                  // If user leaves the field with a custom value, keep it
-                  const inputValue = form.getFieldValue('investor');
-                  if (
-                    inputValue &&
-                    !investors.some(inv => inv.name.toLowerCase() === inputValue.toLowerCase())
-                  ) {
-                    form.setFieldsValue({ investor: inputValue });
-                  }
-                }}
-                notFoundContent={null}
               >
-                <Option value="">
-                  <span className="flex items-center gap-2">
-                    <span style={{ color: '#8c8ca1' }}>●</span> General Parameters
-                  </span>
-                </Option>
                 {investors.map(inv => (
-                  <Option key={inv.name} value={inv.name}>
+                  <Option key={inv.id} value={inv.id}>
                     <span className="flex items-center gap-2">
                       <span style={{ color: '#597ef7' }}>●</span> {inv.name}
                     </span>
@@ -554,32 +526,6 @@ const IngestPage = () => {
             <p className="text-gray-500 text-sm mb-6">Select investor context and document categories for extraction</p>
           </div>
 
-          {/* Investor Selector */}
-          <div className="mb-6">
-            <label className="block text-gray-500 font-medium text-sm mb-2">
-              <BankOutlined className="mr-2" /> Investor Context
-            </label>
-            <Form.Item name="guideline_investor_id" className="mb-0" initialValue="null">
-              <Select
-                size="large"
-                className="w-full"
-                placeholder="Select an investor"
-              >
-                <Option value="null">
-                  <span className="flex items-center gap-2">
-                    <span style={{ color: '#8c8ca1' }}>●</span> General Parameters
-                  </span>
-                </Option>
-                {investors.map(inv => (
-                  <Option key={inv.id} value={inv.id}>
-                    <span className="flex items-center gap-2">
-                      <span style={{ color: '#597ef7' }}>●</span> {inv.name}
-                    </span>
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </div>
 
           {/* Category Chips */}
           <div>
