@@ -76,8 +76,11 @@ async def add_column_if_not_exists():
             pass
 
 
-async def seed_parameters():
-    """Clear existing parameters and seed with the unified list."""
+async def seed_parameters(force: bool = False):
+    """
+    Seed parameters with the unified list.
+    If force is False, it will skip if parameters already exist.
+    """
     
     # First, ensure column exists
     await add_column_if_not_exists()
@@ -95,7 +98,15 @@ async def seed_parameters():
         print(f"  - {t}: {c} parameters")
     
     async with AsyncSessionLocal() as db:
-        # Clear existing
+        # Check if already seeded
+        if not force:
+            from sqlalchemy import select, func
+            result = await db.execute(select(func.count()).select_from(DSCRParameter))
+            if result.scalar() > 0:
+                print("📋 DSCR Parameters already exist in database. Skipping seed.")
+                return
+
+        # Clear existing if forced or if we reached here
         from sqlalchemy import delete
         await db.execute(delete(DSCRParameter))
         await db.commit()

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI } from "../../services/api";
@@ -85,7 +85,7 @@ const ConfigParametersPage = () => {
         setIsModalVisible(true);
     };
 
-    const handleEdit = (record) => {
+    const handleEdit = useCallback((record) => {
         setEditingParam(record);
         let guidelineType = record.guideline_type || [...GUIDELINE_TYPE_OPTIONS];
         if (guidelineType.includes("All")) {
@@ -97,9 +97,9 @@ const ConfigParametersPage = () => {
         });
         prevGuidelineTypeRef.current = guidelineType;
         setIsModalVisible(true);
-    };
+    }, [form]);
 
-    const handleDelete = async (id) => {
+    const handleDelete = useCallback(async (id) => {
         try {
             await dscrAPI.deleteParameter(id);
             showToast.success("Parameter deleted successfully");
@@ -107,7 +107,7 @@ const ConfigParametersPage = () => {
         } catch (error) {
             console.error("Failed to delete parameter:", error);
         }
-    };
+    }, [selectedInvestorId]); // Added dependency to ensure fetchParameters is current
 
     const handleRemoveAll = async () => {
         try {
@@ -254,10 +254,10 @@ const ConfigParametersPage = () => {
         prevGuidelineTypeRef.current = checkedValues;
     };
 
-    const filteredParameters = parameters.filter(p =>
+    const filteredParameters = useMemo(() => parameters.filter(p =>
         p.parameter.toLowerCase().includes(searchText.toLowerCase()) ||
         p.category.toLowerCase().includes(searchText.toLowerCase())
-    );
+    ), [parameters, searchText]);
 
     const guidelineTypeColorMap = {
         "DSCR": "blue",
@@ -265,7 +265,7 @@ const ConfigParametersPage = () => {
         "Alt Doc": "purple"
     };
 
-    const columns = [
+    const columns = useMemo(() => [
         {
             title: "Parameter Name",
             dataIndex: "parameter",
@@ -354,25 +354,28 @@ const ConfigParametersPage = () => {
                 </Space>
             ),
         },
-    ];
+    ], [handleEdit, handleDelete]);
 
     // Calculate stats
-    const totalParams = parameters.length;
+    const { totalParams, dscrCount, fullDocCount, altDocCount } = useMemo(() => {
+        const getTypeCount = (type) => parameters.filter(p => {
+            let types = p.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+            if (typeof types === 'string') {
+                types = [types];
+            }
+            if (types.includes("All")) {
+                types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+            }
+            return types.includes(type);
+        }).length;
 
-    const getTypeCount = (type) => parameters.filter(p => {
-        let types = p.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
-        if (typeof types === 'string') {
-            types = [types];
-        }
-        if (types.includes("All")) {
-            types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
-        }
-        return types.includes(type);
-    }).length;
-
-    const dscrCount = getTypeCount("DSCR");
-    const fullDocCount = getTypeCount("Full Doc");
-    const altDocCount = getTypeCount("Alt Doc");
+        return {
+            totalParams: parameters.length,
+            dscrCount: getTypeCount("DSCR"),
+            fullDocCount: getTypeCount("Full Doc"),
+            altDocCount: getTypeCount("Alt Doc")
+        };
+    }, [parameters]);
 
     const activeContextName = investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
 
