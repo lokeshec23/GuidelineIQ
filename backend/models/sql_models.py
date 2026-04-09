@@ -1,6 +1,5 @@
-
 # backend/models/sql_models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, LargeBinary, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, LargeBinary, JSON, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import datetime
@@ -160,11 +159,16 @@ class DSCRParameter(Base):
     id = Column(String(36), primary_key=True, default=generate_uuid)
     parameter = Column(String(255), nullable=False, index=True)
     category = Column(String(255), nullable=False, index=True)
-    subcategory = Column(String(255), nullable=False)
+    subcategory = Column(String(255), nullable=True)
     ppe_field = Column(String(255), nullable=True)
     guideline_type = Column(JSON, nullable=True)  # e.g. ["All"], ["DSCR", "Full Doc"]
     investor_id = Column(String(36), ForeignKey("investors.id", ondelete="CASCADE"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Composite Index for performance on List Parameters call
+    __table_args__ = (
+        Index("ix_dscr_params_investor_cat_name", "investor_id", "category", "parameter"),
+    )
 
     investor = relationship("Investor", back_populates="parameters")

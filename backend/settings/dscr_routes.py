@@ -6,11 +6,21 @@ from models.sql_models import DSCRParameter
 from settings.dscr_schemas import DSCRParameterCreate, DSCRParameterUpdate, DSCRParameterResponse, GUIDELINE_TYPE_OPTIONS
 from auth.middleware import require_admin
 from typing import List, Optional
+import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dscr-parameters", tags=["Parameters"])
 
 @router.get("", response_model=List[DSCRParameterResponse])
-async def list_parameters(investor_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+async def list_parameters(
+    investor_id: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 0,  # 0 = no limit (return all)
+    db: AsyncSession = Depends(get_db)
+):
+    start_time = time.time()
     query = select(DSCRParameter)
     
     # Filter by specific investor_id, or None for general parameters
@@ -20,8 +30,22 @@ async def list_parameters(investor_id: Optional[str] = None, db: AsyncSession = 
         query = query.where(DSCRParameter.investor_id == investor_id)
         
     query = query.order_by(DSCRParameter.category, DSCRParameter.parameter)
+    
+    if skip > 0:
+        query = query.offset(skip)
+    if limit > 0:
+        query = query.limit(limit)
+
+    db_start = time.time()
     result = await db.execute(query)
-    return result.scalars().all()
+    parameters = result.scalars().all() or []
+    db_end = time.time()
+    
+    logger.info(f"DB Query took {db_end - db_start:.4f}s for {len(parameters)} items")
+    
+    # Serialization happens after return
+    logger.info(f"Total route logic took {time.time() - start_time:.4f}s")
+    return parameters
 
 @router.get("/guideline-types")
 async def get_guideline_types():

@@ -17,7 +17,7 @@ const ConfigParametersPage = () => {
 
     // Parameter State
     const [parameters, setParameters] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingParam, setEditingParam] = useState(null);
     const [form] = Form.useForm();
@@ -47,30 +47,43 @@ const ConfigParametersPage = () => {
         fetchInvestors();
     }, []);
 
+    // Re-fetch parameters whenever the selected investor changes (but NOT on initial null)
     useEffect(() => {
-        fetchParameters();
+        if (selectedInvestorId) {
+            fetchParameters();
+        }
     }, [selectedInvestorId]);
 
     const fetchInvestors = async () => {
         try {
             const response = await investorAPI.listInvestors();
-            setInvestors(response.data);
-            if (response.data && response.data.length > 0) {
-                setSelectedInvestorId(response.data[0].id);
+            const data = response.data || [];
+            setInvestors(data);
+            if (data.length > 0) {
+                // Set the first investor — this triggers the selectedInvestorId useEffect
+                // which will call fetchParameters(). No manual call needed here.
+                setSelectedInvestorId(data[0].id);
+            } else {
+                // No investors exist — nothing to load
+                setSelectedInvestorId(null);
+                setLoading(false);
             }
         } catch (error) {
             console.error("Failed to fetch investors:", error);
+            showToast.error("Failed to fetch context list.");
+            setLoading(false);
         }
     };
 
-    const fetchParameters = async () => {
-        if (!selectedInvestorId) return;
+    const fetchParameters = async (investorId = selectedInvestorId) => {
+        if (!investorId) return;
         setLoading(true);
         try {
-            const response = await dscrAPI.listParameters(selectedInvestorId);
-            setParameters(response.data);
+            const response = await dscrAPI.listParameters(investorId);
+            setParameters(response.data || []);
         } catch (error) {
             console.error("Failed to fetch parameters:", error);
+            showToast.error("Failed to load parameters. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -514,6 +527,15 @@ const ConfigParametersPage = () => {
                             columns={columns}
                             dataSource={filteredParameters}
                             rowKey="id"
+                            locale={{
+                                emptyText: (
+                                    <div className="py-12 text-center">
+                                        <DatabaseOutlined className="text-4xl text-gray-200 mb-3" />
+                                        <p className="text-gray-400 font-medium">No parameters found for this context</p>
+                                        <p className="text-gray-300 text-sm">Add one manually or import from general parameters</p>
+                                    </div>
+                                )
+                            }}
                             pagination={{
                                 pageSize: 12,
                                 showSizeChanger: true,

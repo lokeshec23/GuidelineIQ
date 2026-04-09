@@ -7,7 +7,7 @@ GUIDELINE_TYPE_OPTIONS = ["All", "DSCR", "Full Doc", "Alt Doc"]
 class DSCRParameterBase(BaseModel):
     parameter: str
     category: str
-    subcategory: str
+    subcategory: Optional[str] = "Feature Eligibility"
     ppe_field: Optional[str] = None
     guideline_type: List[str] = ["All"]
     investor_id: Optional[str] = None
@@ -17,6 +17,12 @@ class DSCRParameterBase(BaseModel):
     def process_guideline_type(cls, v):
         if v is None:
             return ["All"]
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except:
+                return [v]
         return v
 
 class DSCRParameterCreate(DSCRParameterBase):

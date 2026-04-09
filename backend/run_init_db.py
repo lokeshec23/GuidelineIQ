@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sql_database import init_db
+import models.sql_models # Register all models with Base.metadata
 
 async def run():
     await init_db()

@@ -36,18 +36,24 @@ def build_unified_parameters():
     
     try:
         df = pd.read_excel(EXCEL_FILE_PATH)
-        for _, row in df.iterrows():
+        for i, row in df.iterrows():
             param = str(row["Parameters"]).strip() if pd.notna(row["Parameters"]) else ""
             cat = str(row["Category"]).strip() if pd.notna(row["Category"]) else "General"
             subcat = str(row["Sub-Categories"]).strip() if pd.notna(row["Sub-Categories"]) else "Feature Eligibility"
             if param:
-                # Assign all parameters to all program types to ensure visibility
+                # Row 2-138 (Index 0-136) -> Full Doc, Alt Doc
+                # Row 139-180 (Index 137-178) -> DSCR
+                if i <= 136:
+                    g_types = ["Full Doc", "Alt Doc"]
+                else:
+                    g_types = ["DSCR"]
+                    
                 result.append({
                     "parameter": param,
                     "category": cat,
                     "subcategory": subcat,
                     "ppe_field": None,
-                    "guideline_type": ["Full Doc", "Alt Doc", "DSCR"]
+                    "guideline_type": g_types
                 })
     except Exception as e:
         print(f"Error reading Excel file: {e}")
