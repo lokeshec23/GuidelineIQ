@@ -163,7 +163,7 @@ const ConfigParametersPage = () => {
     /* === Import from General Parameters Flow === */
     const fetchGeneralParameters = async (force = false) => {
         if (hasFetchedGeneral && !force && generalParams.length > 0) return;
-        
+
         setGeneralParamsLoading(true);
         try {
             const response = await dscrAPI.listParameters("null");
@@ -202,6 +202,18 @@ const ConfigParametersPage = () => {
             console.error("Failed to import parameters:", error);
         } finally {
             setImportLoading(false);
+        }
+    };
+
+    const handleSelectAll = (checked) => {
+        if (checked) {
+            // Add all visible IDs to selection, avoiding duplicates
+            const visibleIds = filteredGeneralParams.map(p => p.id);
+            setSelectedParamIds(prev => [...new Set([...prev, ...visibleIds])]);
+        } else {
+            // Remove only visible IDs from selection
+            const visibleIds = filteredGeneralParams.map(p => p.id);
+            setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
         }
     };
 
@@ -366,6 +378,21 @@ const ConfigParametersPage = () => {
         p.category.toLowerCase().includes(searchText.toLowerCase())
     ), [parameters, searchText]);
 
+    const mainCategoryFilters = useMemo(() => {
+        const categories = [...new Set(parameters.map(p => p.category))].filter(Boolean);
+        return categories.sort().map(cat => ({ text: cat, value: cat }));
+    }, [parameters]);
+
+    const mainSubcategoryFilters = useMemo(() => {
+        const subcats = [...new Set(parameters.map(p => p.subcategory))].filter(Boolean);
+        return subcats.sort().map(sub => ({ text: sub, value: sub }));
+    }, [parameters]);
+
+    const mainParameterFilters = useMemo(() => {
+        const parms = [...new Set(parameters.map(p => p.parameter))].filter(Boolean);
+        return parms.sort().map(p => ({ text: p, value: p }));
+    }, [parameters]);
+
     const guidelineTypeColorMap = {
         "DSCR": "blue",
         "Full Doc": "green",
@@ -377,14 +404,20 @@ const ConfigParametersPage = () => {
             title: "Parameter Name",
             dataIndex: "parameter",
             key: "parameter",
-            sorter: (a, b) => a.parameter.localeCompare(b.parameter),
+            sorter: (a, b) => (a.parameter || "").localeCompare(b.parameter || ""),
+            filters: mainParameterFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.parameter === value,
             render: (text) => <span className="font-semibold text-gray-800">{text}</span>
         },
         {
             title: "Category",
             dataIndex: "category",
             key: "category",
-            sorter: (a, b) => a.category.localeCompare(b.category),
+            sorter: (a, b) => (a.category || "").localeCompare(b.category || ""),
+            filters: mainCategoryFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.category === value,
             render: (text) => (
                 <Tag className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 rounded-full font-medium">
                     {text}
@@ -395,6 +428,10 @@ const ConfigParametersPage = () => {
             title: "Subcategory",
             dataIndex: "subcategory",
             key: "subcategory",
+            sorter: (a, b) => (a.subcategory || "").localeCompare(b.subcategory || ""),
+            filters: mainSubcategoryFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.subcategory === value,
             render: (text) => <span className="text-gray-600">{text || "—"}</span>
         },
         {
@@ -402,18 +439,26 @@ const ConfigParametersPage = () => {
             dataIndex: "guideline_type",
             key: "guideline_type",
             width: 250,
+            sorter: (a, b) => {
+                const getLen = (item) => {
+                    let types = item.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                    if (types.includes("All")) return 3;
+                    return (Array.isArray(types) ? types.length : 1);
+                };
+                return getLen(a) - getLen(b);
+            },
             filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
             onFilter: (value, record) => {
                 let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
                 if (types.includes("All")) {
-                    types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+                    types = ["DSCR", "Full Doc", "Alt Doc"];
                 }
                 return types.includes(value);
             },
             render: (types) => {
                 let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
                 if (displayTypes.includes("All")) {
-                    displayTypes = [...new Set(displayTypes.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+                    displayTypes = ["DSCR", "Full Doc", "Alt Doc"];
                 }
                 return (
                     <Space size={[0, 6]} wrap>
@@ -461,7 +506,7 @@ const ConfigParametersPage = () => {
                 </Space>
             ),
         },
-    ], [handleEdit, handleDelete]);
+    ], [mainCategoryFilters, mainSubcategoryFilters, mainParameterFilters, handleEdit, handleDelete]);
 
     // Calculate stats
     const { totalParams, dscrCount, fullDocCount, altDocCount } = useMemo(() => {
@@ -740,15 +785,37 @@ const ConfigParametersPage = () => {
                 maskClosable={false}
             >
                 <div className="mt-4 flex flex-col gap-4">
-                    {/* Search within modal */}
-                    <Input
-                        placeholder="Search general parameters..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
-                        value={importSearchText}
-                        onChange={e => setImportSearchText(e.target.value)}
-                        className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white"
-                        allowClear
-                    />
+                    {/* Search and Select All section */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <Input
+                            placeholder="Search general parameters..."
+                            prefix={<SearchOutlined className="text-gray-400" />}
+                            value={importSearchText}
+                            onChange={e => setImportSearchText(e.target.value)}
+                            className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white flex-1"
+                            allowClear
+                        />
+                        <div className="px-1 flex items-center gap-4">
+                            <Checkbox
+                                indeterminate={
+                                    filteredGeneralParams.some(p => selectedParamIds.includes(p.id)) &&
+                                    !filteredGeneralParams.every(p => selectedParamIds.includes(p.id))
+                                }
+                                checked={
+                                    filteredGeneralParams.length > 0 &&
+                                    filteredGeneralParams.every(p => selectedParamIds.includes(p.id))
+                                }
+                                onChange={e => handleSelectAll(e.target.checked)}
+                            >
+                                <span className="text-gray-600 font-medium ml-1">
+                                    Select All ({filteredGeneralParams.length})
+                                </span>
+                            </Checkbox>
+                            <span className="text-gray-400 text-xs whitespace-nowrap bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                                {selectedParamIds.length} selected
+                            </span>
+                        </div>
+                    </div>
 
                     {/* Parameter list */}
                     <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
