@@ -214,23 +214,77 @@ const ConfigParametersPage = () => {
         );
     }, [generalParams, importSearchText]);
 
+    const categoryFilters = useMemo(() => {
+        const categories = [...new Set(generalParams.map(p => p.category))].filter(Boolean);
+        return categories.sort().map(cat => ({ text: cat, value: cat }));
+    }, [generalParams]);
+
+    const subcategoryFilters = useMemo(() => {
+        const subcats = [...new Set(generalParams.map(p => p.subcategory))].filter(Boolean);
+        return subcats.sort().map(sub => ({ text: sub, value: sub }));
+    }, [generalParams]);
+
+    const parameterFilters = useMemo(() => {
+        const parms = [...new Set(generalParams.map(p => p.parameter))].filter(Boolean);
+        return parms.sort().map(p => ({ text: p, value: p }));
+    }, [generalParams]);
+
     const importColumns = useMemo(() => [
         {
-            title: "Parameter",
+            title: "Parameter Name",
             dataIndex: "parameter",
             key: "parameter",
-            render: (text, record) => (
-                <div className="flex flex-col">
-                    <span className="font-semibold text-gray-800 text-sm">{text}</span>
-                    <span className="text-[11px] text-gray-400">{record.category} {record.subcategory ? `• ${record.subcategory}` : ""}</span>
-                </div>
+            sorter: (a, b) => (a.parameter || "").localeCompare(b.parameter || ""),
+            filters: parameterFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.parameter === value,
+            render: (text) => <span className="font-semibold text-gray-800 text-sm">{text}</span>
+        },
+        {
+            title: "Category",
+            dataIndex: "category",
+            key: "category",
+            sorter: (a, b) => (a.category || "").localeCompare(b.category || ""),
+            filters: categoryFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.category === value,
+            render: (text) => (
+                <Tag color="processing" className="text-[11px] px-2 rounded-full border-transparent bg-blue-50 text-blue-600">
+                    {text}
+                </Tag>
             )
         },
         {
-            title: "Types",
+            title: "Sub Category",
+            dataIndex: "subcategory",
+            key: "subcategory",
+            sorter: (a, b) => (a.subcategory || "").localeCompare(b.subcategory || ""),
+            filters: subcategoryFilters,
+            filterSearch: true,
+            onFilter: (value, record) => record.subcategory === value,
+            render: (text) => <span className="text-[11px] text-gray-500">{text || "—"}</span>
+        },
+        {
+            title: "Guideline Type",
             dataIndex: "guideline_type",
             key: "guideline_type",
-            width: 150,
+            width: 180,
+            sorter: (a, b) => {
+                const getLen = (item) => {
+                    let types = item.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                    if (types.includes("All")) return 3;
+                    return (Array.isArray(types) ? types.length : 1);
+                };
+                return getLen(a) - getLen(b);
+            },
+            filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
+            onFilter: (value, record) => {
+                let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                if (types.includes("All")) {
+                    types = ["DSCR", "Full Doc", "Alt Doc"];
+                }
+                return types.includes(value);
+            },
             render: (types) => {
                 let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
                 if (displayTypes.includes("All")) {
@@ -240,14 +294,14 @@ const ConfigParametersPage = () => {
                     <Space size={[0, 4]} wrap>
                         {displayTypes.map(t => (
                             <Tag key={t} color={guidelineTypeColorMap[t]} className="text-[10px] px-2 rounded-full border-transparent m-0">
-                                {t.split(' ')[0]}
+                                {t}
                             </Tag>
                         ))}
                     </Space>
                 );
             }
         }
-    ], []);
+    ], [categoryFilters, subcategoryFilters]);
 
     /* === Manage Investors Flow === */
     const handleManageInvestors = () => {
@@ -680,7 +734,7 @@ const ConfigParametersPage = () => {
                     disabled: selectedParamIds.length === 0,
                 }}
                 cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
-                width={680}
+                width={1000}
                 centered
                 destroyOnClose
                 maskClosable={false}
@@ -697,29 +751,33 @@ const ConfigParametersPage = () => {
                     />
 
                     {/* Parameter list */}
-                    <div className="border border-gray-100 rounded-xl overflow-hidden">
+                    <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                         <Table
                             columns={importColumns}
                             dataSource={filteredGeneralParams}
                             rowKey="id"
-                            size="small"
+                            size="middle"
                             loading={generalParamsLoading}
                             pagination={{
-                                pageSize: 10,
-                                showSizeChanger: false,
-                                size: "small"
+                                pageSize: 8,
+                                showSizeChanger: true,
+                                showTotal: (total) => `Total ${total} parameters`,
+                                className: "px-4"
                             }}
                             rowSelection={{
+                                type: 'checkbox',
                                 selectedRowKeys: selectedParamIds,
                                 onChange: (keys) => setSelectedParamIds(keys),
+                                preserveSelectedRowKeys: true,
                             }}
-                            scroll={{ y: 350 }}
-                            className="import-table"
+                            scroll={{ y: 400 }}
+                            className="import-table custom-table"
+                            rowClassName="hover:bg-blue-50/30 transition-colors cursor-pointer"
                             locale={{
                                 emptyText: (
-                                    <div className="py-8 text-center">
-                                        <DatabaseOutlined className="text-2xl text-gray-200 mb-2" />
-                                        <p className="text-gray-400 text-sm">No parameters found</p>
+                                    <div className="py-12 text-center">
+                                        <DatabaseOutlined className="text-4xl text-gray-100 mb-3" />
+                                        <p className="text-gray-400 font-medium">No general parameters found</p>
                                     </div>
                                 )
                             }}
