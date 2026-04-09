@@ -610,8 +610,8 @@ const ConfigParametersPage = () => {
     return (
         <div className="max-w-7xl mx-auto pb-10">
             {/* Header / Context Filter Bar */}
-            <div className="mb-6">
-                <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 w-full md:w-1/2 flex items-center gap-4">
+            <div className="mb-8">
+                <div className="bg-white p-2 md:p-3 rounded-2xl shadow-sm border border-gray-100 w-full lg:w-1/2 flex items-center gap-4 transition-all hover:bg-white/80">
                     <span className="text-gray-500 font-semibold text-sm flex items-center gap-2 ml-2 whitespace-nowrap uppercase tracking-wider">
                         <DatabaseOutlined className="text-blue-500 text-lg" /> Active Context
                     </span>
@@ -639,32 +639,55 @@ const ConfigParametersPage = () => {
             </div>
 
             {/* Stats Overview */}
-            <Row gutter={[24, 24]} className="mb-8 flex items-stretch">
-                <Col xs={24} md={12}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full flex flex-col justify-center">
+            <Row gutter={[24, 24]} className="mb-8 items-stretch">
+                <Col xs={24} md={8}>
+                    <Card
+                        className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-all duration-300 h-full overflow-hidden"
+                        bodyStyle={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+                    >
                         <Statistic
-                            title={<span className="text-gray-500 font-medium flex items-center gap-2"><AppstoreOutlined /> Total Parameters</span>}
+                            title={
+                                <span className="text-gray-400 font-semibold flex items-center gap-2 mb-1 text-xs uppercase tracking-widest">
+                                    <AppstoreOutlined className="text-blue-500" /> Total Parameters
+                                </span>
+                            }
                             value={totalParams}
-                            valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '28px' }}
-                            formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "60px", height: "38px", borderRadius: "6px" }} /> : val}
+                            valueStyle={{ color: '#0f172a', fontWeight: 700, fontSize: '32px', lineHeight: 1 }}
+                            formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ width: "80px", height: "32px", borderRadius: "8px" }} /> : val}
                         />
                     </Card>
                 </Col>
-                <Col xs={24} md={12}>
-                    <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
-                        <span className="text-gray-500 font-medium flex items-center gap-2 mb-3 text-sm"><TagsOutlined /> Types Breakdown</span>
-                        <div className="flex flex-wrap gap-y-2 items-center w-full">
-                            {breakdown.map((item, index) => (
-                                <React.Fragment key={item.name}>
-                                    <Statistic
-                                        title={<span style={{ color: item.color }} className="font-semibold text-[11px] uppercase tracking-wider">{item.name}</span>}
-                                        value={item.count}
-                                        valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
-                                        formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
-                                    />
-                                    {index < breakdown.length - 1 && <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />}
-                                </React.Fragment>
-                            ))}
+                <Col xs={24} md={16}>
+                    <Card
+                        className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-all duration-300 h-full overflow-hidden"
+                        bodyStyle={{ padding: '24px', height: '100%' }}
+                    >
+                        <div className="flex flex-col h-full">
+                            <span className="text-gray-400 font-semibold flex items-center gap-2 mb-4 text-xs uppercase tracking-widest">
+                                <TagsOutlined className="text-indigo-500" /> Types Breakdown
+                            </span>
+                            <div className="flex flex-wrap gap-x-10 gap-y-6 items-center">
+                                {breakdown.map((item) => (
+                                    <div key={item.name} className="flex flex-col min-w-[100px]">
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.1em] mb-2" style={{ color: item.color }}>
+                                            {item.name}
+                                        </span>
+                                        <div className="flex items-baseline gap-1.5">
+                                            {loading ? (
+                                                <Skeleton.Button active size="small" style={{ width: "40px", height: "28px", borderRadius: "6px" }} />
+                                            ) : (
+                                                <span className="text-2xl font-bold text-slate-800 tracking-tight leading-none">
+                                                    {item.count}
+                                                </span>
+                                            )}
+                                            <span className="text-[11px] text-gray-400 font-medium uppercase">units</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {breakdown.length === 0 && !loading && (
+                                    <span className="text-gray-400 italic text-sm">No types defined</span>
+                                )}
+                            </div>
                         </div>
                     </Card>
                 </Col>
@@ -673,16 +696,18 @@ const ConfigParametersPage = () => {
             {/* Main Content Area */}
             <Card className="shadow-sm border-gray-200 rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
                 {/* Table Header Controls */}
-                <div className="p-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <Input
-                        placeholder="Search parameters or categories..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
-                        value={searchText}
-                        onChange={e => setSearchText(e.target.value)}
-                        className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
-                        allowClear
-                    />
-                    <div className="flex gap-3 w-full sm:w-auto">
+                <div className="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                    <div className="relative flex-1 max-w-xl">
+                        <Input
+                            placeholder="Search parameters or categories..."
+                            prefix={<SearchOutlined className="text-gray-400 mr-2" />}
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                            className="h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4"
+                            allowClear
+                        />
+                    </div>
+                    <div className="flex flex-wrap gap-3 items-center">
                         {selectedInvestorId && (
                             <Button
                                 icon={<DownloadOutlined />}
