@@ -42,6 +42,7 @@ const ConfigParametersPage = () => {
     const [importLoading, setImportLoading] = useState(false);
     const [importSearchText, setImportSearchText] = useState("");
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
+    const [hasFetchedGeneral, setHasFetchedGeneral] = useState(false);
 
     useEffect(() => {
         fetchInvestors();
@@ -160,11 +161,14 @@ const ConfigParametersPage = () => {
     };
 
     /* === Import from General Parameters Flow === */
-    const fetchGeneralParameters = async () => {
+    const fetchGeneralParameters = async (force = false) => {
+        if (hasFetchedGeneral && !force && generalParams.length > 0) return;
+        
         setGeneralParamsLoading(true);
         try {
             const response = await dscrAPI.listParameters("null");
-            setGeneralParams(response.data);
+            setGeneralParams(response.data || []);
+            setHasFetchedGeneral(true);
         } catch (error) {
             console.error("Failed to fetch general parameters:", error);
             showToast.error("Failed to load general parameters");
@@ -187,19 +191,11 @@ const ConfigParametersPage = () => {
         }
         setImportLoading(true);
         try {
-            const toImport = generalParams.filter(p => selectedParamIds.includes(p.id));
-            await Promise.all(
-                toImport.map(p =>
-                    dscrAPI.createParameter({
-                        parameter: p.parameter,
-                        category: p.category,
-                        subcategory: p.subcategory,
-                        guideline_type: p.guideline_type,
-                        investor_id: selectedInvestorId,
-                    })
-                )
-            );
-            showToast.success(`${toImport.length} parameter(s) imported successfully.`);
+            await dscrAPI.importFromGeneral({
+                parameter_ids: selectedParamIds,
+                target_investor_id: selectedInvestorId
+            });
+            showToast.success(`${selectedParamIds.length} parameter(s) imported successfully.`);
             setIsImportModalVisible(false);
             fetchParameters();
         } catch (error) {
@@ -208,6 +204,50 @@ const ConfigParametersPage = () => {
             setImportLoading(false);
         }
     };
+
+    const filteredGeneralParams = useMemo(() => {
+        if (!importSearchText) return generalParams;
+        const lowerSearch = importSearchText.toLowerCase();
+        return generalParams.filter(p =>
+            p.parameter.toLowerCase().includes(lowerSearch) ||
+            p.category.toLowerCase().includes(lowerSearch)
+        );
+    }, [generalParams, importSearchText]);
+
+    const importColumns = useMemo(() => [
+        {
+            title: "Parameter",
+            dataIndex: "parameter",
+            key: "parameter",
+            render: (text, record) => (
+                <div className="flex flex-col">
+                    <span className="font-semibold text-gray-800 text-sm">{text}</span>
+                    <span className="text-[11px] text-gray-400">{record.category} {record.subcategory ? `• ${record.subcategory}` : ""}</span>
+                </div>
+            )
+        },
+        {
+            title: "Types",
+            dataIndex: "guideline_type",
+            key: "guideline_type",
+            width: 150,
+            render: (types) => {
+                let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
+                if (displayTypes.includes("All")) {
+                    displayTypes = ["DSCR", "Full Doc", "Alt Doc"];
+                }
+                return (
+                    <Space size={[0, 4]} wrap>
+                        {displayTypes.map(t => (
+                            <Tag key={t} color={guidelineTypeColorMap[t]} className="text-[10px] px-2 rounded-full border-transparent m-0">
+                                {t.split(' ')[0]}
+                            </Tag>
+                        ))}
+                    </Space>
+                );
+            }
+        }
+    ], []);
 
     /* === Manage Investors Flow === */
     const handleManageInvestors = () => {
@@ -656,114 +696,34 @@ const ConfigParametersPage = () => {
                         allowClear
                     />
 
-                    {/* Select-all row */}
-                    {!generalParamsLoading && generalParams.length > 0 && (
-                        <div className="flex items-center justify-between px-1">
-                            <Checkbox
-                                indeterminate={
-                                    selectedParamIds.length > 0 &&
-                                    selectedParamIds.length < generalParams.filter(p =>
-                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                                    ).length
-                                }
-                                checked={
-                                    generalParams.filter(p =>
-                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                                    ).length > 0 &&
-                                    generalParams
-                                        .filter(p =>
-                                            p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                                            p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                                        )
-                                        .every(p => selectedParamIds.includes(p.id))
-                                }
-                                onChange={e => {
-                                    const visible = generalParams.filter(p =>
-                                        p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                                        p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                                    );
-                                    if (e.target.checked) {
-                                        setSelectedParamIds(prev => [
-                                            ...new Set([...prev, ...visible.map(p => p.id)])
-                                        ]);
-                                    } else {
-                                        const visibleIds = visible.map(p => p.id);
-                                        setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
-                                    }
-                                }}
-                            >
-                                <span className="text-sm font-medium text-gray-600">Select All Visible</span>
-                            </Checkbox>
-                            <span className="text-xs text-gray-400 font-medium">
-                                {selectedParamIds.length} selected
-                            </span>
-                        </div>
-                    )}
-
                     {/* Parameter list */}
-                    <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
-                        {generalParamsLoading ? (
-                            <div className="p-6">
-                                <TableSkeleton rows={5} columns={3} />
-                            </div>
-                        ) : generalParams.filter(p =>
-                            p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                            p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                        ).length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
-                                <DatabaseOutlined className="text-3xl mb-2 block mx-auto" />
-                                <div className="font-medium">{importSearchText ? "No matching parameters" : "No general parameters found"}</div>
-                            </div>
-                        ) : (
-                            generalParams
-                                .filter(p =>
-                                    p.parameter.toLowerCase().includes(importSearchText.toLowerCase()) ||
-                                    p.category.toLowerCase().includes(importSearchText.toLowerCase())
-                                )
-                                .map(param => (
-                                    <div
-                                        key={param.id}
-                                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-blue-50/50 ${selectedParamIds.includes(param.id) ? "bg-blue-50" : "bg-white"
-                                            }`}
-                                        onClick={() => setSelectedParamIds(prev =>
-                                            prev.includes(param.id)
-                                                ? prev.filter(id => id !== param.id)
-                                                : [...prev, param.id]
-                                        )}
-                                    >
-                                        <Checkbox
-                                            checked={selectedParamIds.includes(param.id)}
-                                            onChange={() => { }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-gray-800 text-sm truncate">{param.parameter}</div>
-                                            <div className="text-xs text-gray-400 mt-0.5">
-                                                <Tag className="bg-blue-50 text-blue-500 border-blue-100 text-[11px] px-2 py-0 rounded-full">{param.category}</Tag>
-                                                {param.subcategory && <span className="ml-1">{param.subcategory}</span>}
-                                            </div>
-                                        </div>
-                                        <Space size={[0, 4]} wrap className="justify-end shrink-0">
-                                            {(() => {
-                                                let types = param.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
-                                                if (types.includes("All")) {
-                                                    types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
-                                                }
-                                                return types.map(t => (
-                                                    <Tag
-                                                        key={t}
-                                                        color={guidelineTypeColorMap[t]}
-                                                        className="text-[10px] px-2 rounded-full border-transparent"
-                                                    >
-                                                        {t}
-                                                    </Tag>
-                                                ));
-                                            })()}
-                                        </Space>
+                    <div className="border border-gray-100 rounded-xl overflow-hidden">
+                        <Table
+                            columns={importColumns}
+                            dataSource={filteredGeneralParams}
+                            rowKey="id"
+                            size="small"
+                            loading={generalParamsLoading}
+                            pagination={{
+                                pageSize: 10,
+                                showSizeChanger: false,
+                                size: "small"
+                            }}
+                            rowSelection={{
+                                selectedRowKeys: selectedParamIds,
+                                onChange: (keys) => setSelectedParamIds(keys),
+                            }}
+                            scroll={{ y: 350 }}
+                            className="import-table"
+                            locale={{
+                                emptyText: (
+                                    <div className="py-8 text-center">
+                                        <DatabaseOutlined className="text-2xl text-gray-200 mb-2" />
+                                        <p className="text-gray-400 text-sm">No parameters found</p>
                                     </div>
-                                ))
-                        )}
+                                )
+                            }}
+                        />
                     </div>
                 </div>
             </Modal>

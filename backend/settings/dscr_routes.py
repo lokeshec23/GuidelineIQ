@@ -2,8 +2,15 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sql_database import get_db
-from models.sql_models import DSCRParameter
-from settings.dscr_schemas import DSCRParameterCreate, DSCRParameterUpdate, DSCRParameterResponse, GUIDELINE_TYPE_OPTIONS
+from models.sql_models import DSCRParameter, Investor
+from settings.dscr_schemas import (
+    DSCRParameterCreate, 
+    DSCRParameterUpdate, 
+    DSCRParameterResponse, 
+    GUIDELINE_TYPE_OPTIONS,
+    DSCRParameterBulkCreate,
+    BatchImportRequest
+)
 from auth.middleware import require_admin
 from typing import List, Optional
 import time
@@ -63,6 +70,53 @@ async def create_parameter(
     await db.commit()
     await db.refresh(new_param)
     return new_param
+
+@router.post("/bulk", response_model=List[DSCRParameterResponse])
+async def bulk_create_parameters(
+    batch: DSCRParameterBulkCreate,
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    """Create multiple parameters in a single transaction."""
+    new_params = [DSCRParameter(**param.model_dump()) for param in batch.parameters]
+    db.add_all(new_params)
+    await db.commit()
+    for p in new_params:
+        await db.refresh(p)
+    return new_params
+
+@router.post("/import-from-general", response_model=List[DSCRParameterResponse])
+async def import_from_general(
+    request: BatchImportRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    """Import selected general parameters to a specific investor."""
+    # 1. Fetch general parameters
+    result = await db.execute(
+        select(DSCRParameter).where(DSCRParameter.id.in_(request.parameter_ids))
+    )
+    general_params = result.scalars().all()
+    
+    # 2. Clone them for the target investor
+    new_params = []
+    for p in general_params:
+        new_param = DSCRParameter(
+            parameter=p.parameter,
+            category=p.category,
+            subcategory=p.subcategory,
+            ppe_field=p.ppe_field,
+            guideline_type=p.guideline_type,
+            investor_id=request.target_investor_id
+        )
+        new_params.append(new_param)
+    
+    db.add_all(new_params)
+    await db.commit()
+    for p in new_params:
+        await db.refresh(p)
+    
+    return new_params
 
 @router.put("/{param_id}", response_model=DSCRParameterResponse)
 async def update_parameter(

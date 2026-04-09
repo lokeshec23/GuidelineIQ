@@ -42,3 +42,10 @@ class DSCRParameterResponse(DSCRParameterBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class DSCRParameterBulkCreate(BaseModel):
+    parameters: List[DSCRParameterCreate]
+
+class BatchImportRequest(BaseModel):
+    parameter_ids: List[str]
+    target_investor_id: str

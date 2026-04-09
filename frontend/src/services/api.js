@@ -239,6 +239,8 @@ export const dscrAPI = {
   deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),
   deleteAllParameters: () => api.delete("/dscr-parameters"),
   getGuidelineTypes: () => api.get("/dscr-parameters/guideline-types"),
+  bulkCreateParameters: (data) => api.post("/dscr-parameters/bulk", data),
+  importFromGeneral: (data) => api.post("/dscr-parameters/import-from-general", data),
 };
 
 // Export API_BASE_URL for use in components
