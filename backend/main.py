@@ -29,6 +29,7 @@ from prompts.routes import router as prompts_router
 from chat.routes import router as chat_router
 from settings.dscr_routes import router as dscr_params_router
 from settings.investor_routes import router as investor_router
+from settings.guideline_type_routes import router as guideline_type_router
 from scripts.seed_admin import seed_admin
 from scripts.seed_parameters import seed_parameters
 
@@ -96,6 +97,7 @@ app.include_router(prompts_router)
 app.include_router(chat_router)
 app.include_router(dscr_params_router)
 app.include_router(investor_router)
+app.include_router(guideline_type_router)
 
 # Health check
 @app.get("/")

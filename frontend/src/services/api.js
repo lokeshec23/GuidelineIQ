@@ -231,6 +231,14 @@ export const investorAPI = {
   deleteInvestor: (id) => api.delete(`/investors/${id}`),
 };
 
+// ==================== GUIDELINE TYPE APIs ====================
+export const guidelineTypeAPI = {
+  listTypes: () => api.get("/guideline-types"),
+  createType: (data) => api.post("/guideline-types", data),
+  updateType: (id, data) => api.put(`/guideline-types/${id}`, data),
+  deleteType: (id) => api.delete(`/guideline-types/${id}`),
+};
+
 // ==================== PARAMETERS APIs ====================
 export const dscrAPI = {
   listParameters: (investorId = "null") => api.get(`/dscr-parameters?investor_id=${investorId}`),

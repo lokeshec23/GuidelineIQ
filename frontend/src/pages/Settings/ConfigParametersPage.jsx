@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton } from "antd";
+import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton, Tabs } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined } from "@ant-design/icons";
-import { dscrAPI, investorAPI } from "../../services/api";
+import { dscrAPI, investorAPI, guidelineTypeAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
 import { useAuth } from "../../context/AuthContext";
@@ -9,12 +9,13 @@ import { useAuth } from "../../context/AuthContext";
 const { Title } = Typography;
 const { Option } = Select;
 
-const GUIDELINE_TYPE_OPTIONS = ["DSCR", "Full Doc", "Alt Doc"];
-
 const ConfigParametersPage = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === "admin";
 
+    // Guideline Type State
+    const [guidelineTypes, setGuidelineTypes] = useState([]);
+    const [guidelineTypesLoading, setGuidelineTypesLoading] = useState(false);
     // Parameter State
     const [parameters, setParameters] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -44,9 +45,28 @@ const ConfigParametersPage = () => {
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
     const [hasFetchedGeneral, setHasFetchedGeneral] = useState(false);
 
+    // Manage Guideline Types State
+    const [gTypeForm] = Form.useForm();
+    const [editingGType, setEditingGType] = useState(null);
+    const [gTypeSubmitting, setGTypeSubmitting] = useState(false);
+
     useEffect(() => {
         fetchInvestors();
+        fetchGuidelineTypes();
     }, []);
+
+    const fetchGuidelineTypes = async () => {
+        setGuidelineTypesLoading(true);
+        try {
+            const response = await guidelineTypeAPI.listTypes();
+            setGuidelineTypes(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch guideline types:", error);
+            showToast.error("Failed to load guideline types");
+        } finally {
+            setGuidelineTypesLoading(false);
+        }
+    };
 
     // Re-fetch parameters whenever the selected investor changes (but NOT on initial null)
     useEffect(() => {
@@ -93,7 +113,7 @@ const ConfigParametersPage = () => {
     const handleAdd = () => {
         setEditingParam(null);
         form.resetFields();
-        const defaultType = [...GUIDELINE_TYPE_OPTIONS]; // DSCR + Full Doc + Alt Doc
+        const defaultType = guidelineTypes.map(t => t.name);
         form.setFieldsValue({ guideline_type: defaultType });
         prevGuidelineTypeRef.current = defaultType;
         setIsModalVisible(true);
@@ -101,9 +121,9 @@ const ConfigParametersPage = () => {
 
     const handleEdit = useCallback((record) => {
         setEditingParam(record);
-        let guidelineType = record.guideline_type || [...GUIDELINE_TYPE_OPTIONS];
+        let guidelineType = record.guideline_type || guidelineTypes.map(t => t.name);
         if (guidelineType.includes("All")) {
-            guidelineType = [...new Set(guidelineType.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
+            guidelineType = guidelineTypes.map(t => t.name);
         }
         form.setFieldsValue({
             ...record,
@@ -289,26 +309,30 @@ const ConfigParametersPage = () => {
                 };
                 return getLen(a) - getLen(b);
             },
-            filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
+            filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
             onFilter: (value, record) => {
-                let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                let types = record.guideline_type || guidelineTypes.map(t => t.name);
                 if (types.includes("All")) {
-                    types = ["DSCR", "Full Doc", "Alt Doc"];
+                    types = guidelineTypes.map(t => t.name);
                 }
                 return types.includes(value);
             },
             render: (types) => {
-                let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
+                let displayTypes = types || guidelineTypes.map(t => t.name);
                 if (displayTypes.includes("All")) {
-                    displayTypes = ["DSCR", "Full Doc", "Alt Doc"];
+                    displayTypes = guidelineTypes.map(t => t.name);
                 }
                 return (
                     <Space size={[0, 4]} wrap>
-                        {displayTypes.map(t => (
-                            <Tag key={t} color={guidelineTypeColorMap[t]} className="text-[10px] px-2 rounded-full border-transparent m-0">
-                                {t}
-                            </Tag>
-                        ))}
+                        {displayTypes.map(t => {
+                            const typeObj = guidelineTypes.find(gt => gt.name === t);
+                            const color = typeObj?.color || "default";
+                            return (
+                                <Tag key={t} color={color} className="text-[10px] px-2 rounded-full border-transparent m-0">
+                                    {t}
+                                </Tag>
+                            );
+                        })}
                     </Space>
                 );
             }
@@ -373,6 +397,60 @@ const ConfigParametersPage = () => {
         prevGuidelineTypeRef.current = checkedValues;
     };
 
+    /* === Manage Guideline Types Flow === */
+    const handleGTypeEdit = (type) => {
+        setEditingGType(type);
+        gTypeForm.setFieldsValue({
+            name: type.name
+        });
+    };
+
+    const handleGTypeDelete = async (id) => {
+        try {
+            await guidelineTypeAPI.deleteType(id);
+            showToast.success("Guideline type deleted successfully");
+            fetchGuidelineTypes();
+        } catch (error) {
+            console.error("Failed to delete guideline type", error);
+        }
+    };
+
+    const handleGTypeSubmit = async () => {
+        try {
+            const values = await gTypeForm.validateFields();
+            setGTypeSubmitting(true);
+
+            if (editingGType) {
+                await guidelineTypeAPI.updateType(editingGType.id, {
+                    ...values,
+                    color: editingGType.color || GTYPE_COLORS[Math.floor(Math.random() * GTYPE_COLORS.length)]
+                });
+                showToast.success("Guideline type updated successfully");
+            } else {
+                const randomColor = GTYPE_COLORS[Math.floor(Math.random() * GTYPE_COLORS.length)];
+                await guidelineTypeAPI.createType({
+                    ...values,
+                    color: randomColor
+                });
+                showToast.success("Guideline type created successfully");
+            }
+            gTypeForm.resetFields();
+            setEditingGType(null);
+            fetchGuidelineTypes();
+        } catch (error) {
+            console.error("Failed to save guideline type", error);
+        } finally {
+            setGTypeSubmitting(false);
+        }
+    };
+
+    const handleGTypeFormCancel = () => {
+        gTypeForm.resetFields();
+        setEditingGType(null);
+    };
+
+    const GTYPE_COLORS = ["blue", "green", "purple", "orange", "red", "cyan", "magenta", "gold"];
+
     const filteredParameters = useMemo(() => parameters.filter(p =>
         p.parameter.toLowerCase().includes(searchText.toLowerCase()) ||
         p.category.toLowerCase().includes(searchText.toLowerCase())
@@ -393,11 +471,13 @@ const ConfigParametersPage = () => {
         return parms.sort().map(p => ({ text: p, value: p }));
     }, [parameters]);
 
-    const guidelineTypeColorMap = {
-        "DSCR": "blue",
-        "Full Doc": "green",
-        "Alt Doc": "purple"
-    };
+    const guidelineTypeColorMap = useMemo(() => {
+        const map = {};
+        guidelineTypes.forEach(t => {
+            map[t.name] = t.color || "default";
+        });
+        return map;
+    }, [guidelineTypes]);
 
     const columns = useMemo(() => [
         {
@@ -447,18 +527,18 @@ const ConfigParametersPage = () => {
                 };
                 return getLen(a) - getLen(b);
             },
-            filters: GUIDELINE_TYPE_OPTIONS.map(t => ({ text: t, value: t })),
+            filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
             onFilter: (value, record) => {
-                let types = record.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
+                let types = record.guideline_type || guidelineTypes.map(t => t.name);
                 if (types.includes("All")) {
-                    types = ["DSCR", "Full Doc", "Alt Doc"];
+                    types = guidelineTypes.map(t => t.name);
                 }
                 return types.includes(value);
             },
             render: (types) => {
-                let displayTypes = types || ["DSCR", "Full Doc", "Alt Doc"];
+                let displayTypes = types || guidelineTypes.map(t => t.name);
                 if (displayTypes.includes("All")) {
-                    displayTypes = ["DSCR", "Full Doc", "Alt Doc"];
+                    displayTypes = guidelineTypes.map(t => t.name);
                 }
                 return (
                     <Space size={[0, 6]} wrap>
@@ -509,25 +589,21 @@ const ConfigParametersPage = () => {
     ], [mainCategoryFilters, mainSubcategoryFilters, mainParameterFilters, handleEdit, handleDelete]);
 
     // Calculate stats
-    const { totalParams, dscrCount, fullDocCount, altDocCount } = useMemo(() => {
-        const getTypeCount = (type) => parameters.filter(p => {
-            let types = p.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
-            if (typeof types === 'string') {
-                types = [types];
-            }
-            if (types.includes("All")) {
-                types = [...new Set(types.flatMap(t => t === "All" ? ["DSCR", "Full Doc", "Alt Doc"] : t))];
-            }
-            return types.includes(type);
-        }).length;
-
+    const { totalParams, breakdown } = useMemo(() => {
         return {
             totalParams: parameters.length,
-            dscrCount: getTypeCount("DSCR"),
-            fullDocCount: getTypeCount("Full Doc"),
-            altDocCount: getTypeCount("Alt Doc")
+            breakdown: guidelineTypes.map(t => ({
+                name: t.name,
+                count: parameters.filter(p => {
+                    let types = p.guideline_type || guidelineTypes.map(gt => gt.name);
+                    if (typeof types === 'string') types = [types];
+                    if (types.includes("All")) types = guidelineTypes.map(gt => gt.name);
+                    return types.includes(t.name);
+                }).length,
+                color: t.color || "blue"
+            }))
         };
-    }, [parameters]);
+    }, [parameters, guidelineTypes]);
 
     const activeContextName = investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
 
@@ -577,27 +653,18 @@ const ConfigParametersPage = () => {
                 <Col xs={24} md={12}>
                     <Card className="shadow-sm border-gray-100 rounded-2xl hover:shadow-md transition-shadow h-full">
                         <span className="text-gray-500 font-medium flex items-center gap-2 mb-3 text-sm"><TagsOutlined /> Types Breakdown</span>
-                        <div className="flex justify-between items-center w-full">
-                            <Statistic
-                                title={<span className="text-blue-500 font-semibold text-[11px] uppercase tracking-wider">DSCR</span>}
-                                value={dscrCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
-                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
-                            />
-                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
-                            <Statistic
-                                title={<span className="text-green-500 font-semibold text-[11px] uppercase tracking-wider">Full Doc</span>}
-                                value={fullDocCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
-                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
-                            />
-                            <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />
-                            <Statistic
-                                title={<span className="text-purple-500 font-semibold text-[11px] uppercase tracking-wider">Alt Doc</span>}
-                                value={altDocCount}
-                                valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
-                                formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
-                            />
+                        <div className="flex flex-wrap gap-y-2 items-center w-full">
+                            {breakdown.map((item, index) => (
+                                <React.Fragment key={item.name}>
+                                    <Statistic
+                                        title={<span style={{ color: item.color }} className="font-semibold text-[11px] uppercase tracking-wider">{item.name}</span>}
+                                        value={item.count}
+                                        valueStyle={{ color: '#1e293b', fontWeight: 600, fontSize: '20px' }}
+                                        formatter={(val) => loading ? <Skeleton.Button active size="small" style={{ minWidth: "40px", height: "30px", borderRadius: "6px" }} /> : val}
+                                    />
+                                    {index < breakdown.length - 1 && <Divider type="vertical" className="h-8 border-gray-200 mx-1 lg:mx-2" />}
+                                </React.Fragment>
+                            ))}
                         </div>
                     </Card>
                 </Col>
@@ -750,9 +817,9 @@ const ConfigParametersPage = () => {
                             className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
                         >
                             <div className="flex gap-6 flex-wrap">
-                                {GUIDELINE_TYPE_OPTIONS.map(option => (
-                                    <Checkbox key={option} value={option}>
-                                        <span className="text-gray-700 font-medium ml-1">{option}</span>
+                                {guidelineTypes.map(type => (
+                                    <Checkbox key={type.id} value={type.name}>
+                                        <span className="text-gray-700 font-medium ml-1">{type.name}</span>
                                     </Checkbox>
                                 ))}
                             </div>
@@ -868,101 +935,221 @@ const ConfigParametersPage = () => {
                 destroyOnClose
                 centered
             >
-                <div className="mb-6 mt-4">
-                    <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
-                        <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
-                            {editingInvestor ? "Edit Context" : "Add New Context"}
-                        </span>
-                        <Form
-                            form={investorForm}
-                            layout="inline"
-                            onFinish={handleInvestorSubmit}
-                            className="flex items-start w-full gap-2"
-                        >
-                            <Form.Item
-                                name="name"
-                                rules={[{ required: true, message: 'Name is required' }]}
-                                className="flex-grow m-0"
-                            >
-                                <Input placeholder="e.g. Rocket Mortgage" className="h-10 rounded-lg" />
-                            </Form.Item>
-                            <Form.Item className="m-0">
-                                <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-10 px-6 rounded-lg font-medium shadow-sm">
-                                    {editingInvestor ? "Update" : "Add"}
-                                </Button>
-                            </Form.Item>
-                            {editingInvestor && (
-                                <Form.Item className="m-0">
-                                    <Button onClick={handleInvestorFormCancel} className="h-10 px-4 rounded-lg">
-                                        Cancel
-                                    </Button>
-                                </Form.Item>
-                            )}
-                        </Form>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between mb-3 mt-8">
-                    <span className="text-sm tracking-wide uppercase text-gray-500 font-bold">Existing Contexts</span>
-                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">{investors.length} Total</span>
-                </div>
-
-                <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-xl">
-                    {investors.length === 0 ? (
-                        <div className="text-center py-10 bg-gray-50">
-                            <DatabaseOutlined className="text-3xl text-gray-300 mb-2 block mx-auto" />
-                            <div className="text-gray-400 font-medium">No contexts added yet</div>
-                        </div>
-                    ) : (
-                        <Table
-                            size="middle"
-                            dataSource={investors}
-                            rowKey="id"
-                            pagination={false}
-                            className="border-0"
-                            columns={[
-                                {
-                                    title: "Name",
-                                    dataIndex: "name",
-                                    key: "name",
-                                    render: (text) => <span className="font-semibold text-gray-700">{text}</span>
-                                },
-                                {
-                                    title: "Actions",
-                                    key: "actions",
-                                    width: 120,
-                                    align: 'right',
-                                    render: (_, record) => (
-                                        <Space size="small">
-                                            <Tooltip title="Edit Context">
-                                                <Button
-                                                    type="text"
-                                                    icon={<EditOutlined className="text-gray-400 hover:text-blue-500" />}
-                                                    onClick={() => handleInvestorEdit(record)}
-                                                />
-                                            </Tooltip>
-                                            <Tooltip title="Delete Context">
-                                                <Popconfirm
-                                                    title="Delete context?"
-                                                    description="Parameters linked to this context will also be deleted."
-                                                    onConfirm={() => handleInvestorDelete(record.id)}
-                                                    okText="Yes"
-                                                    cancelText="No"
-                                                    okButtonProps={{ danger: true }}
+                <Tabs
+                    defaultActiveKey="contexts"
+                    className="manage-tabs"
+                    items={[
+                        {
+                            key: "contexts",
+                            label: (
+                                <span className="flex items-center gap-2">
+                                    <TeamOutlined /> Contexts
+                                </span>
+                            ),
+                            children: (
+                                <>
+                                    <div className="mb-6 mt-4">
+                                        <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                                            <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
+                                                {editingInvestor ? "Edit Context" : "Add New Context"}
+                                            </span>
+                                            <Form
+                                                form={investorForm}
+                                                layout="inline"
+                                                onFinish={handleInvestorSubmit}
+                                                className="flex items-start w-full gap-2"
+                                            >
+                                                <Form.Item
+                                                    name="name"
+                                                    rules={[{ required: true, message: 'Name is required' }]}
+                                                    className="flex-grow m-0"
                                                 >
-                                                    <Button
-                                                        type="text"
-                                                        icon={<DeleteOutlined className="text-gray-400 hover:text-red-500" />}
-                                                    />
-                                                </Popconfirm>
-                                            </Tooltip>
-                                        </Space>
-                                    ),
-                                }
-                            ]}
-                        />
-                    )}
-                </div>
+                                                    <Input placeholder="e.g. Rocket Mortgage" className="h-10 rounded-lg" />
+                                                </Form.Item>
+                                                <Form.Item className="m-0">
+                                                    <Button type="primary" htmlType="submit" loading={investorSubmitting} className="h-10 px-6 rounded-lg font-medium shadow-sm">
+                                                        {editingInvestor ? "Update" : "Add"}
+                                                    </Button>
+                                                </Form.Item>
+                                                {editingInvestor && (
+                                                    <Form.Item className="m-0">
+                                                        <Button onClick={handleInvestorFormCancel} className="h-10 px-4 rounded-lg">
+                                                            Cancel
+                                                        </Button>
+                                                    </Form.Item>
+                                                )}
+                                            </Form>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between mb-3 mt-8">
+                                        <span className="text-sm tracking-wide uppercase text-gray-500 font-bold">Existing Contexts</span>
+                                        <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">{investors.length} Total</span>
+                                    </div>
+
+                                    <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-xl">
+                                        {investors.length === 0 ? (
+                                            <div className="text-center py-10 bg-gray-50">
+                                                <DatabaseOutlined className="text-3xl text-gray-300 mb-2 block mx-auto" />
+                                                <div className="text-gray-400 font-medium">No contexts added yet</div>
+                                            </div>
+                                        ) : (
+                                            <Table
+                                                size="middle"
+                                                dataSource={investors}
+                                                rowKey="id"
+                                                pagination={false}
+                                                className="border-0"
+                                                columns={[
+                                                    {
+                                                        title: "Name",
+                                                        dataIndex: "name",
+                                                        key: "name",
+                                                        render: (text) => <span className="font-semibold text-gray-700">{text}</span>
+                                                    },
+                                                    {
+                                                        title: "Actions",
+                                                        key: "actions",
+                                                        width: 120,
+                                                        align: 'right',
+                                                        render: (_, record) => (
+                                                            <Space size="small">
+                                                                <Tooltip title="Edit Context">
+                                                                    <Button
+                                                                        type="text"
+                                                                        icon={<EditOutlined className="text-gray-400 hover:text-blue-500" />}
+                                                                        onClick={() => handleInvestorEdit(record)}
+                                                                    />
+                                                                </Tooltip>
+                                                                <Tooltip title="Delete Context">
+                                                                    <Popconfirm
+                                                                        title="Delete context?"
+                                                                        description="Parameters linked to this context will also be deleted."
+                                                                        onConfirm={() => handleInvestorDelete(record.id)}
+                                                                        okText="Yes"
+                                                                        cancelText="No"
+                                                                        okButtonProps={{ danger: true }}
+                                                                    >
+                                                                        <Button
+                                                                            type="text"
+                                                                            icon={<DeleteOutlined className="text-gray-400 hover:text-red-500" />}
+                                                                        />
+                                                                    </Popconfirm>
+                                                                </Tooltip>
+                                                            </Space>
+                                                        ),
+                                                    }
+                                                ]}
+                                            />
+                                        )}
+                                    </div>
+                                </>
+                            )
+                        },
+                        {
+                            key: "types",
+                            label: (
+                                <span className="flex items-center gap-2">
+                                    <TagsOutlined /> Guideline Types
+                                </span>
+                            ),
+                            children: (
+                                <>
+                                    <div className="mb-6 mt-4">
+                                        <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                                            <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
+                                                {editingGType ? "Edit Guideline Type" : "Add New Guideline Type"}
+                                            </span>
+                                            <Form
+                                                form={gTypeForm}
+                                                layout="inline"
+                                                onFinish={handleGTypeSubmit}
+                                                className="flex items-start w-full gap-2"
+                                            >
+                                                <Form.Item
+                                                    name="name"
+                                                    rules={[{ required: true, message: 'Name is required' }]}
+                                                    className="flex-grow m-0"
+                                                >
+                                                    <Input placeholder="Type Name (e.g. DSCR)" className="h-10 rounded-lg" />
+                                                </Form.Item>
+                                                <div className="flex gap-2">
+                                                    <Button type="primary" htmlType="submit" loading={gTypeSubmitting} className="h-10 px-6 rounded-lg font-medium shadow-sm bg-purple-600 hover:bg-purple-700 border-none">
+                                                        {editingGType ? "Update" : "Add"}
+                                                    </Button>
+                                                    {editingGType && (
+                                                        <Button onClick={handleGTypeFormCancel} className="h-10 px-4 rounded-lg">
+                                                            Cancel
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </Form>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between mb-3 mt-8">
+                                        <span className="text-sm tracking-wide uppercase text-gray-500 font-bold">Existing Types</span>
+                                        <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs font-semibold">{guidelineTypes.length} Total</span>
+                                    </div>
+
+                                    <div className="max-h-72 overflow-y-auto border border-gray-100 rounded-xl">
+                                        <Table
+                                            size="middle"
+                                            dataSource={guidelineTypes}
+                                            rowKey="id"
+                                            pagination={false}
+                                            className="border-0"
+                                            loading={guidelineTypesLoading}
+                                            columns={[
+                                                {
+                                                    title: "Type",
+                                                    key: "name",
+                                                    render: (_, record) => (
+                                                        <Space>
+                                                            <Tag color={record.color || "blue"} className="rounded-full px-3">{record.name}</Tag>
+                                                        </Space>
+                                                    )
+                                                },
+                                                {
+                                                    title: "Actions",
+                                                    key: "actions",
+                                                    width: 120,
+                                                    align: 'right',
+                                                    render: (_, record) => (
+                                                        <Space size="small">
+                                                            <Tooltip title="Edit Type">
+                                                                <Button
+                                                                    type="text"
+                                                                    icon={<EditOutlined className="text-gray-400 hover:text-blue-500" />}
+                                                                    onClick={() => handleGTypeEdit(record)}
+                                                                />
+                                                            </Tooltip>
+                                                            <Tooltip title="Delete Type">
+                                                                <Popconfirm
+                                                                    title="Delete type?"
+                                                                    description="Cannot delete if types are linked to parameters."
+                                                                    onConfirm={() => handleGTypeDelete(record.id)}
+                                                                    okText="Yes"
+                                                                    cancelText="No"
+                                                                    okButtonProps={{ danger: true }}
+                                                                >
+                                                                    <Button
+                                                                        type="text"
+                                                                        icon={<DeleteOutlined className="text-gray-400 hover:text-red-500" />}
+                                                                    />
+                                                                </Popconfirm>
+                                                            </Tooltip>
+                                                        </Space>
+                                                    ),
+                                                }
+                                            ]}
+                                        />
+                                    </div>
+                                </>
+                            )
+                        }
+                    ]}
+                />
             </Modal>
         </div>
     );

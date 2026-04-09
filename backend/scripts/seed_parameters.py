@@ -19,7 +19,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import text, inspect, select, func, delete
 from sql_database import engine, AsyncSessionLocal
-from models.sql_models import DSCRParameter, Investor, Base
+from models.sql_models import DSCRParameter, Investor, GuidelineType, Base
+
+async def seed_guideline_types(db):
+    """Seed default guideline types if they don't exist."""
+    defaults = [
+        {"name": "DSCR", "description": "Debt Service Coverage Ratio", "color": "blue"},
+        {"name": "Full Doc", "description": "Full Documentation", "color": "green"},
+        {"name": "Alt Doc", "description": "Alternative Documentation", "color": "purple"}
+    ]
+    
+    for item in defaults:
+        result = await db.execute(select(GuidelineType).where(GuidelineType.name == item["name"]))
+        if not result.scalar_one_or_none():
+            print(f"🏷️ Seeding Guideline Type: {item['name']}")
+            db.add(GuidelineType(**item))
+    
+    await db.commit()
 
 
 # ===================== PARAMETER LISTS =====================
@@ -96,6 +112,9 @@ async def seed_parameters(force: bool = False):
     print(f"\n📋 Unified parameter count from Excel: {len(unified)}")
     
     async with AsyncSessionLocal() as db:
+        # Seed Guideline Types first
+        await seed_guideline_types(db)
+
         # Ensure Investor "AB" exists
         result = await db.execute(select(Investor).where(Investor.name == "AB"))
         ab_investor = result.scalar_one_or_none()

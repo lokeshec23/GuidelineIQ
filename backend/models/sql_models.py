@@ -135,6 +135,21 @@ class File(Base):
     content = Column(LargeBinary, nullable=False) # VARBINARY(MAX)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class GuidelineType(Base):
+    """
+    Model for Guideline Types (e.g. Full Doc, Alt Doc, DSCR).
+    Users can manage these types dynamically.
+    """
+    __tablename__ = "guideline_types"
+
+    id = Column(String(36), primary_key=True, default=generate_uuid)
+    name = Column(String(255), unique=True, nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    color = Column(String(50), nullable=True) # UI color tag
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Investor(Base):
     """
     Model for Investors. Parameters can be assigned to an investor. 

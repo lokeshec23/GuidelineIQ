@@ -32,7 +32,7 @@ import {
 import "./IngestPage.css";
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
-import { ingestAPI, settingsAPI, promptsAPI, investorAPI, dscrAPI } from "../../services/api";
+import { ingestAPI, settingsAPI, promptsAPI, investorAPI, dscrAPI, guidelineTypeAPI } from "../../services/api";
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
 import { IngestSkeleton } from "../../components/common/SkeletonLoader";
@@ -47,7 +47,8 @@ const IngestPage = () => {
 
   // --- STATE ---
   const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
-  const [selectedCategories, setSelectedCategories] = useState(["DSCR", "Full Doc", "Alt Doc"]);
+  const [guidelineTypes, setGuidelineTypes] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0); // ✅ Progress state
   const [progressMessage, setProgressMessage] = useState(""); // ✅ Progress message state
@@ -67,7 +68,21 @@ const IngestPage = () => {
   useEffect(() => {
     fetchModelsAndSettings();
     fetchInvestors();
+    fetchGuidelineTypes();
   }, []);
+
+  const fetchGuidelineTypes = async () => {
+    try {
+      const response = await guidelineTypeAPI.listTypes();
+      const types = response.data || [];
+      setGuidelineTypes(types);
+      const typeNames = types.map(t => t.name);
+      setSelectedCategories(typeNames);
+      form.setFieldsValue({ guideline_type: typeNames });
+    } catch (error) {
+      console.error("Failed to fetch guideline types:", error);
+    }
+  };
 
   const fetchInvestors = async () => {
     try {
@@ -405,7 +420,7 @@ const IngestPage = () => {
         onFinish={handleSubmit}
         layout="vertical"
         className="w-full"
-        initialValues={{ guideline_type: ["DSCR", "Full Doc", "Alt Doc"] }}
+        initialValues={{ guideline_type: guidelineTypes.map(t => t.name) }}
       >
         {/* Hidden field to sync chip state with form */}
         <Form.Item name="guideline_type" hidden>
@@ -535,30 +550,27 @@ const IngestPage = () => {
                 type="button"
                 className="chip-controls__toggle"
                 onClick={() => {
-                  const allCats = ["DSCR", "Full Doc", "Alt Doc"];
+                  const allCats = guidelineTypes.map(t => t.name);
                   const next = selectedCategories.length === allCats.length ? [] : allCats;
                   setSelectedCategories(next);
                   form.setFieldsValue({ guideline_type: next });
                 }}
               >
-                {selectedCategories.length === 3 ? "Deselect All" : "Select All"}
+                {selectedCategories.length === guidelineTypes.length ? "Deselect All" : "Select All"}
               </button>
             </div>
             <div className="guideline-chips">
-              {[
-                { value: "DSCR", label: "DSCR", activeClass: "guideline-chip--dscr" },
-                { value: "Full Doc", label: "Full Doc", activeClass: "guideline-chip--dscr" },
-                { value: "Alt Doc", label: "Alt Doc", activeClass: "guideline-chip--dscr" },
-              ].map((cat) => {
-                const isActive = selectedCategories.includes(cat.value);
+              {guidelineTypes.map((cat) => {
+                const isActive = selectedCategories.includes(cat.name);
                 return (
                   <div
-                    key={cat.value}
-                    className={`guideline-chip ${isActive ? cat.activeClass : ""}`}
+                    key={cat.id}
+                    className={`guideline-chip ${isActive ? 'guideline-chip--active' : ""}`}
+                    style={isActive ? { borderColor: cat.color || '#3b82f6', background: `${cat.color || '#3b82f6'}15`, color: cat.color || '#3b82f6' } : {}}
                     onClick={() => {
                       const next = isActive
-                        ? selectedCategories.filter((c) => c !== cat.value)
-                        : [...selectedCategories, cat.value];
+                        ? selectedCategories.filter((c) => c !== cat.name)
+                        : [...selectedCategories, cat.name];
                       setSelectedCategories(next);
                       form.setFieldsValue({ guideline_type: next });
                     }}
@@ -568,7 +580,7 @@ const IngestPage = () => {
                     ) : (
                       <PlusCircleOutlined className="chip-icon" />
                     )}
-                    {cat.label}
+                    {cat.name}
                   </div>
                 );
               })}
