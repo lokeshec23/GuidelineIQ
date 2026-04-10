@@ -15,7 +15,7 @@ const renderFileNames = (text) => {
     if (!text) return "-";
     const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
     return (
-        <Space size={[0, 4]} wrapStyle={{ flexWrap: 'wrap' }} style={{ display: 'flex', paddingBottom: '4px' }}>
+        <Space size={[0, 4]} wrap style={{ display: 'flex', paddingBottom: '4px' }}>
             {files.map((file, idx) => (
                 <Tag
                     key={idx}
@@ -37,6 +37,29 @@ const DashboardPage = () => {
     const [compareHistory, setCompareHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState("");
+    const [debouncedSearchText, setDebouncedSearchText] = useState("");
+
+    const [ingestTableParams, setIngestTableParams] = useState({
+        pagination: { current: 1, pageSize: 10, total: 0 },
+        sortField: null,
+        sortOrder: null,
+        filters: null,
+    });
+
+    const [compareTableParams, setCompareTableParams] = useState({
+        pagination: { current: 1, pageSize: 10, total: 0 },
+        sortField: null,
+        sortOrder: null,
+        filters: null,
+    });
+
+    // Debounce search text
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchText(searchText);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchText]);
 
     // Preview modal state
     const [previewVisible, setPreviewVisible] = useState(false);
@@ -55,28 +78,68 @@ const DashboardPage = () => {
     const fetchIngestHistory = React.useCallback(async () => {
         try {
             setLoading(true);
-            const response = await historyAPI.getIngestHistory();
-            setIngestHistory(response.data);
+            const params = {
+                page: ingestTableParams.pagination.current,
+                pageSize: ingestTableParams.pagination.pageSize,
+                search: debouncedSearchText,
+                sortField: ingestTableParams.sortField,
+                sortOrder: ingestTableParams.sortOrder,
+                filters: ingestTableParams.filters ? JSON.stringify(ingestTableParams.filters) : undefined
+            };
+            const response = await historyAPI.getIngestHistory(params);
+            setIngestHistory(response.data.items || []);
+            setIngestTableParams(prev => ({
+                ...prev,
+                pagination: { ...prev.pagination, total: response.data.total }
+            }));
         } catch (error) {
             console.error("Failed to fetch ingest history:", error);
-            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [ingestTableParams.pagination.current, ingestTableParams.pagination.pageSize, ingestTableParams.sortField, ingestTableParams.sortOrder, ingestTableParams.filters, debouncedSearchText]);
 
     const fetchCompareHistory = React.useCallback(async () => {
         try {
             setLoading(true);
-            const response = await historyAPI.getCompareHistory();
-            setCompareHistory(response.data);
+            const params = {
+                page: compareTableParams.pagination.current,
+                pageSize: compareTableParams.pagination.pageSize,
+                search: debouncedSearchText,
+                sortField: compareTableParams.sortField,
+                sortOrder: compareTableParams.sortOrder,
+                filters: compareTableParams.filters ? JSON.stringify(compareTableParams.filters) : undefined
+            };
+            const response = await historyAPI.getCompareHistory(params);
+            setCompareHistory(response.data.items || []);
+            setCompareTableParams(prev => ({
+                ...prev,
+                pagination: { ...prev.pagination, total: response.data.total }
+            }));
         } catch (error) {
             console.error("Failed to fetch compare history:", error);
-            // Toast is handled by API interceptor
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [compareTableParams.pagination.current, compareTableParams.pagination.pageSize, compareTableParams.sortField, compareTableParams.sortOrder, compareTableParams.filters, debouncedSearchText]);
+
+    const handleIngestTableChange = (pagination, filters, sorter) => {
+        setIngestTableParams({
+            pagination,
+            filters,
+            sortField: sorter.field,
+            sortOrder: sorter.order,
+        });
+    };
+
+    const handleCompareTableChange = (pagination, filters, sorter) => {
+        setCompareTableParams({
+            pagination,
+            filters,
+            sortField: sorter.field,
+            sortOrder: sorter.order,
+        });
+    };
 
     useEffect(() => {
         if (activeTab === "ingest") {
@@ -304,145 +367,92 @@ const DashboardPage = () => {
             key: "extractedFile",
             render: renderFileNames,
         },
-        {
-            title: "Action",
-            key: "action",
-            width: 120,
-            fixed: "right",
-            render: (_, record) => (
-                <Space size="middle">
-                    <Tooltip title="View Preview">
-                        <Button
-                            type="text"
-                            icon={<EyeOutlined />}
-                            onClick={() => handleView(record)}
-                            className="action-btn"
-                        />
-                    </Tooltip>
-                    <Tooltip title="Delete Record">
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => handleDelete(record)}
-                            className="action-btn delete"
-                        />
-                    </Tooltip>
-                </Space>
-            ),
-        },
-    ], [handleView, handleDelete]);
-
+    ], [renderFileNames]);
     const compareColumns = React.useMemo(() => [
         {
             title: "S.no",
             key: "index",
             width: 80,
-            render: (text, record, index) => index + 1,
-        },
-        {
-            title: "Investor",
-            dataIndex: "investor",
-            key: "investor",
-            width: 150,
-            render: (text) => text || " - ",
-        },
-        {
-            title: "Version",
-            dataIndex: "version",
-            key: "version",
-            width: 100,
-            render: (text) => text || " - ",
-        },
-        {
-            title: "Guideline Type",
-            dataIndex: "guideline_type",
-            key: "guideline_type",
-            width: 120,
-            render: (text) => text ? renderFileNames(text) : " - ",
-        },
-        {
-            title: "Effective Date",
-            dataIndex: "effective_date",
-            key: "effective_date",
-            width: 130,
-            render: (date) => {
-                if (!date) return "-";
-                try {
-                    return new Date(date).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                    });
-                } catch {
-                    return "-";
-                }
+            render: (text, record, index) => {
+                const { current, pageSize } = compareTableParams.pagination;
+                return (current - 1) * pageSize + index + 1;
             },
         },
         {
-            title: "Expiry Date",
-            dataIndex: "expiry_date",
-            key: "expiry_date",
-            width: 130,
-            render: (date) => {
-                if (!date) return "-";
-                try {
-                    return new Date(date).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                    });
-                } catch {
-                    return "-";
-                }
-            },
-        },
-        {
-            title: "Extracted File Name",
-            dataIndex: "extractedFile",
-            key: "extractedFile",
-            render: renderFileNames,
-        },
-        {
-            title: "Uploaded File Name 1",
+            title: "File 1",
             dataIndex: "uploadedFile1",
             key: "uploadedFile1",
             render: renderFileNames,
         },
         {
-            title: "Uploaded File Name 2",
+            title: "File 2",
             dataIndex: "uploadedFile2",
             key: "uploadedFile2",
             render: renderFileNames,
         },
         {
-            title: "Action",
-            key: "action",
+            title: "Date",
+            dataIndex: "created_at",
+            key: "created_at",
+            width: 200,
+            render: (date) => {
+                if (!date) return "-";
+                return new Date(date).toLocaleString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
+        },
+        {
+            title: "Actions",
+            key: "actions",
             width: 120,
-            fixed: "right",
+            fixed: 'right',
             render: (_, record) => (
                 <Space size="middle">
-                    <Tooltip title="View Preview">
+                    <Tooltip title="View Details">
                         <Button
-                            type="text"
+                            type="primary"
+                            shape="circle"
                             icon={<EyeOutlined />}
                             onClick={() => handleView(record)}
-                            className="action-btn"
+                            className="action-btn view-btn"
                         />
                     </Tooltip>
                     <Tooltip title="Delete Record">
                         <Button
-                            type="text"
+                            type="primary"
                             danger
+                            shape="circle"
                             icon={<DeleteOutlined />}
                             onClick={() => handleDelete(record)}
-                            className="action-btn delete"
+                            className="action-btn delete-btn"
                         />
                     </Tooltip>
                 </Space>
             ),
         },
-    ], [handleView, handleDelete]);
+    ], [handleView, handleDelete, compareTableParams.pagination]);
+
+    // Also update ingestColumns S.no for pagination
+    const ingestColumnsFixed = React.useMemo(() => [
+        {
+            title: "S.no",
+            key: "index",
+            width: 80,
+            render: (text, record, index) => {
+                const { current, pageSize } = ingestTableParams.pagination;
+                return (current - 1) * pageSize + index + 1;
+            },
+        },
+        ...ingestColumns.slice(1)
+    ], [ingestColumns, ingestTableParams.pagination]);
+
+    const ingestDataSource = ingestHistory;
+    const compareDataSource = compareHistory;
 
     // Preview modal columns - dynamic based on data type
     const previewColumns = React.useMemo(() => {
@@ -522,26 +532,6 @@ const DashboardPage = () => {
         return <DashboardSkeleton />;
     }
 
-    // Filter history data based on search text
-    const filteredIngestHistory = ingestHistory.filter((record) => {
-        const searchLower = searchText.toLowerCase();
-        return (
-            record.investor?.toLowerCase().includes(searchLower) ||
-            record.version?.toLowerCase().includes(searchLower) ||
-            record.uploadedFile?.toLowerCase().includes(searchLower)
-        );
-    });
-
-    const filteredCompareHistory = compareHistory.filter((record) => {
-        const searchLower = searchText.toLowerCase();
-        return (
-            record.investor?.toLowerCase().includes(searchLower) ||
-            record.version?.toLowerCase().includes(searchLower) ||
-            record.uploadedFile1?.toLowerCase().includes(searchLower) ||
-            record.uploadedFile2?.toLowerCase().includes(searchLower)
-        );
-    });
-
     return (
         <div className="dashboard-container">
             <header className="dashboard-header">
@@ -587,29 +577,18 @@ const DashboardPage = () => {
                                 overflow: 'hidden'
                             }}>
                                 <Table
-                                    columns={ingestColumns}
-                                    dataSource={filteredIngestHistory}
-                                    loading={loading}
+                                    columns={ingestColumnsFixed}
+                                    dataSource={ingestDataSource}
                                     rowKey="id"
-                                    bordered
-                                    scroll={filteredIngestHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
                                     pagination={{
-                                        pageSize: 10,
+                                        ...ingestTableParams.pagination,
                                         showSizeChanger: true,
                                         showTotal: (total) => `Total ${total} records`,
-                                        position: ['bottomRight']
                                     }}
-                                    locale={{
-                                        emptyText: loading ? (
-                                            <div className="empty-container">
-                                                <Spin size="large"><div style={{ padding: 30 }} /></Spin>
-                                            </div>
-                                        ) : (
-                                            <div className="empty-container">
-                                                <Empty description="No history found" />
-                                            </div>
-                                        )
-                                    }}
+                                    onChange={handleIngestTableChange}
+                                    scroll={{ x: 1300 }}
+                                    className="history-table"
+                                    loading={loading}
                                 />
                             </div>
                         ),
@@ -626,28 +605,17 @@ const DashboardPage = () => {
                             }}>
                                 <Table
                                     columns={compareColumns}
-                                    dataSource={filteredCompareHistory}
-                                    loading={loading}
+                                    dataSource={compareDataSource}
                                     rowKey="id"
-                                    bordered
-                                    scroll={filteredCompareHistory.length > 0 ? { x: "max-content", y: 'calc(100vh - 350px)' } : undefined}
                                     pagination={{
-                                        pageSize: 10,
+                                        ...compareTableParams.pagination,
                                         showSizeChanger: true,
                                         showTotal: (total) => `Total ${total} records`,
-                                        position: ['bottomRight']
                                     }}
-                                    locale={{
-                                        emptyText: loading ? (
-                                            <div className="empty-container">
-                                                <Spin size="large"><div style={{ padding: 30 }} /></Spin>
-                                            </div>
-                                        ) : (
-                                            <div className="empty-container">
-                                                <Empty description="No history found" />
-                                            </div>
-                                        )
-                                    }}
+                                    onChange={handleCompareTableChange}
+                                    scroll={{ x: 1000 }}
+                                    className="history-table"
+                                    loading={loading}
                                 />
                             </div>
                         ),
@@ -668,7 +636,8 @@ const DashboardPage = () => {
                     onDownload={handleDownload}
                     sessionId={previewRecord?.id}
                     isComparisonMode={activeTab === "compare"}
-                    filenames={previewRecord?.filenames || []} // ✅ Pass filenames for tabs
+                    investor={previewRecord?.investor || ""}
+                    version={previewRecord?.version || ""}
                 />
             </React.Suspense>
 

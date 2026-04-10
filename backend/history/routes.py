@@ -12,25 +12,41 @@ from history.models import (
     delete_all_ingest_history,
     delete_all_compare_history
 )
-from history.schemas import IngestHistoryItem, CompareHistoryItem, DeleteResponse
+from history.schemas import (
+    IngestHistoryItem, 
+    IngestHistoryPaginatedResponse,
+    CompareHistoryItem, 
+    CompareHistoryPaginatedResponse,
+    DeleteResponse
+)
 from auth.middleware import get_current_user_from_token, get_current_user
-from models.sql_models import IngestHistory, File
+from models.sql_models import IngestHistory, CompareHistory, File
+from utils.pagination import paginate_query, PaginationParams
 import io
 
 router = APIRouter(prefix="/history", tags=["History"])
 
 
-@router.get("/ingest", response_model=List[IngestHistoryItem])
+@router.get("/ingest", response_model=IngestHistoryPaginatedResponse)
 async def get_ingest_history(
+    params: PaginationParams = Depends(),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get logged-in user's ingest history"""
+    """Get logged-in user's ingest history with pagination"""
     user_id = str(current_user.id)
-    history = await get_user_ingest_history(db, user_id)
+    query = select(IngestHistory).where(IngestHistory.user_id == user_id)
+    
+    paginated_result = await paginate_query(
+        db, 
+        query, 
+        IngestHistory, 
+        params, 
+        search_fields=["investor", "version", "uploaded_file", "guideline_type", "program_type"]
+    )
     
     # Map SQLAlchemy model to Pydantic schema with camelCase
-    return [
+    mapped_items = [
         IngestHistoryItem(
             id=str(h.id),
             user_id=h.user_id,
@@ -46,8 +62,10 @@ async def get_ingest_history(
             pdf_files=h.pdf_files or [],
             guideline_type=h.guideline_type or "",
             program_type=h.program_type or ""
-        ) for h in history
+        ) for h in paginated_result["items"]
     ]
+    
+    return {**paginated_result, "items": mapped_items}
 
 
 @router.delete("/ingest/{record_id}", response_model=DeleteResponse)
@@ -79,16 +97,25 @@ async def delete_all_ingest_records(
 
 
 # ✅ NEW: Compare history routes
-@router.get("/compare", response_model=List[CompareHistoryItem])
+@router.get("/compare", response_model=CompareHistoryPaginatedResponse)
 async def get_compare_history(
+    params: PaginationParams = Depends(),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get logged-in user's compare history"""
+    """Get logged-in user's compare history with pagination"""
     user_id = str(current_user.id)
-    history = await get_user_compare_history(db, user_id)
+    query = select(CompareHistory).where(CompareHistory.user_id == user_id)
     
-    return [
+    paginated_result = await paginate_query(
+        db, 
+        query, 
+        CompareHistory, 
+        params, 
+        search_fields=["investor", "version", "uploaded_file1", "uploaded_file2"]
+    )
+    
+    mapped_items = [
         CompareHistoryItem(
             id=str(h.id),
             user_id=h.user_id,
@@ -100,8 +127,10 @@ async def get_compare_history(
             extractedFile=h.extracted_file or "",
             created_at=h.created_at,
             preview_data=h.preview_data or []
-        ) for h in history
+        ) for h in paginated_result["items"]
     ]
+    
+    return {**paginated_result, "items": mapped_items}
 
 
 @router.delete("/compare/{record_id}", response_model=DeleteResponse)

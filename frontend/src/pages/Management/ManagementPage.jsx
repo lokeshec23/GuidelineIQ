@@ -10,9 +10,24 @@ const { Title } = Typography;
 
 const ManagementPage = () => {
     const [users, setUsers] = useState([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
-    const deferredSearchText = useDeferredValue(searchText);
+    const [debouncedSearchText, setDebouncedSearchText] = useState("");
+    const [tableParams, setTableParams] = useState({
+        pagination: {
+            current: 1,
+            pageSize: 12,
+        },
+    });
+
+    // Debounce search text
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchText(searchText);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchText]);
 
     const userStr = sessionStorage.getItem("user") || localStorage.getItem("user");
     const currentUser = userStr ? JSON.parse(userStr) : null;
@@ -20,18 +35,29 @@ const ManagementPage = () => {
 
     useEffect(() => {
         fetchUsers();
-    }, []);
+    }, [tableParams.pagination.current, tableParams.pagination.pageSize, debouncedSearchText]);
 
     const fetchUsers = async () => {
+        setLoading(true);
         try {
-            const response = await authAPI.getAllUsers();
-            setUsers(response.data);
+            const params = {
+                page: tableParams.pagination.current,
+                pageSize: tableParams.pagination.pageSize,
+                search: debouncedSearchText,
+            };
+            const response = await authAPI.getAllUsers(params);
+            setUsers(response.data.items || []);
+            setTotal(response.data.total || 0);
         } catch (error) {
             console.error("Failed to fetch users:", error);
             showToast.error("Failed to load users list");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleTableChange = (pagination) => {
+        setTableParams({ pagination });
     };
 
     const handleRoleChange = async (userId, newRole) => {
@@ -54,7 +80,10 @@ const ManagementPage = () => {
             title: "S.No",
             key: "index",
             width: 80,
-            render: (text, record, index) => <span className="text-gray-500 font-medium">{index + 1}</span>,
+            render: (text, record, index) => {
+                const { current, pageSize } = tableParams.pagination;
+                return <span className="text-gray-500 font-medium">{(current - 1) * pageSize + index + 1}</span>;
+            },
         },
         {
             title: "Username",
@@ -112,14 +141,12 @@ const ManagementPage = () => {
         },
     ], [isSuperAdmin, users]);
 
-    const filteredUsers = useMemo(() => users.filter(u =>
-        u.username.toLowerCase().includes(deferredSearchText.toLowerCase()) ||
-        u.email.toLowerCase().includes(deferredSearchText.toLowerCase())
-    ), [users, deferredSearchText]);
-
-    const totalUsers = users.length;
+    const totalUsers = total;
+    // Note: adminCount and userCount will now represent current page counts unless we return global counts from API.
+    // For now, let's keep them as global if the API returns them, or just use current page.
+    // Given the current API response only has items and total, we'll just show current page counts or skip them.
     const adminCount = users.filter(u => u.role === 'admin').length;
-    const userCount = totalUsers - adminCount;
+    const userCount = users.length - adminCount;
 
     return (
         <div className="max-w-7xl mx-auto pb-10">
@@ -178,8 +205,12 @@ const ManagementPage = () => {
                     <div className="p-6">
                         <OptimizedTable
                             columns={columnsMemo}
-                            dataSource={filteredUsers}
+                            dataSource={users}
                             loading={loading}
+                            total={total}
+                            current={tableParams.pagination.current}
+                            pageSize={tableParams.pagination.pageSize}
+                            onChange={handleTableChange}
                         />
                     </div>
                 </Card>
@@ -211,7 +242,7 @@ const SearchInput = memo(({ onSearch }) => {
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ loading, dataSource, columns }) => {
+const OptimizedTable = memo(({ loading, dataSource, columns, total, current, pageSize, onChange }) => {
     return (
         <Table
             columns={columns}
@@ -219,10 +250,13 @@ const OptimizedTable = memo(({ loading, dataSource, columns }) => {
             rowKey="id"
             loading={loading}
             pagination={{
-                pageSize: 10,
+                total,
+                current,
+                pageSize,
                 showSizeChanger: true,
                 className: "pb-2"
             }}
+            onChange={onChange}
             className="custom-table"
             rowClassName={() => "hover:bg-blue-50/30 transition-colors"}
             virtual

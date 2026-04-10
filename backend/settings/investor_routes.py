@@ -28,12 +28,23 @@ class InvestorResponse(InvestorBase):
     class Config:
         from_attributes = True
 
+class InvestorPaginatedResponse(BaseModel):
+    items: List[InvestorResponse]
+    total: int
+    page: int
+    pageSize: int
+
 # --- Routes ---
 
-@router.get("", response_model=List[InvestorResponse])
-async def list_investors(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Investor).order_by(Investor.name))
-    return result.scalars().all()
+from utils.pagination import paginate_query, PaginationParams
+
+@router.get("", response_model=InvestorPaginatedResponse)
+async def list_investors(
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Investor)
+    return await paginate_query(db, query, Investor, params, search_fields=["name"])
 
 @router.post("", response_model=InvestorResponse)
 async def create_investor(

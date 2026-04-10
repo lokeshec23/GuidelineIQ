@@ -43,3 +43,15 @@ class DeleteResponse(BaseModel):
     message: str
     success: bool
 
+class IngestHistoryPaginatedResponse(BaseModel):
+    items: List[IngestHistoryItem]
+    total: int
+    page: int
+    pageSize: int
+
+class CompareHistoryPaginatedResponse(BaseModel):
+    items: List[CompareHistoryItem]
+    total: int
+    page: int
+    pageSize: int
+

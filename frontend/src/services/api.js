@@ -97,7 +97,7 @@ export const authAPI = {
   register: (data) => api.post("/auth/register", data),
   login: (data) => api.post("/auth/login", data),
   getCurrentUser: () => api.get("/auth/me"),
-  getAllUsers: () => api.get("/auth/users"),
+  getAllUsers: (params) => api.get("/auth/users", { params }),
   updateUserRole: (userId, data) => api.put(`/auth/users/${userId}/role`, data),
   forgotPasswordCheck: (data) => api.post("/auth/forgot-password/check", data),
   resetPassword: (data) => api.post("/auth/forgot-password/reset", data),
@@ -187,10 +187,10 @@ export const compareAPI = {
 
 // ==================== HISTORY APIs ====================
 export const historyAPI = {
-  getIngestHistory: () => api.get("/history/ingest"),
+  getIngestHistory: (params) => api.get("/history/ingest", { params }),
   deleteIngestHistory: (id) => api.delete(`/history/ingest/${id}`),
   deleteAllIngestHistory: () => api.delete("/history/ingest"),
-  getCompareHistory: () => api.get("/history/compare"),
+  getCompareHistory: (params) => api.get("/history/compare", { params }),
   deleteCompareHistory: (id) => api.delete(`/history/compare/${id}`),
   deleteAllCompareHistory: () => api.delete("/history/compare"),
 };
@@ -229,7 +229,7 @@ export const promptsAPI = {
 
 // ==================== INVESTOR APIs ====================
 export const investorAPI = {
-  listInvestors: () => api.get("/investors"),
+  listInvestors: (params) => api.get("/investors", { params }),
   createInvestor: (data) => api.post("/investors", data),
   updateInvestor: (id, data) => api.put(`/investors/${id}`, data),
   deleteInvestor: (id) => api.delete(`/investors/${id}`),
@@ -237,7 +237,7 @@ export const investorAPI = {
 
 // ==================== GUIDELINE TYPE APIs ====================
 export const guidelineTypeAPI = {
-  listTypes: () => api.get("/guideline-types"),
+  listTypes: (params) => api.get("/guideline-types", { params }),
   createType: (data) => api.post("/guideline-types", data),
   updateType: (id, data) => api.put(`/guideline-types/${id}`, data),
   deleteType: (id) => api.delete(`/guideline-types/${id}`),
@@ -245,7 +245,7 @@ export const guidelineTypeAPI = {
 
 // ==================== PARAMETERS APIs ====================
 export const dscrAPI = {
-  listParameters: (investorId = "null") => api.get(`/dscr-parameters?investor_id=${investorId}`),
+  listParameters: (investorId = "null", params) => api.get("/dscr-parameters", { params: { ...params, investor_id: investorId } }),
   createParameter: (data) => api.post("/dscr-parameters", data),
   updateParameter: (id, data) => api.put(`/dscr-parameters/${id}`, data),
   deleteParameter: (id) => api.delete(`/dscr-parameters/${id}`),

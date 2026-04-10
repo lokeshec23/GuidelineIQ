@@ -3,8 +3,23 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sql_database import get_db
 from auth.models import find_user_by_email, find_user_by_username, create_user, get_all_users, get_user_by_id, update_user_password, update_user_role
-from auth.schemas import UserCreate, UserLogin, UserOut, TokenResponse, TokenRefresh, ForgotPasswordCheck, PasswordResetRequest, ResetPassword, UserRoleUpdate, SSOVerifyModel, SSOTokenResponse
+from auth.schemas import (
+    UserCreate, 
+    UserLogin, 
+    UserOut, 
+    UserPaginatedResponse,
+    TokenResponse, 
+    TokenRefresh, 
+    ForgotPasswordCheck, 
+    PasswordResetRequest, 
+    ResetPassword, 
+    UserRoleUpdate, 
+    SSOVerifyModel, 
+    SSOTokenResponse
+)
 from auth.utils import hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token, hash_password, verify_password, create_tokens, verify_token, create_reset_token, verify_reset_token
+from utils.pagination import paginate_query, PaginationParams
+from models.sql_models import User
 from utils.logger import setup_logger
 from datetime import datetime, timedelta
 import urllib.parse
@@ -396,8 +411,12 @@ async def forgot_password_reset(data: ResetPassword, db: AsyncSession = Depends(
 
 
 # ✅ Get all users (Admin only)
-@router.get("/users", response_model=list[UserOut])
-async def list_users(authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+@router.get("/users", response_model=UserPaginatedResponse)
+async def list_users(
+    params: PaginationParams = Depends(),
+    authorization: str = Header(None), 
+    db: AsyncSession = Depends(get_db)
+):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
 
@@ -414,8 +433,18 @@ async def list_users(authorization: str = Header(None), db: AsyncSession = Depen
     if requesting_user.role != "admin" and not requesting_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    users = await get_all_users(db)
-    return [
+    from sqlalchemy import select
+    query = select(User)
+    
+    paginated_result = await paginate_query(
+        db, 
+        query, 
+        User, 
+        params, 
+        search_fields=["username", "email", "role"]
+    )
+    
+    mapped_items = [
         UserOut(
             id=str(u.id), 
             username=u.username, 
@@ -423,8 +452,10 @@ async def list_users(authorization: str = Header(None), db: AsyncSession = Depen
             role=u.role,
             created_at=u.created_at.isoformat() if u.created_at else None
         ) 
-        for u in users
+        for u in paginated_result["items"]
     ]
+    
+    return {**paginated_result, "items": mapped_items}
 
 # ✅ Update user role (Admin only)
 @router.put("/users/{user_id}/role", response_model=UserOut)

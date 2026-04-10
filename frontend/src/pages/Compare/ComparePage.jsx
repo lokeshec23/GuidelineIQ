@@ -83,6 +83,91 @@ const ComparePage = () => {
   });
   const [selectedProvider, setSelectedProvider] = useState("openai");
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
+// src/pages/Compare/ComparePage.jsx
+
+import React, { useState, useEffect, useMemo, useDeferredValue, memo } from "react";
+import {
+  Form,
+  Select,
+  Button,
+  message,
+  Progress,
+  Modal,
+  Table,
+  Upload,
+  Space,
+  Tag,
+  Spin,
+  Tooltip,
+  Input
+} from "antd";
+import {
+  InboxOutlined,
+  FileTextOutlined,
+  DownloadOutlined,
+  DeleteOutlined,
+  SwapOutlined,
+  LoadingOutlined,
+  DownOutlined,
+  CloudUploadOutlined,
+  EyeOutlined,
+  SearchOutlined,
+  FileOutlined,
+} from "@ant-design/icons";
+import "./ComparePage.css";
+import { usePrompts } from "../../context/PromptContext";
+import { useAuth } from "../../context/AuthContext";
+import { compareAPI, settingsAPI, promptsAPI, historyAPI, ingestAPI } from "../../services/api";
+const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
+import { showToast } from "../../utils/toast";
+import { CompareSkeleton } from "../../components/common/SkeletonLoader";
+
+const { Dragger } = Upload;
+const { Option } = Select;
+
+const renderFileNames = (text) => {
+  if (!text) return "-";
+  const files = typeof text === 'string' ? text.split(',').map(f => f.trim()).filter(Boolean) : [text];
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+      {files.map((file, idx) => (
+        <Tag
+          key={idx}
+          color="blue"
+          style={{
+            margin: 0,
+            whiteSpace: 'normal',
+            height: 'auto',
+            padding: '2px 8px',
+            wordBreak: 'break-word',
+            lineHeight: '1.5'
+          }}
+        >
+          {file}
+        </Tag>
+      ))}
+    </div>
+  );
+};
+
+const ComparePage = () => {
+  const { isAdmin } = useAuth();
+  const [form] = Form.useForm();
+  const { comparePrompts } = usePrompts();
+
+  // State
+  const [files, setFiles] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
+  const [previewData, setPreviewData] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [supportedModels, setSupportedModels] = useState({
+    openai: [],
+    gemini: [],
+  });
+  const [selectedProvider, setSelectedProvider] = useState("openai");
+  const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [isComparePreview, setIsComparePreview] = useState(false);
   const [file1Display, setFile1Display] = useState(null);
@@ -90,16 +175,34 @@ const ComparePage = () => {
 
   // DB Selection State
   const [historyData, setHistoryData] = useState([]);
+  const [totalHistory, setTotalHistory] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedDbRecords, setSelectedDbRecords] = useState([]);
   const [searchText, setSearchText] = useState("");
-  const deferredSearchText = useDeferredValue(searchText);
+  const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+    },
+  });
   const [pageLoading, setPageLoading] = useState(true);
+
+  // Debounce search text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   useEffect(() => {
     fetchModelsAndSettings();
-    fetchHistory();
   }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [tableParams.pagination.current, tableParams.pagination.pageSize, debouncedSearchText]);
 
   const fetchModelsAndSettings = async () => {
     try {
@@ -179,16 +282,24 @@ const ComparePage = () => {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const res = await historyAPI.getIngestHistory();
-      setHistoryData(res.data);
+      const params = {
+        page: tableParams.pagination.current,
+        pageSize: tableParams.pagination.pageSize,
+        search: debouncedSearchText,
+      };
+      const res = await historyAPI.getIngestHistory(params);
+      setHistoryData(res.data.items || []);
+      setTotalHistory(res.data.total || 0);
     } catch (error) {
-      // Toast is handled by API interceptor
+      console.error("Failed to fetch history:", error);
     } finally {
       setLoadingHistory(false);
     }
   };
 
-
+  const handleTableChange = (pagination) => {
+    setTableParams({ pagination });
+  };
 
   const handleDbSelectionChange = (selectedRowKeys, selectedRows) => {
     if (selectedRows.length > 2) {
@@ -199,14 +310,7 @@ const ComparePage = () => {
   };
 
   // Filter history data based on search text
-  const filteredHistoryData = useMemo(() => {
-    const searchLower = deferredSearchText.toLowerCase();
-    return historyData.filter((record) =>
-      record.investor?.toLowerCase().includes(searchLower) ||
-      record.version?.toLowerCase().includes(searchLower) ||
-      record.uploadedFile?.toLowerCase().includes(searchLower)
-    );
-  }, [historyData, deferredSearchText]);
+  // client-side filtering removed in favor of server-side
 
   const handleDbCompare = async () => {
     if (selectedDbRecords.length !== 2) {
@@ -423,54 +527,6 @@ const ComparePage = () => {
     accept: ".xlsx,.xls"
   };
 
-  // Columns for DB Selection Modal
-  const dbColumns = [
-    {
-      title: "S.no",
-      key: "sno",
-      width: 60,
-      render: (_, __, index) => index + 1,
-    },
-    {
-      title: "Investor",
-      dataIndex: "investor",
-      key: "investor",
-      render: (text) => text || " - ",
-    },
-    {
-      title: "Version",
-      dataIndex: "version",
-      key: "version",
-      render: (text) => text || " - ",
-    },
-    {
-      title: "File Name",
-      dataIndex: "uploadedFile",
-      key: "uploadedFile",
-      render: renderFileNames,
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      width: 80,
-      render: (_, record) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <Tooltip title="View Details">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleViewDetails(record);
-              }}
-            />
-          </Tooltip>
-        </div>
-      ),
-    },
-  ];
-
   // Calculate columns for preview, excluding unwanted internal fields
   const previewColumns = React.useMemo(() => {
     if (!previewData || previewData.length === 0) return null;
@@ -530,43 +586,6 @@ const ComparePage = () => {
         layout="vertical"
         className="w-full"
       >
-        {/* Model Selection Row - Admin Only */}
-        {/* {isAdmin && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <Form.Item
-              name="model_provider"
-              className="mb-0"
-            >
-              <Select
-                size="large"
-                className="w-full"
-                onChange={(v) => {
-                  setSelectedProvider(v);
-                  const defaultModel =
-                    v === "gemini" ? "gemini-2.5-pro" : supportedModels[v]?.[0];
-                  form.setFieldsValue({ model_name: defaultModel });
-                }}
-              >
-                <Option value="openai">OpenAI</Option>
-                <Option value="gemini">Google Gemini</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="model_name"
-              className="mb-0"
-            >
-              <Select size="large" className="w-full">
-                {supportedModels[selectedProvider]?.map((model) => (
-                  <Option key={model} value={model}>
-                    {model}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </div>
-        )} */}
-
         {/* Document Context Card */}
         <div className="compare-card">
           <div className="compare-card-title">
@@ -599,7 +618,6 @@ const ComparePage = () => {
           </div>
         </div>
 
-        {/* Database Selection Section */}
         {/* Database Selection Card */}
         <div className="compare-card">
           <div className="compare-card-title">
@@ -612,8 +630,12 @@ const ComparePage = () => {
 
           <div className="compare-table-wrapper mb-6">
             <OptimizedTable 
-              dataSource={filteredHistoryData}
+              dataSource={historyData}
               loading={loadingHistory}
+              total={totalHistory}
+              current={tableParams.pagination.current}
+              pageSize={tableParams.pagination.pageSize}
+              onChange={handleTableChange}
               selectedDbRecords={selectedDbRecords}
               onSelectionChange={handleDbSelectionChange}
             />
@@ -789,28 +811,28 @@ const SearchInput = memo(({ onSearch }) => {
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ loading, dataSource, selectedDbRecords, onSelectionChange }) => {
+const OptimizedTable = memo(({ loading, dataSource, total, current, pageSize, onChange, selectedDbRecords, onSelectionChange }) => {
   const historyColumns = [
     {
       title: "S.no",
       key: "sno",
       width: 60,
-      render: (_, __, index) => index + 1,
+      render: (_, __, index) => (current - 1) * pageSize + index + 1,
     },
     {
-      title: "Investor / Institution",
+      title: "Investor",
       dataIndex: "investor",
       key: "investor",
-      render: (text) => <span className="font-semibold text-gray-800">{text || "General"}</span>,
+      render: (text) => text || " - ",
     },
     {
       title: "Version",
       dataIndex: "version",
       key: "version",
-      render: (text) => <Tag color="blue" className="rounded-full px-3">{text || "v1"}</Tag>,
+      render: (text) => text || " - ",
     },
     {
-      title: "Uploaded Files",
+      title: "File Name",
       dataIndex: "uploadedFile",
       key: "uploadedFile",
       render: renderFileNames,
@@ -819,32 +841,37 @@ const OptimizedTable = memo(({ loading, dataSource, selectedDbRecords, onSelecti
       title: "Date",
       dataIndex: "created_at",
       key: "created_at",
-      render: (date) => <span className="text-gray-500 text-sm">{new Date(date).toLocaleString()}</span>,
+      width: 180,
+      render: (date) => (
+        <span className="text-gray-500 text-sm">
+          {date ? new Date(date).toLocaleString('en-GB') : "N/A"}
+        </span>
+      ),
     },
   ];
 
   return (
     <Table
+      loading={loading}
       dataSource={dataSource}
       columns={historyColumns}
       rowKey="id"
-      loading={loading}
-      pagination={{
-        pageSize: 3,
-        showSizeChanger: true,
-        pageSizeOptions: ["3", "5", "10"],
-        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-        position: ["bottomRight"],
-      }}
       rowSelection={{
-        type: "checkbox",
-        onChange: onSelectionChange,
+        type: 'checkbox',
         selectedRowKeys: selectedDbRecords.map(r => r.id),
+        onChange: (keys, rows) => onSelectionChange(keys, rows),
         getCheckboxProps: (record) => ({
-          disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.some(r => r.id === record.id),
+          disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find(r => r.id === record.id),
         }),
       }}
-      scroll={{ x: 800 }}
+      pagination={{
+        total,
+        current,
+        pageSize,
+        showSizeChanger: true,
+      }}
+      onChange={onChange}
+      className="history-selection-table"
       size="middle"
     />
   );

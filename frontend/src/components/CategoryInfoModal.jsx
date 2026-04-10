@@ -2,57 +2,72 @@ import React, { useState, useMemo, useDeferredValue, memo } from "react";
 import { Modal, Input, Table, Tag } from "antd";
 import { InfoCircleOutlined, SearchOutlined } from "@ant-design/icons";
 
-const CategoryInfoModal = ({ visible, onClose, categoryName, data, loading }) => {
+const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
+  const [data, setData] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const deferredSearchText = useDeferredValue(searchText);
+  const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const [tableParams, setTableParams] = useState({
+      pagination: { current: 1, pageSize: 8 }
+  });
 
-  // Memoize filters to prevent re-calculation on every interaction
-  const categoryFilters = useMemo(() => {
-    const categories = [...new Set(data.map(p => p.category))].filter(Boolean);
-    return categories.sort().map(cat => ({ text: cat, value: cat }));
-  }, [data]);
+  // Debounce search text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
-  const subcategoryFilters = useMemo(() => {
-    const subcats = [...new Set(data.map(p => p.subcategory))].filter(Boolean);
-    return subcats.sort().map(sub => ({ text: sub, value: sub }));
-  }, [data]);
+  // Handle data fetching
+  useEffect(() => {
+    if (visible && investorId && categoryName) {
+      fetchData();
+    }
+  }, [visible, investorId, categoryName, tableParams.pagination.current, tableParams.pagination.pageSize, debouncedSearchText]);
 
-  const parameterFilters = useMemo(() => {
-    const parms = [...new Set(data.map(p => p.parameter))].filter(Boolean);
-    return parms.sort().map(p => ({ text: p, value: p }));
-  }, [data]);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const filters = {
+        guideline_type: [categoryName]
+      };
+      const params = {
+        page: tableParams.pagination.current,
+        pageSize: tableParams.pagination.pageSize,
+        search: debouncedSearchText,
+        filters: JSON.stringify(filters)
+      };
+      const res = await dscrAPI.listParameters(investorId, params);
+      setData(res.data.items || []);
+      setTotal(res.data.total || 0);
+    } catch (err) {
+      console.error("Failed to fetch category info:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Memoize filtered data for performance
-  const filteredData = useMemo(() => {
-    if (!deferredSearchText) return data;
-    const lowerSearch = deferredSearchText.toLowerCase();
-    return data.filter(p => 
-      (p.parameter || "").toLowerCase().includes(lowerSearch) ||
-      (p.category || "").toLowerCase().includes(lowerSearch) ||
-      (p.subcategory || "").toLowerCase().includes(lowerSearch)
-    );
-  }, [data, deferredSearchText]);
+  const handleTableChange = (pagination) => {
+    setTableParams({ pagination });
+  };
 
   // Memoize columns to prevent table re-structure on every render
+  // Memoize columns
   const columns = useMemo(() => [
     {
       title: "Parameter Name",
       dataIndex: "parameter",
       key: "parameter",
-      sorter: (a, b) => (a.parameter || "").localeCompare(b.parameter || ""),
-      filters: parameterFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.parameter === value,
+      sorter: true,
       render: (text) => <span className="font-semibold text-gray-800 text-sm">{text}</span>
     },
     {
       title: "Category",
       dataIndex: "category",
       key: "category",
-      sorter: (a, b) => (a.category || "").localeCompare(b.category || ""),
-      filters: categoryFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.category === value,
+      sorter: true,
       render: (text) => (
         <Tag color="processing" className="text-[11px] px-2 rounded-full border-transparent bg-blue-50 text-blue-600">
           {text}
@@ -63,13 +78,10 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, data, loading }) =>
       title: "Sub Category",
       dataIndex: "subcategory",
       key: "subcategory",
-      sorter: (a, b) => (a.subcategory || "").localeCompare(b.subcategory || ""),
-      filters: subcategoryFilters,
-      filterSearch: true,
-      onFilter: (value, record) => record.subcategory === value,
+      sorter: true,
       render: (text) => <span className="text-[11px] text-gray-500">{text || "—"}</span>
     }
-  ], [categoryFilters, subcategoryFilters, parameterFilters]);
+  ], []);
 
   // Clean up when closing
   const handleCancel = () => {
@@ -98,8 +110,12 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, data, loading }) =>
       </div>
       <OptimizedTable 
         loading={loading}
-        dataSource={filteredData}
+        dataSource={data}
         columns={columns}
+        total={total}
+        current={tableParams.pagination.current}
+        pageSize={tableParams.pagination.pageSize}
+        onChange={handleTableChange}
       />
     </Modal>
   );
@@ -128,13 +144,19 @@ const SearchInput = memo(({ onSearch }) => {
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ loading, dataSource, columns }) => {
+const OptimizedTable = memo(({ loading, dataSource, columns, total, current, pageSize, onChange }) => {
   return (
     <Table
       loading={loading}
       dataSource={dataSource}
       columns={columns}
-      pagination={{ pageSize: 8, showSizeChanger: false }}
+      pagination={{ 
+        total,
+        current,
+        pageSize,
+        showSizeChanger: false 
+      }}
+      onChange={onChange}
       rowKey="id"
       className="custom-table"
       size="middle"

@@ -30,12 +30,23 @@ class GuidelineTypeResponse(GuidelineTypeBase):
     class Config:
         from_attributes = True
 
+class GuidelineTypePaginatedResponse(BaseModel):
+    items: List[GuidelineTypeResponse]
+    total: int
+    page: int
+    pageSize: int
+
 # --- Routes ---
 
-@router.get("", response_model=List[GuidelineTypeResponse])
-async def list_guideline_types(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(GuidelineType).order_by(GuidelineType.name))
-    return result.scalars().all()
+from utils.pagination import paginate_query, PaginationParams
+
+@router.get("", response_model=GuidelineTypePaginatedResponse)
+async def list_guideline_types(
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(GuidelineType)
+    return await paginate_query(db, query, GuidelineType, params, search_fields=["name", "description"])
 
 @router.post("", response_model=GuidelineTypeResponse)
 async def create_guideline_type(

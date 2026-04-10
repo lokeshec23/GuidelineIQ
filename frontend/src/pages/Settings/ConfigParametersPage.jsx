@@ -19,12 +19,31 @@ const ConfigParametersPage = () => {
     // Parameter State
     const [parameters, setParameters] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [total, setTotal] = useState(0);
+    const [tableParams, setTableParams] = useState({
+        pagination: {
+            current: 1,
+            pageSize: 12,
+        },
+        filters: null,
+        sortField: null,
+        sortOrder: null,
+    });
+
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingParam, setEditingParam] = useState(null);
     const [form] = Form.useForm();
     const [searchText, setSearchText] = useState("");
-    const deferredSearchText = useDeferredValue(searchText);
+    const [debouncedSearchText, setDebouncedSearchText] = useState("");
     const prevGuidelineTypeRef = useRef([]);
+
+    // Debounce search text
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchText(searchText);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchText]);
 
     // Investor State
     const [investors, setInvestors] = useState([]);
@@ -40,12 +59,45 @@ const ConfigParametersPage = () => {
     // Import from General Parameters State
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
     const [generalParams, setGeneralParams] = useState([]);
+    const [generalTotal, setGeneralTotal] = useState(0);
+    const [generalTableParams, setGeneralTableParams] = useState({
+        pagination: {
+            current: 1,
+            pageSize: 10,
+        },
+        filters: null,
+        sortField: null,
+        sortOrder: null,
+    });
     const [selectedParamIds, setSelectedParamIds] = useState([]);
     const [importLoading, setImportLoading] = useState(false);
     const [importSearchText, setImportSearchText] = useState("");
-    const deferredImportSearchText = useDeferredValue(importSearchText);
+    const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
     const [hasFetchedGeneral, setHasFetchedGeneral] = useState(false);
+
+    // Debounce import search text
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedImportSearchText(importSearchText);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [importSearchText]);
+
+    // Re-fetch general parameters when its table params or search changes
+    useEffect(() => {
+        if (isImportModalVisible) {
+            fetchGeneralParameters(true);
+        }
+    }, [
+        isImportModalVisible,
+        generalTableParams.pagination.current,
+        generalTableParams.pagination.pageSize,
+        generalTableParams.filters,
+        generalTableParams.sortField,
+        generalTableParams.sortOrder,
+        debouncedImportSearchText
+    ]);
 
     // Manage Guideline Types State
     const [gTypeForm] = Form.useForm();
@@ -60,8 +112,9 @@ const ConfigParametersPage = () => {
     const fetchGuidelineTypes = async () => {
         setGuidelineTypesLoading(true);
         try {
-            const response = await guidelineTypeAPI.listTypes();
-            setGuidelineTypes(response.data || []);
+            // Fetch with large pageSize to ensure all types are available for filters/dropdowns
+            const response = await guidelineTypeAPI.listTypes({ pageSize: 100 });
+            setGuidelineTypes(response.data.items || []);
         } catch (error) {
             console.error("Failed to fetch guideline types:", error);
             showToast.error("Failed to load guideline types");
@@ -70,31 +123,35 @@ const ConfigParametersPage = () => {
         }
     };
 
-    // Re-fetch parameters whenever the selected investor changes (but NOT on initial null)
+    // Re-fetch parameters whenever table params, debounced search, or investor changes
     useEffect(() => {
         if (selectedInvestorId) {
             fetchParameters();
         }
-    }, [selectedInvestorId]);
+    }, [
+        selectedInvestorId, 
+        tableParams.pagination.current, 
+        tableParams.pagination.pageSize, 
+        tableParams.filters, 
+        tableParams.sortField, 
+        tableParams.sortOrder, 
+        debouncedSearchText
+    ]);
 
     const fetchInvestors = async () => {
         try {
-            const response = await investorAPI.listInvestors();
-            const data = response.data || [];
+            // Fetch with large pageSize to ensure all investors are available in the dropdown
+            const response = await investorAPI.listInvestors({ pageSize: 100 });
+            const data = response.data.items || [];
             setInvestors(data);
-            if (data.length > 0) {
+            if (data.length > 0 && !selectedInvestorId) {
                 // Set the first investor — this triggers the selectedInvestorId useEffect
                 // which will call fetchParameters(). No manual call needed here.
                 setSelectedInvestorId(data[0].id);
-            } else {
-                // No investors exist — nothing to load
-                setSelectedInvestorId(null);
-                setLoading(false);
             }
         } catch (error) {
             console.error("Failed to fetch investors:", error);
-            showToast.error("Failed to fetch investor list.");
-            setLoading(false);
+            showToast.error("Failed to load investors");
         }
     };
 
@@ -102,14 +159,32 @@ const ConfigParametersPage = () => {
         if (!investorId) return;
         setLoading(true);
         try {
-            const response = await dscrAPI.listParameters(investorId);
-            setParameters(response.data || []);
+            const params = {
+                page: tableParams.pagination.current,
+                pageSize: tableParams.pagination.pageSize,
+                search: debouncedSearchText,
+                sortField: tableParams.sortField,
+                sortOrder: tableParams.sortOrder,
+                filters: tableParams.filters ? JSON.stringify(tableParams.filters) : undefined
+            };
+            const response = await dscrAPI.listParameters(investorId, params);
+            setParameters(response.data.items || []);
+            setTotal(response.data.total || 0);
         } catch (error) {
             console.error("Failed to fetch parameters:", error);
             showToast.error("Failed to load parameters. Please try again.");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleTableChange = (pagination, filters, sorter) => {
+        setTableParams({
+            pagination,
+            filters,
+            sortField: sorter.field,
+            sortOrder: sorter.order,
+        });
     };
 
     const handleAdd = () => {
@@ -184,12 +259,21 @@ const ConfigParametersPage = () => {
 
     /* === Import from General Parameters Flow === */
     const fetchGeneralParameters = async (force = false) => {
-        if (hasFetchedGeneral && !force && generalParams.length > 0) return;
+        if (!isImportModalVisible && !force) return;
 
         setGeneralParamsLoading(true);
         try {
-            const response = await dscrAPI.listParameters("null");
-            setGeneralParams(response.data || []);
+            const params = {
+                page: generalTableParams.pagination.current,
+                pageSize: generalTableParams.pagination.pageSize,
+                search: debouncedImportSearchText,
+                sortField: generalTableParams.sortField,
+                sortOrder: generalTableParams.sortOrder,
+                filters: generalTableParams.filters ? JSON.stringify(generalTableParams.filters) : undefined
+            };
+            const response = await dscrAPI.listParameters("null", params);
+            setGeneralParams(response.data.items || []);
+            setGeneralTotal(response.data.total || 0);
             setHasFetchedGeneral(true);
         } catch (error) {
             console.error("Failed to fetch general parameters:", error);
@@ -199,11 +283,25 @@ const ConfigParametersPage = () => {
         }
     };
 
+    const handleGeneralTableChange = (pagination, filters, sorter) => {
+        setGeneralTableParams({
+            pagination,
+            filters,
+            sortField: sorter.field,
+            sortOrder: sorter.order,
+        });
+    };
+
     const handleOpenImportModal = async () => {
         setSelectedParamIds([]);
         setImportSearchText("");
+        setGeneralTableParams({
+            pagination: { current: 1, pageSize: 10 },
+            filters: null,
+            sortField: null,
+            sortOrder: null,
+        });
         setIsImportModalVisible(true);
-        await fetchGeneralParameters();
     };
 
     const handleImportParams = async () => {
@@ -229,24 +327,16 @@ const ConfigParametersPage = () => {
 
     const handleSelectAll = (checked) => {
         if (checked) {
-            // Add all visible IDs to selection, avoiding duplicates
-            const visibleIds = filteredGeneralParams.map(p => p.id);
+            // Add all currently visible IDs to selection
+            const visibleIds = generalParams.map(p => p.id);
             setSelectedParamIds(prev => [...new Set([...prev, ...visibleIds])]);
         } else {
             // Remove only visible IDs from selection
-            const visibleIds = filteredGeneralParams.map(p => p.id);
+            const visibleIds = generalParams.map(p => p.id);
             setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
         }
     };
 
-    const filteredGeneralParams = useMemo(() => {
-        if (!deferredImportSearchText) return generalParams;
-        const lowerSearch = deferredImportSearchText.toLowerCase();
-        return generalParams.filter(p =>
-            p.parameter.toLowerCase().includes(lowerSearch) ||
-            p.category.toLowerCase().includes(lowerSearch)
-        );
-    }, [generalParams, deferredImportSearchText]);
 
     const categoryFilters = useMemo(() => {
         const categories = [...new Set(generalParams.map(p => p.category))].filter(Boolean);
@@ -268,20 +358,18 @@ const ConfigParametersPage = () => {
             title: "Parameter Name",
             dataIndex: "parameter",
             key: "parameter",
-            sorter: (a, b) => (a.parameter || "").localeCompare(b.parameter || ""),
+            sorter: true,
             filters: parameterFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.parameter === value,
             render: (text) => <span className="font-semibold text-gray-800 text-sm">{text}</span>
         },
         {
             title: "Category",
             dataIndex: "category",
             key: "category",
-            sorter: (a, b) => (a.category || "").localeCompare(b.category || ""),
+            sorter: true,
             filters: categoryFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.category === value,
             render: (text) => (
                 <Tag color="processing" className="text-[11px] px-2 rounded-full border-transparent bg-blue-50 text-blue-600">
                     {text}
@@ -292,10 +380,9 @@ const ConfigParametersPage = () => {
             title: "Sub Category",
             dataIndex: "subcategory",
             key: "subcategory",
-            sorter: (a, b) => (a.subcategory || "").localeCompare(b.subcategory || ""),
+            sorter: true,
             filters: subcategoryFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.subcategory === value,
             render: (text) => <span className="text-[11px] text-gray-500">{text || "—"}</span>
         },
         {
@@ -303,22 +390,8 @@ const ConfigParametersPage = () => {
             dataIndex: "guideline_type",
             key: "guideline_type",
             width: 180,
-            sorter: (a, b) => {
-                const getLen = (item) => {
-                    let types = item.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
-                    if (types.includes("All")) return 3;
-                    return (Array.isArray(types) ? types.length : 1);
-                };
-                return getLen(a) - getLen(b);
-            },
+            sorter: true,
             filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
-            onFilter: (value, record) => {
-                let types = record.guideline_type || guidelineTypes.map(t => t.name);
-                if (types.includes("All")) {
-                    types = guidelineTypes.map(t => t.name);
-                }
-                return types.includes(value);
-            },
             render: (types) => {
                 let displayTypes = types || guidelineTypes.map(t => t.name);
                 if (displayTypes.includes("All")) {
@@ -453,11 +526,6 @@ const ConfigParametersPage = () => {
 
     const GTYPE_COLORS = ["blue", "green", "purple", "orange", "red", "cyan", "magenta", "gold"];
 
-    const filteredParameters = useMemo(() => parameters.filter(p =>
-        p.parameter.toLowerCase().includes(deferredSearchText.toLowerCase()) ||
-        p.category.toLowerCase().includes(deferredSearchText.toLowerCase())
-    ), [parameters, deferredSearchText]);
-
     const mainCategoryFilters = useMemo(() => {
         const categories = [...new Set(parameters.map(p => p.category))].filter(Boolean);
         return categories.sort().map(cat => ({ text: cat, value: cat }));
@@ -481,25 +549,23 @@ const ConfigParametersPage = () => {
         return map;
     }, [guidelineTypes]);
 
-    const columns = useMemo(() => [
+            const columns = useMemo(() => [
         {
             title: "Parameter Name",
             dataIndex: "parameter",
             key: "parameter",
-            sorter: (a, b) => (a.parameter || "").localeCompare(b.parameter || ""),
+            sorter: true,
             filters: mainParameterFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.parameter === value,
             render: (text) => <span className="font-semibold text-gray-800">{text}</span>
         },
         {
             title: "Category",
             dataIndex: "category",
             key: "category",
-            sorter: (a, b) => (a.category || "").localeCompare(b.category || ""),
+            sorter: true,
             filters: mainCategoryFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.category === value,
             render: (text) => (
                 <Tag className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 rounded-full font-medium">
                     {text}
@@ -510,10 +576,9 @@ const ConfigParametersPage = () => {
             title: "Subcategory",
             dataIndex: "subcategory",
             key: "subcategory",
-            sorter: (a, b) => (a.subcategory || "").localeCompare(b.subcategory || ""),
+            sorter: true,
             filters: mainSubcategoryFilters,
             filterSearch: true,
-            onFilter: (value, record) => record.subcategory === value,
             render: (text) => <span className="text-gray-600">{text || "—"}</span>
         },
         {
@@ -521,22 +586,8 @@ const ConfigParametersPage = () => {
             dataIndex: "guideline_type",
             key: "guideline_type",
             width: 250,
-            sorter: (a, b) => {
-                const getLen = (item) => {
-                    let types = item.guideline_type || ["DSCR", "Full Doc", "Alt Doc"];
-                    if (types.includes("All")) return 3;
-                    return (Array.isArray(types) ? types.length : 1);
-                };
-                return getLen(a) - getLen(b);
-            },
+            sorter: true,
             filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
-            onFilter: (value, record) => {
-                let types = record.guideline_type || guidelineTypes.map(t => t.name);
-                if (types.includes("All")) {
-                    types = guidelineTypes.map(t => t.name);
-                }
-                return types.includes(value);
-            },
             render: (types) => {
                 let displayTypes = types || guidelineTypes.map(t => t.name);
                 if (displayTypes.includes("All")) {
@@ -751,12 +802,12 @@ const ConfigParametersPage = () => {
                     <div className="p-6">
                         <OptimizedTable 
                             columns={columns}
-                            dataSource={filteredParameters}
-                            pagination={{
-                                pageSize: 12,
-                                showSizeChanger: true,
-                                className: "px-6 pb-2"
-                            }}
+                            dataSource={parameters}
+                            loading={loading}
+                            total={total}
+                            current={tableParams.pagination.current}
+                            pageSize={tableParams.pagination.pageSize}
+                            onChange={handleTableChange}
                             scroll={{ y: 600 }}
                         />
                     </div>
@@ -869,18 +920,15 @@ const ConfigParametersPage = () => {
                         />
                         <div className="px-1 flex items-center gap-4">
                             <Checkbox
-                                indeterminate={
-                                    filteredGeneralParams.some(p => selectedParamIds.includes(p.id)) &&
-                                    !filteredGeneralParams.every(p => selectedParamIds.includes(p.id))
-                                }
+                                indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
                                 checked={
-                                    filteredGeneralParams.length > 0 &&
-                                    filteredGeneralParams.every(p => selectedParamIds.includes(p.id))
+                                    generalParams.length > 0 &&
+                                    generalParams.every(p => selectedParamIds.includes(p.id))
                                 }
                                 onChange={e => handleSelectAll(e.target.checked)}
                             >
                                 <span className="text-gray-600 font-medium ml-1">
-                                    Select All ({filteredGeneralParams.length})
+                                    Select All ({generalParams.length})
                                 </span>
                             </Checkbox>
                             <span className="text-gray-400 text-xs whitespace-nowrap bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
@@ -893,23 +941,19 @@ const ConfigParametersPage = () => {
                     <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
                         <OptimizedTable
                             columns={importColumns}
-                            dataSource={filteredGeneralParams}
-                            size="middle"
+                            dataSource={generalParams}
                             loading={generalParamsLoading}
-                            pagination={{
-                                pageSize: 8,
-                                showSizeChanger: true,
-                                showTotal: (total) => `Total ${total} parameters`,
-                                className: "px-4"
-                            }}
+                            total={generalTotal}
+                            current={generalTableParams.pagination.current}
+                            pageSize={generalTableParams.pagination.pageSize}
+                            onChange={handleGeneralTableChange}
                             rowSelection={{
-                                type: 'checkbox',
                                 selectedRowKeys: selectedParamIds,
                                 onChange: (keys) => setSelectedParamIds(keys),
                                 preserveSelectedRowKeys: true,
                             }}
-                            scroll={{ y: 500 }}
-                            className="import-table"
+                            scroll={{ y: 400 }}
+                            size="small"
                         />
                     </div>
                 </div>
@@ -1173,14 +1217,37 @@ const SearchInput = memo(({ onSearch, placeholder = "Search parameters or catego
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ loading, dataSource, columns, pagination, scroll, className = "custom-table", rowSelection = null, size = "large" }) => {
+const OptimizedTable = memo(({ 
+    loading, 
+    dataSource, 
+    columns, 
+    pagination, 
+    scroll, 
+    className = "custom-table", 
+    rowSelection = null, 
+    size = "large",
+    onChange,
+    total,
+    current,
+    pageSize
+}) => {
+    const internalPagination = pagination === false ? false : {
+        ...(pagination || {}),
+        total: total,
+        current: current,
+        pageSize: pageSize,
+        showSizeChanger: true,
+        className: (pagination?.className || "px-6 pb-2")
+    };
+
     return (
         <Table
             loading={loading}
             dataSource={dataSource}
             columns={columns}
             rowKey="id"
-            pagination={pagination}
+            pagination={internalPagination}
+            onChange={onChange}
             className={className}
             rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
             virtual

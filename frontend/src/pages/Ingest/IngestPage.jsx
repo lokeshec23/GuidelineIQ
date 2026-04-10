@@ -153,31 +153,9 @@ const IngestPage = () => {
     }
   };
 
-  const handleCategoryInfoClick = async (categoryName) => {
+  const handleCategoryInfoClick = (categoryName) => {
     setActiveCategory(categoryName);
     setInfoModalVisible(true);
-    setInfoModalLoading(true);
-
-    try {
-      const selectedInvestorId = form.getFieldValue("guideline_investor_id") || "null";
-      const response = await dscrAPI.listParameters(selectedInvestorId);
-      const allParams = response.data || [];
-
-      // Filter by guideline_type which can be an array or string
-      const filtered = allParams.filter(p => {
-        let types = p.guideline_type || [];
-        if (typeof types === 'string') types = [types];
-        if (types.includes("All")) return true;
-        return types.includes(categoryName);
-      });
-
-      setInfoModalData(filtered);
-    } catch (error) {
-      console.error("Failed to fetch category parameters:", error);
-      showToast.error("Failed to load parameters");
-    } finally {
-      setInfoModalLoading(false);
-    }
   };
 
   // --- FILE HANDLERS ---
@@ -206,8 +184,8 @@ const IngestPage = () => {
       // Validate that the selected investor context has at least one parameter
       const investorIdForCheck = values.guideline_investor_id || "null";
       try {
-        const paramsRes = await dscrAPI.listParameters(investorIdForCheck);
-        if (!paramsRes.data || paramsRes.data.length === 0) {
+        const paramsRes = await dscrAPI.listParameters(investorIdForCheck, { pageSize: 1000 });
+        if (!paramsRes.data.items || paramsRes.data.items.length === 0) {
           showToast.error("Parameters are empty");
           return;
         }

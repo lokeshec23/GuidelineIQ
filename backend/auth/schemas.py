@@ -28,6 +28,8 @@ class UserLogin(BaseModel):
     remember_me: Optional[bool] = False
 
 
+from typing import Optional, List
+
 # Schema for returning user info
 class UserOut(BaseModel):
     id: str
@@ -35,6 +37,12 @@ class UserOut(BaseModel):
     email: EmailStr
     role: Optional[str] = None
     created_at: Optional[str] = None
+
+class UserPaginatedResponse(BaseModel):
+    items: List[UserOut]
+    total: int
+    page: int
+    pageSize: int
 
 
 # Schema for token responses

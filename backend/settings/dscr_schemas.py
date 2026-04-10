@@ -49,3 +49,9 @@ class DSCRParameterBulkCreate(BaseModel):
 class BatchImportRequest(BaseModel):
     parameter_ids: List[str]
     target_investor_id: str
+
+class DSCRParameterPaginatedResponse(BaseModel):
+    items: List[DSCRParameterResponse]
+    total: int
+    page: int
+    pageSize: int

@@ -7,11 +7,13 @@ from settings.dscr_schemas import (
     DSCRParameterCreate, 
     DSCRParameterUpdate, 
     DSCRParameterResponse, 
+    DSCRParameterPaginatedResponse,
     GUIDELINE_TYPE_OPTIONS,
     DSCRParameterBulkCreate,
     BatchImportRequest
 )
 from auth.middleware import require_admin
+from utils.pagination import paginate_query, PaginationParams
 from typing import List, Optional
 import time
 import logging
@@ -20,11 +22,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dscr-parameters", tags=["Parameters"])
 
-@router.get("", response_model=List[DSCRParameterResponse])
+@router.get("", response_model=DSCRParameterPaginatedResponse)
 async def list_parameters(
     investor_id: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 0,  # 0 = no limit (return all)
+    params: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db)
 ):
     start_time = time.time()
@@ -36,23 +37,16 @@ async def list_parameters(
     elif investor_id != "all":
         query = query.where(DSCRParameter.investor_id == investor_id)
         
-    query = query.order_by(DSCRParameter.category, DSCRParameter.parameter)
+    result = await paginate_query(
+        db, 
+        query, 
+        DSCRParameter, 
+        params, 
+        search_fields=["parameter", "category", "subcategory"]
+    )
     
-    if skip > 0:
-        query = query.offset(skip)
-    if limit > 0:
-        query = query.limit(limit)
-
-    db_start = time.time()
-    result = await db.execute(query)
-    parameters = result.scalars().all() or []
-    db_end = time.time()
-    
-    logger.info(f"DB Query took {db_end - db_start:.4f}s for {len(parameters)} items")
-    
-    # Serialization happens after return
-    logger.info(f"Total route logic took {time.time() - start_time:.4f}s")
-    return parameters
+    logger.info(f"Paginated list_parameters took {time.time() - start_time:.4f}s")
+    return result
 
 @router.get("/guideline-types")
 async def get_guideline_types():
