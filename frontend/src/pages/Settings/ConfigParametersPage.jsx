@@ -93,7 +93,7 @@ const ConfigParametersPage = () => {
             }
         } catch (error) {
             console.error("Failed to fetch investors:", error);
-            showToast.error("Failed to fetch context list.");
+            showToast.error("Failed to fetch investor list.");
             setLoading(false);
         }
     };
@@ -147,7 +147,7 @@ const ConfigParametersPage = () => {
 
     const handleRemoveAll = async () => {
         try {
-            // Delete only the parameters for the currently selected context,
+            // Delete only the parameters for the currently selected investor,
             // NOT all parameters globally across all investors.
             await Promise.all(parameters.map(p => dscrAPI.deleteParameter(p.id)));
             showToast.success("All parameters deleted successfully");
@@ -611,11 +611,11 @@ const ConfigParametersPage = () => {
 
     return (
         <div className="max-w-7xl mx-auto pb-10">
-            {/* Header / Context Filter Bar */}
+            {/* Header / Investor Filter Bar */}
             <div className="mb-8">
                 <div className="bg-white p-2 md:p-3 rounded-2xl shadow-sm border border-gray-100 w-full lg:w-1/2 flex items-center gap-4 transition-all hover:bg-white/80">
                     <span className="text-gray-500 font-semibold text-sm flex items-center gap-2 ml-2 whitespace-nowrap uppercase tracking-wider">
-                        <DatabaseOutlined className="text-blue-500 text-lg" /> Active Context
+                        <DatabaseOutlined className="text-blue-500 text-lg" /> Active Investor
                     </span>
                     <Select
                         value={selectedInvestorId}
@@ -628,7 +628,7 @@ const ConfigParametersPage = () => {
                         ]}
                     />
                     {isAdmin && (
-                        <Tooltip title="Manage Contexts">
+                        <Tooltip title="Manage Investors">
                             <Button
                                 type="text"
                                 icon={<SettingOutlined className="text-lg" />}
@@ -722,7 +722,7 @@ const ConfigParametersPage = () => {
                         </Button>
                         <Popconfirm
                             title="Delete all parameters?"
-                            description={`Are you sure you want to delete ALL parameters for the selected context?`}
+                            description={`Are you sure you want to delete ALL parameters for the selected investor?`}
                             onConfirm={handleRemoveAll}
                             okText="Yes"
                             cancelText="No"
@@ -920,7 +920,7 @@ const ConfigParametersPage = () => {
                 title={
                     <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
                         <TeamOutlined className="text-blue-500" />
-                        Manage Contexts (Investors)
+                        Manage Investors
                     </div>
                 }
                 open={isManageInvestorsVisible}
@@ -931,14 +931,14 @@ const ConfigParametersPage = () => {
                 centered
             >
                 <Tabs
-                    defaultActiveKey="contexts"
+                    defaultActiveKey="investors"
                     className="manage-tabs"
                     items={[
                         {
-                            key: "contexts",
+                            key: "investors",
                             label: (
                                 <span className="flex items-center gap-2">
-                                    <TeamOutlined /> Contexts
+                                    <TeamOutlined /> Investors
                                 </span>
                             ),
                             children: (
@@ -946,7 +946,7 @@ const ConfigParametersPage = () => {
                                     <div className="mb-6 mt-4">
                                         <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
                                             <span className="text-sm tracking-wide uppercase text-blue-600 font-bold mb-3 block">
-                                                {editingInvestor ? "Edit Context" : "Add New Context"}
+                                                {editingInvestor ? "Edit Investor" : "Add New Investor"}
                                             </span>
                                             <Form
                                                 form={investorForm}
