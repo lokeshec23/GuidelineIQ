@@ -1,6 +1,6 @@
 // src/pages/Ingest/IngestPage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Form,
   Select,
@@ -15,6 +15,7 @@ import {
   Upload,
   DatePicker,
   Progress,
+  Tooltip,
 } from "antd";
 import {
   InboxOutlined,
@@ -28,8 +29,11 @@ import {
   AppstoreOutlined,
   PlusCircleOutlined,
   FileOutlined,
+  InfoCircleOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import "./IngestPage.css";
+const CategoryInfoModal = React.lazy(() => import("../../components/CategoryInfoModal"));
 import { usePrompts } from "../../context/PromptContext";
 import { useAuth } from "../../context/AuthContext";
 import { ingestAPI, settingsAPI, promptsAPI, investorAPI, dscrAPI, guidelineTypeAPI } from "../../services/api";
@@ -64,8 +68,13 @@ const IngestPage = () => {
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [currentInvestor, setCurrentInvestor] = useState("");
   const [currentVersion, setCurrentVersion] = useState("");
-
   const [pageLoading, setPageLoading] = useState(true);
+
+  // --- CATEGORY INFO MODAL STATE ---
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [infoModalData, setInfoModalData] = useState([]);
+  const [infoModalLoading, setInfoModalLoading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("");
 
   useEffect(() => {
     fetchModelsAndSettings();
@@ -144,6 +153,33 @@ const IngestPage = () => {
     }
   };
 
+  const handleCategoryInfoClick = async (categoryName) => {
+    setActiveCategory(categoryName);
+    setInfoModalVisible(true);
+    setInfoModalLoading(true);
+
+    try {
+      const selectedInvestorId = form.getFieldValue("guideline_investor_id") || "null";
+      const response = await dscrAPI.listParameters(selectedInvestorId);
+      const allParams = response.data || [];
+
+      // Filter by guideline_type which can be an array or string
+      const filtered = allParams.filter(p => {
+        let types = p.guideline_type || [];
+        if (typeof types === 'string') types = [types];
+        if (types.includes("All")) return true;
+        return types.includes(categoryName);
+      });
+
+      setInfoModalData(filtered);
+    } catch (error) {
+      console.error("Failed to fetch category parameters:", error);
+      showToast.error("Failed to load parameters");
+    } finally {
+      setInfoModalLoading(false);
+    }
+  };
+
   // --- FILE HANDLERS ---
   const handleFileChange = (info) => {
     // ✅ Handle multiple files
@@ -209,7 +245,7 @@ const IngestPage = () => {
       // Find investor name from selected ID
       let selectedInvestorName = "General";
       const selectedId = values.guideline_investor_id || "null";
-      
+
       if (selectedId !== "null") {
         const inv = investors.find(i => String(i.id) === String(selectedId));
         if (inv) selectedInvestorName = inv.name;
@@ -594,6 +630,17 @@ const IngestPage = () => {
                       <PlusCircleOutlined className="chip-icon" />
                     )}
                     {cat.name}
+                    <Tooltip title="View configuration parameters">
+                      <div
+                        className="chip-info-icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCategoryInfoClick(cat.name);
+                        }}
+                      >
+                        <InfoCircleOutlined />
+                      </div>
+                    </Tooltip>
                   </div>
                 );
               })}
@@ -756,6 +803,17 @@ const IngestPage = () => {
               ingestAPI.downloadExcel(sessionId, type);
             }
           }}
+        />
+      </React.Suspense>
+
+      {/* Category Info Modal - Isolated for Performance */}
+      <React.Suspense fallback={null}>
+        <CategoryInfoModal
+          visible={infoModalVisible}
+          onClose={() => setInfoModalVisible(false)}
+          categoryName={activeCategory}
+          data={infoModalData}
+          loading={infoModalLoading}
         />
       </React.Suspense>
     </div>

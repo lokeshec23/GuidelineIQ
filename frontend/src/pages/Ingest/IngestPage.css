@@ -122,6 +122,39 @@
     font-size: 14px;
 }
 
+.chip-info-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    margin-left: 4px;
+    color: inherit;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.chip-info-icon:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.1);
+}
+
+.category-info-modal .ant-modal-content {
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.category-info-modal .ant-modal-header {
+    margin-bottom: 24px;
+    border-bottom: none;
+}
+
+.category-info-modal .ant-table-wrapper {
+    margin-top: 10px;
+}
+
 /* Upload Area */
 .upload-wrapper {
     border: 2px dashed #e2e8f0;

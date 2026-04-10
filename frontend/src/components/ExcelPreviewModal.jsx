@@ -1,6 +1,6 @@
 // src/components/ExcelPreviewModal.jsx
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useDeferredValue, memo, useCallback } from "react";
 import {
     Modal,
     Table,
@@ -45,6 +45,7 @@ const ExcelPreviewModal = ({
     version = "",
 }) => {
     const [searchText, setSearchText] = useState("");
+    const deferredSearchText = useDeferredValue(searchText);
     const [searchExpanded, setSearchExpanded] = useState(false);
     const [filteredInfo, setFilteredInfo] = useState({});
     const [sortedInfo, setSortedInfo] = useState({});
@@ -97,13 +98,14 @@ const ExcelPreviewModal = ({
 
     // Search
     const searchFilteredData = useMemo(() => {
-        if (!searchText) return tableData;
+        if (!deferredSearchText) return tableData;
+        const lowerSearch = deferredSearchText.toLowerCase();
         return tableData.filter((record) =>
             Object.values(record).some((value) =>
-                String(value).toLowerCase().includes(searchText.toLowerCase())
+                String(value).toLowerCase().includes(lowerSearch)
             )
         );
-    }, [tableData, searchText]);
+    }, [tableData, deferredSearchText]);
 
     // Filter
     const getFilteredDataForFilters = useMemo(() => {
@@ -226,14 +228,12 @@ const ExcelPreviewModal = ({
         return widths;
     }, [data, columns]);
 
-    const getColumns = () => {
+    const columnsMemo = useMemo(() => {
         const generateColumn = (key, customTitle = null) => {
-            // ✅ Use pre-calculated "prefit" width, fallback to default if not available
             const prefitWidth = calculatedWidths[key] || 250;
             const currentWidth = columnWidths[key] || prefitWidth;
 
             let displayTitle = customTitle;
-
             if (!displayTitle) {
                 if (key === "rule_id" || key.trim().toLowerCase() === "dscr_parameters" || key.trim().toLowerCase() === "dscr parameters") {
                     displayTitle = "PARAMETERS";
@@ -304,42 +304,54 @@ const ExcelPreviewModal = ({
                             style={{ color: filtered ? "#fffc00" : "#fff" }}
                         />
                     ),
-                // ... same filter logic ...
-                render: (text, record, index, key) => {
-                    // Special rendering for page_number - make it clickable
-                    if (key === "page_number" && sessionId && !isComparisonMode) {
+                render: (text, record) => {
+                    const isPdfLink = key === "pdf_link" || (typeof text === 'string' && text.includes(".pdf"));
+                    const isPageNumber = key === "page_number";
+
+                    if (isPdfLink && text) {
                         return (
-                            <div className="whitespace-pre-wrap break-words text-sm">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const pageStr = String(text || "");
-                                        let pageNum = null;
-                                        if (pageStr && pageStr !== "N/A") {
-                                            if (pageStr.includes("-")) {
-                                                pageNum = parseInt(pageStr.split("-")[0]);
-                                            } else {
-                                                pageNum = parseInt(pageStr);
-                                            }
-                                        }
-                                        if (pageNum && !isNaN(pageNum)) {
-                                            setPdfTargetPage(pageNum);
-                                            setPdfViewerVisible(true);
-                                        }
-                                    }}
-                                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium bg-transparent border-0 p-0"
-                                    title="Click to view this page in PDF"
-                                >
-                                    {String(text || "")}
-                                </button>
-                            </div>
+                            <Button
+                                type="link"
+                                icon={<FilePdfOutlined />}
+                                onClick={() => {
+                                    setPdfTargetPage(record.page_number || 1);
+                                    setPdfViewerVisible(true);
+                                }}
+                                className="p-0 h-auto text-red-500 hover:text-red-600"
+                            >
+                                View Evidence
+                            </Button>
                         );
                     }
 
-                    // Default rendering for other columns
+                    if (isPageNumber && text) {
+                        return (
+                            <span
+                                className="cursor-pointer text-blue-500 hover:text-blue-600 hover:underline font-medium"
+                                onClick={() => {
+                                    const pageStr = String(text || "");
+                                    let pageNum = null;
+                                    if (pageStr && pageStr !== "N/A") {
+                                        if (pageStr.includes("-")) {
+                                            pageNum = parseInt(pageStr.split("-")[0]);
+                                        } else {
+                                            pageNum = parseInt(pageStr);
+                                        }
+                                    }
+                                    if (pageNum && !isNaN(pageNum)) {
+                                        setPdfTargetPage(pageNum);
+                                        setPdfViewerVisible(true);
+                                    }
+                                }}
+                            >
+                                Page {text}
+                            </span>
+                        );
+                    }
+
                     return (
-                        <div className="whitespace-pre-wrap break-words text-sm">
-                            {String(text || "-")}
+                        <div className="antd-cell-content" title={String(text || "")}>
+                            {text || "-"}
                         </div>
                     );
                 },
@@ -366,49 +378,18 @@ const ExcelPreviewModal = ({
 
         let dataColumns = [];
         if (columns) {
-            dataColumns = columns.map((col) => {
-                const generatedCol = generateColumn(col.dataIndex, col.title);
-                return {
-                    ...generatedCol,
-                    render: (text, record, index) => generatedCol.render(text, record, index, col.dataIndex)
-                };
-            });
-        } else if (currentData?.length > 0) {
-            dataColumns = Object.keys(currentData[0]).map((key) => {
-                const generatedCol = generateColumn(key);
-                return {
-                    ...generatedCol,
-                    render: (text, record, index) => generatedCol.render(text, record, index, key)
-                };
-            });
-        } else {
-            dataColumns = [
-                {
-                    title: "Result",
-                    dataIndex: "content",
-                    render: (text) => (
-                        <div className="whitespace-pre-wrap break-words text-sm">
-                            {String(text || "")}
-                        </div>
-                    ),
-                },
-            ];
-        }
-
-        if (isComparisonMode) {
-            dataColumns = dataColumns.filter(col =>
-                col.dataIndex !== 'S NO' &&
-                col.dataIndex !== 's_no' &&
-                col.dataIndex !== 'sno' &&
-                col.dataIndex !== 'dscr_parameters' &&
-                col.dataIndex !== 'ppe_field_type'
-            );
+            dataColumns = columns.map((col) => generateColumn(col.dataIndex, col.title));
+        } else if (currentData.length > 0) {
+            dataColumns = Object.keys(currentData[0]).map((key) => generateColumn(key));
         }
 
         return [serialNumberColumn, ...dataColumns];
-    };
+    }, [currentData, columns, sortedInfo, filteredInfo, columnWidths, calculatedWidths, currentPage, currentPageSize]);
 
-    const tableColumns = getColumns();
+    const handleTableChange = (pagination, filters, sorter) => {
+        setFilteredInfo(filters);
+        setSortedInfo(sorter);
+    };
 
     const clearFilters = () => {
         setFilteredInfo({});
@@ -437,7 +418,6 @@ const ExcelPreviewModal = ({
                 }}
                 onCancel={onClose}
             >
-                {/* Header - fixed */}
                 <div className="flex justify-between items-center px-4 py-2 border-b bg-white relative">
                     <div className="flex items-center gap-3">
                         <div className={`${iconBgColor} p-2 rounded-full`}>
@@ -445,15 +425,9 @@ const ExcelPreviewModal = ({
                         </div>
                         <h3 className="font-semibold text-lg">
                             {title}
-                            {/* {showRowCount && (
-                                <span className="ml-2 text-gray-500 font-normal">
-                                    ({data.length} rows)
-                                </span>
-                            )} */}
                         </h3>
                     </div>
                     <Space>
-                        {/* View PDF Button - Only for ingestion mode */}
                         {sessionId && !isComparisonMode && (
                             <Button
                                 icon={<FilePdfOutlined />}
@@ -483,7 +457,6 @@ const ExcelPreviewModal = ({
                     </Space>
                 </div>
 
-                {/* Search bar - fixed below header */}
                 <div className="px-4 py-1.5 bg-gray-50 border-b flex items-center gap-3">
                     {!searchExpanded ? (
                         <Button
@@ -493,18 +466,7 @@ const ExcelPreviewModal = ({
                             title="Search"
                         />
                     ) : (
-                        <Input
-                            placeholder="Search across all columns..."
-                            prefix={<SearchOutlined />}
-                            value={searchText}
-                            onChange={(e) => setSearchText(e.target.value)}
-                            onBlur={() =>
-                                !searchText && setSearchExpanded(false)
-                            }
-                            allowClear
-                            autoFocus
-                            style={{ width: 300 }}
-                        />
+                        <SearchInput onSearch={setSearchText} />
                     )}
                     <Button onClick={clearFilters} size="small">
                         Clear Filters
@@ -541,22 +503,19 @@ const ExcelPreviewModal = ({
                     )}
                 </div>
 
-                {/* Content area - table scrolls, footer fixed */}
                 <div
                     className="p-1 bg-gray-50 relative flex flex-col"
                     style={{ flex: 1, overflow: "hidden" }}
                 >
-                    {/* Scrollable table container */}
                     <div
                         className="flex-1"
                         style={{
                             overflow: "auto",
-                            scrollbarWidth: "thin", // For Firefox
-                            scrollbarColor: "#888 #f1f1f1", // For Firefox
+                            scrollbarWidth: "thin",
+                            scrollbarColor: "#888 #f1f1f1",
                         }}
                     >
                         <style>{`
-                            /* Custom scrollbar for Webkit browsers (Chrome, Safari, Edge) */
                             .flex-1::-webkit-scrollbar {
                                 width: 12px;
                                 height: 12px;
@@ -573,9 +532,8 @@ const ExcelPreviewModal = ({
                                 background: #555;
                             }
 
-                            /* Excel-like Table Styles */
                             .antd-excel-table .ant-table-thead > tr > th {
-                                background-color: #1F4E78 !important; /* Dark Blue from Excel Export */
+                                background-color: #1F4E78 !important;
                                 color: white !important;
                                 font-weight: bold !important;
                                 border-bottom: 1px solid #d9d9d9 !important;
@@ -597,22 +555,14 @@ const ExcelPreviewModal = ({
                                 min-width: 50px;
                             }
                         `}</style>
-                        <Table
+                        <OptimizedTable
+                            columns={columnsMemo}
                             dataSource={paginatedData}
-                            columns={tableColumns}
-                            className="antd-excel-table"
-                            onChange={(pagination, filters, sorter) => {
-                                setFilteredInfo(filters);
-                                setSortedInfo(sorter);
-                            }}
-                            pagination={false}
-                            scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
-                            bordered
-                            size="small"
+                            onChange={handleTableChange}
+                            loading={filterLoading}
                         />
                     </div>
 
-                    {/* Footer - fixed inside modal */}
                     <div className="flex justify-end items-center mt-4 gap-4">
                         <Pagination
                             current={currentPage}
@@ -686,5 +636,45 @@ const ExcelPreviewModal = ({
         </>
     );
 };
+
+// Sub-component to isolate search state and prevent re-rendering the whole Modal on every keystroke
+const SearchInput = memo(({ onSearch }) => {
+    const [innerValue, setInnerValue] = useState("");
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+        setInnerValue(val);
+        onSearch(val);
+    };
+
+    return (
+        <Input
+            placeholder="Search in results..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            value={innerValue}
+            onChange={handleChange}
+            className="bg-gray-50 border-none rounded-lg h-10 w-64"
+            allowClear
+        />
+    );
+});
+
+// Memoized Table to prevent re-renders unless data or columns actually change
+const OptimizedTable = memo(({ loading, dataSource, columns, onChange }) => {
+    return (
+        <Table
+            columns={columns}
+            dataSource={dataSource}
+            pagination={false}
+            onChange={onChange}
+            loading={loading}
+            scroll={{ x: "max-content", y: 600 }}
+            className="antd-excel-preview-table"
+            rowClassName="antd-excel-row"
+            size="small"
+            virtual
+        />
+    );
+});
 
 export default ExcelPreviewModal;

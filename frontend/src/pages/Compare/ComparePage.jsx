@@ -1,6 +1,6 @@
 // src/pages/Compare/ComparePage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useDeferredValue, memo } from "react";
 import {
   Form,
   Select,
@@ -93,6 +93,7 @@ const ComparePage = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [selectedDbRecords, setSelectedDbRecords] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const deferredSearchText = useDeferredValue(searchText);
   const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
@@ -198,14 +199,14 @@ const ComparePage = () => {
   };
 
   // Filter history data based on search text
-  const filteredHistoryData = historyData.filter((record) => {
-    const searchLower = searchText.toLowerCase();
-    return (
+  const filteredHistoryData = useMemo(() => {
+    const searchLower = deferredSearchText.toLowerCase();
+    return historyData.filter((record) =>
       record.investor?.toLowerCase().includes(searchLower) ||
       record.version?.toLowerCase().includes(searchLower) ||
       record.uploadedFile?.toLowerCase().includes(searchLower)
     );
-  });
+  }, [historyData, deferredSearchText]);
 
   const handleDbCompare = async () => {
     if (selectedDbRecords.length !== 2) {
@@ -606,39 +607,15 @@ const ComparePage = () => {
           </div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-gray-500 text-sm">Select exactly 2 guidelines to compare</p>
-            <Input
-              placeholder="Search history..."
-              prefix={<SearchOutlined className="text-gray-400" />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="w-80"
-              size="large"
-              allowClear
-            />
+            <SearchInput onSearch={setSearchText} />
           </div>
 
           <div className="compare-table-wrapper mb-6">
-            <Table
+            <OptimizedTable 
               dataSource={filteredHistoryData}
-              columns={dbColumns}
-              rowKey="id"
               loading={loadingHistory}
-              pagination={{
-                pageSize: 3,
-                showSizeChanger: true,
-                pageSizeOptions: ["3", "5", "10"],
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                position: ["bottomRight"],
-              }}
-              rowSelection={{
-                type: "checkbox",
-                selectedRowKeys: selectedDbRecords.map((r) => r.id),
-                onChange: (keys, rows) => handleDbSelectionChange(keys, rows),
-                getCheckboxProps: (record) => ({
-                  disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.find((r) => r.id === record.id),
-                }),
-              }}
-              scroll={{ x: 800 }}
+              selectedDbRecords={selectedDbRecords}
+              onSelectionChange={handleDbSelectionChange}
             />
           </div>
 
@@ -787,5 +764,90 @@ const ComparePage = () => {
     </div>
   );
 };
+
+/// Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
+const SearchInput = memo(({ onSearch }) => {
+  const [innerValue, setInnerValue] = useState("");
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setInnerValue(val);
+    onSearch(val);
+  };
+
+  return (
+    <Input
+      placeholder="Search history..."
+      prefix={<SearchOutlined className="text-gray-400" />}
+      value={innerValue}
+      onChange={handleChange}
+      className="w-80"
+      size="large"
+      allowClear
+    />
+  );
+});
+
+// Memoized Table to prevent re-renders unless data or columns actually change
+const OptimizedTable = memo(({ loading, dataSource, selectedDbRecords, onSelectionChange }) => {
+  const historyColumns = [
+    {
+      title: "S.no",
+      key: "sno",
+      width: 60,
+      render: (_, __, index) => index + 1,
+    },
+    {
+      title: "Investor / Institution",
+      dataIndex: "investor",
+      key: "investor",
+      render: (text) => <span className="font-semibold text-gray-800">{text || "General"}</span>,
+    },
+    {
+      title: "Version",
+      dataIndex: "version",
+      key: "version",
+      render: (text) => <Tag color="blue" className="rounded-full px-3">{text || "v1"}</Tag>,
+    },
+    {
+      title: "Uploaded Files",
+      dataIndex: "uploadedFile",
+      key: "uploadedFile",
+      render: renderFileNames,
+    },
+    {
+      title: "Date",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (date) => <span className="text-gray-500 text-sm">{new Date(date).toLocaleString()}</span>,
+    },
+  ];
+
+  return (
+    <Table
+      dataSource={dataSource}
+      columns={historyColumns}
+      rowKey="id"
+      loading={loading}
+      pagination={{
+        pageSize: 3,
+        showSizeChanger: true,
+        pageSizeOptions: ["3", "5", "10"],
+        showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+        position: ["bottomRight"],
+      }}
+      rowSelection={{
+        type: "checkbox",
+        onChange: onSelectionChange,
+        selectedRowKeys: selectedDbRecords.map(r => r.id),
+        getCheckboxProps: (record) => ({
+          disabled: selectedDbRecords.length >= 2 && !selectedDbRecords.some(r => r.id === record.id),
+        }),
+      }}
+      scroll={{ x: 800 }}
+      size="middle"
+    />
+  );
+});
 
 export default ComparePage;

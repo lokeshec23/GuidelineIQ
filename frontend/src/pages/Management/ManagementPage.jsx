@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useDeferredValue, memo, useMemo } from "react";
 import { Table, Card, Tag, Typography, Select, Input, Row, Col, Statistic } from "antd";
 import { SearchOutlined, UserOutlined, TeamOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { authAPI } from "../../services/api";
@@ -12,6 +12,7 @@ const ManagementPage = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState("");
+    const deferredSearchText = useDeferredValue(searchText);
 
     const userStr = sessionStorage.getItem("user") || localStorage.getItem("user");
     const currentUser = userStr ? JSON.parse(userStr) : null;
@@ -48,7 +49,7 @@ const ManagementPage = () => {
         }
     };
 
-    const columns = [
+    const columnsMemo = useMemo(() => [
         {
             title: "S.No",
             key: "index",
@@ -109,12 +110,12 @@ const ManagementPage = () => {
                 </span>
             ),
         },
-    ];
+    ], [isSuperAdmin, users]);
 
-    const filteredUsers = users.filter(u =>
-        u.username.toLowerCase().includes(searchText.toLowerCase()) ||
-        u.email.toLowerCase().includes(searchText.toLowerCase())
-    );
+    const filteredUsers = useMemo(() => users.filter(u =>
+        u.username.toLowerCase().includes(deferredSearchText.toLowerCase()) ||
+        u.email.toLowerCase().includes(deferredSearchText.toLowerCase())
+    ), [users, deferredSearchText]);
 
     const totalUsers = users.length;
     const adminCount = users.filter(u => u.role === 'admin').length;
@@ -170,30 +171,15 @@ const ManagementPage = () => {
                 <Card className="shadow-sm border-gray-200 rounded-2xl overflow-hidden" bordered={false} bodyStyle={{ padding: 0 }}>
                     {/* Table Header Controls */}
                     <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center">
-                        <Input
-                            placeholder="Search by username or email..."
-                            prefix={<SearchOutlined className="text-gray-400" />}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
-                            allowClear
-                        />
+                        <SearchInput onSearch={setSearchText} />
                     </div>
 
                     {/* Users Table */}
                     <div className="p-6">
-                        <Table
-                            columns={columns}
+                        <OptimizedTable
+                            columns={columnsMemo}
                             dataSource={filteredUsers}
-                            rowKey="id"
                             loading={loading}
-                            pagination={{
-                                pageSize: 10,
-                                showSizeChanger: true,
-                                className: "pb-2"
-                            }}
-                            className="custom-table"
-                            rowClassName={() => "hover:bg-blue-50/30 transition-colors"}
                         />
                     </div>
                 </Card>
@@ -201,5 +187,48 @@ const ManagementPage = () => {
         </div>
     );
 };
+
+// Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
+const SearchInput = memo(({ onSearch }) => {
+    const [innerValue, setInnerValue] = useState("");
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+        setInnerValue(val);
+        onSearch(val);
+    };
+
+    return (
+        <Input
+            placeholder="Search by username or email..."
+            prefix={<SearchOutlined className="text-gray-400" />}
+            value={innerValue}
+            onChange={handleChange}
+            className="max-w-md h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-colors"
+            allowClear
+        />
+    );
+});
+
+// Memoized Table to prevent re-renders unless data or columns actually change
+const OptimizedTable = memo(({ loading, dataSource, columns }) => {
+    return (
+        <Table
+            columns={columns}
+            dataSource={dataSource}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                className: "pb-2"
+            }}
+            className="custom-table"
+            rowClassName={() => "hover:bg-blue-50/30 transition-colors"}
+            virtual
+            scroll={{ y: 500 }}
+        />
+    );
+});
 
 export default ManagementPage;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, memo } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton, Tabs } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI, guidelineTypeAPI } from "../../services/api";
@@ -23,6 +23,7 @@ const ConfigParametersPage = () => {
     const [editingParam, setEditingParam] = useState(null);
     const [form] = Form.useForm();
     const [searchText, setSearchText] = useState("");
+    const deferredSearchText = useDeferredValue(searchText);
     const prevGuidelineTypeRef = useRef([]);
 
     // Investor State
@@ -42,6 +43,7 @@ const ConfigParametersPage = () => {
     const [selectedParamIds, setSelectedParamIds] = useState([]);
     const [importLoading, setImportLoading] = useState(false);
     const [importSearchText, setImportSearchText] = useState("");
+    const deferredImportSearchText = useDeferredValue(importSearchText);
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
     const [hasFetchedGeneral, setHasFetchedGeneral] = useState(false);
 
@@ -238,13 +240,13 @@ const ConfigParametersPage = () => {
     };
 
     const filteredGeneralParams = useMemo(() => {
-        if (!importSearchText) return generalParams;
-        const lowerSearch = importSearchText.toLowerCase();
+        if (!deferredImportSearchText) return generalParams;
+        const lowerSearch = deferredImportSearchText.toLowerCase();
         return generalParams.filter(p =>
             p.parameter.toLowerCase().includes(lowerSearch) ||
             p.category.toLowerCase().includes(lowerSearch)
         );
-    }, [generalParams, importSearchText]);
+    }, [generalParams, deferredImportSearchText]);
 
     const categoryFilters = useMemo(() => {
         const categories = [...new Set(generalParams.map(p => p.category))].filter(Boolean);
@@ -452,9 +454,9 @@ const ConfigParametersPage = () => {
     const GTYPE_COLORS = ["blue", "green", "purple", "orange", "red", "cyan", "magenta", "gold"];
 
     const filteredParameters = useMemo(() => parameters.filter(p =>
-        p.parameter.toLowerCase().includes(searchText.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchText.toLowerCase())
-    ), [parameters, searchText]);
+        p.parameter.toLowerCase().includes(deferredSearchText.toLowerCase()) ||
+        p.category.toLowerCase().includes(deferredSearchText.toLowerCase())
+    ), [parameters, deferredSearchText]);
 
     const mainCategoryFilters = useMemo(() => {
         const categories = [...new Set(parameters.map(p => p.category))].filter(Boolean);
@@ -586,7 +588,7 @@ const ConfigParametersPage = () => {
                 </Space>
             ),
         },
-    ], [mainCategoryFilters, mainSubcategoryFilters, mainParameterFilters, handleEdit, handleDelete]);
+    ], [mainCategoryFilters, mainSubcategoryFilters, mainParameterFilters, handleEdit, handleDelete, guidelineTypeColorMap, guidelineTypes]);
 
     // Calculate stats
     const { totalParams, breakdown } = useMemo(() => {
@@ -698,14 +700,7 @@ const ConfigParametersPage = () => {
                 {/* Table Header Controls */}
                 <div className="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
                     <div className="relative flex-1 max-w-xl">
-                        <Input
-                            placeholder="Search parameters or categories..."
-                            prefix={<SearchOutlined className="text-gray-400 mr-2" />}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            className="h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4"
-                            allowClear
-                        />
+                        <SearchInput onSearch={setSearchText} />
                     </div>
                     <div className="flex flex-wrap gap-3 items-center">
                         {selectedInvestorId && (
@@ -754,26 +749,15 @@ const ConfigParametersPage = () => {
                     </div>
                 ) : (
                     <div className="p-6">
-                        <Table
+                        <OptimizedTable 
                             columns={columns}
                             dataSource={filteredParameters}
-                            rowKey="id"
-                            locale={{
-                                emptyText: (
-                                    <div className="py-12 text-center">
-                                        <DatabaseOutlined className="text-4xl text-gray-200 mb-3" />
-                                        <p className="text-gray-400 font-medium">No parameters found for this context</p>
-                                        <p className="text-gray-300 text-sm">Add one manually or import from general parameters</p>
-                                    </div>
-                                )
-                            }}
                             pagination={{
                                 pageSize: 12,
                                 showSizeChanger: true,
                                 className: "px-6 pb-2"
                             }}
-                            className="custom-table"
-                            rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
+                            scroll={{ y: 600 }}
                         />
                     </div>
                 )}
@@ -871,7 +855,6 @@ const ConfigParametersPage = () => {
                     disabled: selectedParamIds.length === 0,
                 }}
                 cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
-                width={1000}
                 centered
                 destroyOnClose
                 maskClosable={false}
@@ -879,13 +862,10 @@ const ConfigParametersPage = () => {
                 <div className="mt-4 flex flex-col gap-4">
                     {/* Search and Select All section */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <Input
+                        <SearchInput 
                             placeholder="Search general parameters..."
-                            prefix={<SearchOutlined className="text-gray-400" />}
-                            value={importSearchText}
-                            onChange={e => setImportSearchText(e.target.value)}
+                            onSearch={setImportSearchText}
                             className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white flex-1"
-                            allowClear
                         />
                         <div className="px-1 flex items-center gap-4">
                             <Checkbox
@@ -911,10 +891,9 @@ const ConfigParametersPage = () => {
 
                     {/* Parameter list */}
                     <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                        <Table
+                        <OptimizedTable
                             columns={importColumns}
                             dataSource={filteredGeneralParams}
-                            rowKey="id"
                             size="middle"
                             loading={generalParamsLoading}
                             pagination={{
@@ -929,17 +908,8 @@ const ConfigParametersPage = () => {
                                 onChange: (keys) => setSelectedParamIds(keys),
                                 preserveSelectedRowKeys: true,
                             }}
-                            scroll={{ y: 400 }}
-                            className="import-table custom-table"
-                            rowClassName="hover:bg-blue-50/30 transition-colors cursor-pointer"
-                            locale={{
-                                emptyText: (
-                                    <div className="py-12 text-center">
-                                        <DatabaseOutlined className="text-4xl text-gray-100 mb-3" />
-                                        <p className="text-gray-400 font-medium">No general parameters found</p>
-                                    </div>
-                                )
-                            }}
+                            scroll={{ y: 500 }}
+                            className="import-table"
                         />
                     </div>
                 </div>
@@ -1179,5 +1149,54 @@ const ConfigParametersPage = () => {
         </div>
     );
 };
+
+// Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
+const SearchInput = memo(({ onSearch, placeholder = "Search parameters or categories...", className = "h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4" }) => {
+    const [innerValue, setInnerValue] = useState("");
+
+    const handleChange = (e) => {
+        const val = e.target.value;
+        setInnerValue(val);
+        onSearch(val);
+    };
+
+    return (
+        <Input
+            placeholder={placeholder}
+            prefix={<SearchOutlined className="text-gray-400 mr-2" />}
+            value={innerValue}
+            onChange={handleChange}
+            allowClear
+            className={className}
+        />
+    );
+});
+
+// Memoized Table to prevent re-renders unless data or columns actually change
+const OptimizedTable = memo(({ loading, dataSource, columns, pagination, scroll, className = "custom-table", rowSelection = null, size = "large" }) => {
+    return (
+        <Table
+            loading={loading}
+            dataSource={dataSource}
+            columns={columns}
+            rowKey="id"
+            pagination={pagination}
+            className={className}
+            rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
+            virtual
+            scroll={scroll}
+            rowSelection={rowSelection}
+            size={size}
+            locale={{
+                emptyText: (
+                    <div className="py-12 text-center">
+                        <DatabaseOutlined className="text-4xl text-gray-200 mb-3" />
+                        <p className="text-gray-400 font-medium">No records found</p>
+                    </div>
+                )
+            }}
+        />
+    );
+});
 
 export default ConfigParametersPage;
