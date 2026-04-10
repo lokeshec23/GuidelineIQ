@@ -57,48 +57,9 @@ const ConfigParametersPage = () => {
     const [investorsLoading, setInvestorsLoading] = useState(false);
     const [investorSubmitting, setInvestorSubmitting] = useState(false);
 
-    // Import from General Parameters State
+    /* === Import from General Parameters === */
     const [isImportModalVisible, setIsImportModalVisible] = useState(false);
-    const [generalParams, setGeneralParams] = useState([]);
-    const [generalTotal, setGeneralTotal] = useState(0);
-    const [generalTableParams, setGeneralTableParams] = useState({
-        pagination: {
-            current: 1,
-            pageSize: 10,
-        },
-        filters: null,
-        sortField: null,
-        sortOrder: null,
-    });
-    const [selectedParamIds, setSelectedParamIds] = useState([]);
-    const [importLoading, setImportLoading] = useState(false);
-    const [importSearchText, setImportSearchText] = useState("");
-    const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
-    const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
-    const [hasFetchedGeneral, setHasFetchedGeneral] = useState(false);
 
-    // Debounce import search text
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedImportSearchText(importSearchText);
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [importSearchText]);
-
-    // Re-fetch general parameters when its table params or search changes
-    useEffect(() => {
-        if (isImportModalVisible) {
-            fetchGeneralParameters(true);
-        }
-    }, [
-        isImportModalVisible,
-        generalTableParams.pagination.current,
-        generalTableParams.pagination.pageSize,
-        generalTableParams.filters,
-        generalTableParams.sortField,
-        generalTableParams.sortOrder,
-        debouncedImportSearchText
-    ]);
 
     // Manage Guideline Types State
     const [gTypeForm] = Form.useForm();
@@ -269,162 +230,20 @@ const ConfigParametersPage = () => {
         }
     };
 
-    /* === Import from General Parameters Flow === */
-    const fetchGeneralParameters = async (force = false) => {
-        if (!isImportModalVisible && !force) return;
-
-        setGeneralParamsLoading(true);
-        try {
-            const params = {
-                page: generalTableParams.pagination.current,
-                pageSize: generalTableParams.pagination.pageSize,
-                search: debouncedImportSearchText,
-                sortField: generalTableParams.sortField,
-                sortOrder: generalTableParams.sortOrder,
-                filters: generalTableParams.filters ? JSON.stringify(generalTableParams.filters) : undefined
-            };
-            const response = await dscrAPI.listParameters("null", params);
-            setGeneralParams(response.data.items || []);
-            setGeneralTotal(response.data.total || 0);
-            setHasFetchedGeneral(true);
-        } catch (error) {
-            console.error("Failed to fetch general parameters:", error);
-            showToast.error("Failed to load general parameters");
-        } finally {
-            setGeneralParamsLoading(false);
-        }
-    };
-
-    const handleGeneralTableChange = (pagination, filters, sorter) => {
-        setGeneralTableParams({
-            pagination,
-            filters,
-            sortField: sorter.field,
-            sortOrder: sorter.order,
-        });
-    };
-
-    const handleOpenImportModal = async () => {
-        setSelectedParamIds([]);
-        setImportSearchText("");
-        setGeneralTableParams({
-            pagination: { current: 1, pageSize: 10 },
-            filters: null,
-            sortField: null,
-            sortOrder: null,
-        });
+    const handleOpenImportModal = () => {
         setIsImportModalVisible(true);
     };
 
-    const handleImportParams = async () => {
-        if (selectedParamIds.length === 0) {
-            showToast.warning("Please select at least one parameter to import.");
-            return;
-        }
-        setImportLoading(true);
-        try {
-            await dscrAPI.importFromGeneral({
-                parameter_ids: selectedParamIds,
-                target_investor_id: selectedInvestorId
-            });
-            showToast.success(`${selectedParamIds.length} parameter(s) imported successfully.`);
-            setIsImportModalVisible(false);
-            fetchParameters();
-        } catch (error) {
-            console.error("Failed to import parameters:", error);
-        } finally {
-            setImportLoading(false);
-        }
-    };
-
-    const handleSelectAll = (checked) => {
-        if (checked) {
-            // Add all currently visible IDs to selection
-            const visibleIds = generalParams.map(p => p.id);
-            setSelectedParamIds(prev => [...new Set([...prev, ...visibleIds])]);
-        } else {
-            // Remove only visible IDs from selection
-            const visibleIds = generalParams.map(p => p.id);
-            setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
-        }
-    };
 
 
-    const categoryFilters = useMemo(() => {
-        const categories = [...new Set(generalParams.map(p => p.category))].filter(Boolean);
-        return categories.sort().map(cat => ({ text: cat, value: cat }));
-    }, [generalParams]);
+    const guidelineTypeColorMap = useMemo(() => {
+        const map = {};
+        guidelineTypes.forEach(t => {
+            map[t.name] = t.color || "default";
+        });
+        return map;
+    }, [guidelineTypes]);
 
-    const subcategoryFilters = useMemo(() => {
-        const subcats = [...new Set(generalParams.map(p => p.subcategory))].filter(Boolean);
-        return subcats.sort().map(sub => ({ text: sub, value: sub }));
-    }, [generalParams]);
-
-    const parameterFilters = useMemo(() => {
-        const parms = [...new Set(generalParams.map(p => p.parameter))].filter(Boolean);
-        return parms.sort().map(p => ({ text: p, value: p }));
-    }, [generalParams]);
-
-    const importColumns = useMemo(() => [
-        {
-            title: "Parameter Name",
-            dataIndex: "parameter",
-            key: "parameter",
-            sorter: true,
-            filters: parameterFilters,
-            filterSearch: true,
-            render: (text) => <span className="font-semibold text-gray-800 text-sm">{text}</span>
-        },
-        {
-            title: "Category",
-            dataIndex: "category",
-            key: "category",
-            sorter: true,
-            filters: categoryFilters,
-            filterSearch: true,
-            render: (text) => (
-                <Tag color="processing" className="text-[11px] px-2 rounded-full border-transparent bg-blue-50 text-blue-600">
-                    {text}
-                </Tag>
-            )
-        },
-        {
-            title: "Sub Category",
-            dataIndex: "subcategory",
-            key: "subcategory",
-            sorter: true,
-            filters: subcategoryFilters,
-            filterSearch: true,
-            render: (text) => <span className="text-[11px] text-gray-500">{text || "—"}</span>
-        },
-        {
-            title: "Guideline Type",
-            dataIndex: "guideline_type",
-            key: "guideline_type",
-            width: 180,
-            sorter: true,
-            filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
-            render: (types) => {
-                let displayTypes = types || guidelineTypes.map(t => t.name);
-                if (displayTypes.includes("All")) {
-                    displayTypes = guidelineTypes.map(t => t.name);
-                }
-                return (
-                    <Space size={[0, 4]} wrap>
-                        {displayTypes.map(t => {
-                            const typeObj = guidelineTypes.find(gt => gt.name === t);
-                            const color = typeObj?.color || "default";
-                            return (
-                                <Tag key={t} color={color} className="text-[10px] px-2 rounded-full border-transparent m-0">
-                                    {t}
-                                </Tag>
-                            );
-                        })}
-                    </Space>
-                );
-            }
-        }
-    ], [categoryFilters, subcategoryFilters]);
 
     /* === Manage Investors Flow === */
     const handleManageInvestors = () => {
@@ -552,14 +371,6 @@ const ConfigParametersPage = () => {
         const parms = [...new Set(parameters.map(p => p.parameter))].filter(Boolean);
         return parms.sort().map(p => ({ text: p, value: p }));
     }, [parameters]);
-
-    const guidelineTypeColorMap = useMemo(() => {
-        const map = {};
-        guidelineTypes.forEach(t => {
-            map[t.name] = t.color || "default";
-        });
-        return map;
-    }, [guidelineTypes]);
 
     const columns = useMemo(() => [
         {
@@ -929,75 +740,18 @@ const ConfigParametersPage = () => {
             </Modal>
 
             {/* Import from General Parameters Modal */}
-            <Modal
-                title={
-                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
-                        <DownloadOutlined className="text-blue-500" />
-                        Import from General Parameters
-                    </div>
-                }
+            <ImportGeneralParamsModal
                 open={isImportModalVisible}
-                onCancel={() => setIsImportModalVisible(false)}
-                onOk={handleImportParams}
-                okText={`Import Selected (${selectedParamIds.length})`}
-                okButtonProps={{
-                    className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6",
-                    loading: importLoading,
-                    disabled: selectedParamIds.length === 0,
+                onClose={() => setIsImportModalVisible(false)}
+                investorId={selectedInvestorId}
+                investorName={activeContextName}
+                onSuccess={() => {
+                    setIsImportModalVisible(false);
+                    fetchParameters();
                 }}
-                cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
-                centered
-                destroyOnClose
-                maskClosable={false}
-            >
-                <div className="mt-4 flex flex-col gap-4">
-                    {/* Search and Select All section */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <SearchInput
-                            placeholder="Search general parameters..."
-                            onSearch={setImportSearchText}
-                            className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white flex-1"
-                        />
-                        <div className="px-1 flex items-center gap-4">
-                            <Checkbox
-                                indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
-                                checked={
-                                    generalParams.length > 0 &&
-                                    generalParams.every(p => selectedParamIds.includes(p.id))
-                                }
-                                onChange={e => handleSelectAll(e.target.checked)}
-                            >
-                                <span className="text-gray-600 font-medium ml-1">
-                                    Select All ({generalParams.length})
-                                </span>
-                            </Checkbox>
-                            <span className="text-gray-400 text-xs whitespace-nowrap bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                                {selectedParamIds.length} selected
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Parameter list */}
-                    <div className="border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                        <OptimizedTable
-                            columns={importColumns}
-                            dataSource={generalParams}
-                            loading={generalParamsLoading}
-                            total={generalTotal}
-                            current={generalTableParams.pagination.current}
-                            pageSize={generalTableParams.pagination.pageSize}
-                            onChange={handleGeneralTableChange}
-                            rowSelection={{
-                                selectedRowKeys: selectedParamIds,
-                                onChange: (keys) => setSelectedParamIds(keys),
-                                preserveSelectedRowKeys: true,
-                            }}
-                            scroll={{ y: 400 }}
-                            size="small"
-                        />
-                    </div>
-                </div>
-            </Modal>
+                guidelineTypes={guidelineTypes}
+                guidelineTypeColorMap={guidelineTypeColorMap}
+            />
 
             {/* Manage Investors Modal */}
             <Modal
@@ -1235,6 +989,296 @@ const ConfigParametersPage = () => {
 };
 
 // Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
+const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName, onSuccess, guidelineTypes, guidelineTypeColorMap }) => {
+    const [generalParams, setGeneralParams] = useState([]);
+    const [generalTotal, setGeneralTotal] = useState(0);
+    const [generalTableParams, setGeneralTableParams] = useState({
+        pagination: { current: 1, pageSize: 10 },
+        filters: null,
+        sortField: null,
+        sortOrder: null,
+    });
+    const [selectedParamIds, setSelectedParamIds] = useState([]);
+    const [importLoading, setImportLoading] = useState(false);
+    const [importSearchText, setImportSearchText] = useState("");
+    const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
+    const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
+
+    // Debounce search text
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedImportSearchText(importSearchText);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [importSearchText]);
+
+    // Reset selection and params when modal opens
+    useEffect(() => {
+        if (open) {
+            setSelectedParamIds([]);
+            setImportSearchText("");
+            setGeneralTableParams({
+                pagination: { current: 1, pageSize: 10 },
+                filters: null,
+                sortField: null,
+                sortOrder: null,
+            });
+        }
+    }, [open]);
+
+    const fetchGeneralParameters = useCallback(async () => {
+        if (!open) return;
+
+        setGeneralParamsLoading(true);
+        try {
+            const params = {
+                page: generalTableParams.pagination.current,
+                pageSize: generalTableParams.pagination.pageSize,
+                search: debouncedImportSearchText,
+                sortField: generalTableParams.sortField,
+                sortOrder: generalTableParams.sortOrder,
+                filters: generalTableParams.filters ? JSON.stringify(generalTableParams.filters) : undefined
+            };
+            const response = await dscrAPI.listParameters("null", params);
+            setGeneralParams(response.data.items || []);
+            setGeneralTotal(response.data.total || 0);
+        } catch (error) {
+            console.error("Failed to fetch general parameters:", error);
+            showToast.error("Failed to load general parameters");
+        } finally {
+            setGeneralParamsLoading(false);
+        }
+    }, [open, generalTableParams, debouncedImportSearchText]);
+
+    useEffect(() => {
+        // Delay fetch slightly to allow modal animation to complete smoothly
+        const timer = setTimeout(() => {
+            fetchGeneralParameters();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [fetchGeneralParameters]);
+
+    const handleImportParams = async () => {
+        if (selectedParamIds.length === 0) {
+            showToast.warning("Please select at least one parameter to import.");
+            return;
+        }
+        setImportLoading(true);
+        try {
+            await dscrAPI.importFromGeneral({
+                parameter_ids: selectedParamIds,
+                target_investor_id: investorId
+            });
+            showToast.success(`${selectedParamIds.length} parameter(s) imported successfully.`);
+            onSuccess();
+        } catch (error) {
+            console.error("Failed to import parameters:", error);
+        } finally {
+            setImportLoading(false);
+        }
+    };
+
+    const handleSelectAll = (checked) => {
+        if (checked) {
+            const visibleIds = generalParams.map(p => p.id);
+            setSelectedParamIds(prev => [...new Set([...prev, ...visibleIds])]);
+        } else {
+            const visibleIds = generalParams.map(p => p.id);
+            setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
+        }
+    };
+
+    const handleTableChange = (pagination, filters, sorter) => {
+        setGeneralTableParams({
+            pagination,
+            filters,
+            sortField: sorter.field,
+            sortOrder: sorter.order,
+        });
+    };
+
+    const categoryFilters = useMemo(() => {
+        const categories = [...new Set(generalParams.map(p => p.category))].filter(Boolean);
+        return categories.sort().map(cat => ({ text: cat, value: cat }));
+    }, [generalParams]);
+
+    const subcategoryFilters = useMemo(() => {
+        const subcats = [...new Set(generalParams.map(p => p.subcategory))].filter(Boolean);
+        return subcats.sort().map(sub => ({ text: sub, value: sub }));
+    }, [generalParams]);
+
+    const parameterFilters = useMemo(() => {
+        const parms = [...new Set(generalParams.map(p => p.parameter))].filter(Boolean);
+        return parms.sort().map(p => ({ text: p, value: p }));
+    }, [generalParams]);
+
+    const importColumns = useMemo(() => [
+        {
+            title: "Parameter Name",
+            dataIndex: "parameter",
+            key: "parameter",
+            sorter: true,
+            filters: parameterFilters,
+            filterSearch: true,
+            render: (text) => <span className="font-semibold text-gray-800 text-sm">{text}</span>
+        },
+        {
+            title: "Category",
+            dataIndex: "category",
+            key: "category",
+            sorter: true,
+            filters: categoryFilters,
+            filterSearch: true,
+            render: (text) => (
+                <Tag color="processing" className="text-[11px] px-2 rounded-full border-transparent bg-blue-50 text-blue-600">
+                    {text}
+                </Tag>
+            )
+        },
+        {
+            title: "Sub Category",
+            dataIndex: "subcategory",
+            key: "subcategory",
+            sorter: true,
+            filters: subcategoryFilters,
+            filterSearch: true,
+            render: (text) => <span className="text-[11px] text-gray-500">{text || "—"}</span>
+        },
+        {
+            title: "Guideline Type",
+            dataIndex: "guideline_type",
+            key: "guideline_type",
+            width: 180,
+            sorter: true,
+            filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
+            render: (types) => {
+                let displayTypes = types || guidelineTypes.map(t => t.name);
+                if (displayTypes.includes("All")) {
+                    displayTypes = guidelineTypes.map(t => t.name);
+                }
+                return (
+                    <Space size={[0, 4]} wrap>
+                        {displayTypes.map(t => (
+                            <Tag
+                                key={t}
+                                color={guidelineTypeColorMap[t] || "default"}
+                                className="text-[10px] px-2 rounded-full border-transparent m-0"
+                            >
+                                {t}
+                            </Tag>
+                        ))}
+                    </Space>
+                );
+            }
+        }
+    ], [categoryFilters, subcategoryFilters, parameterFilters, guidelineTypes, guidelineTypeColorMap]);
+
+    return (
+        <Modal
+            title={
+                <div className="flex flex-col gap-1 py-1">
+                    <div className="flex items-center gap-2 text-gray-800 text-xl font-bold">
+                        <DownloadOutlined className="text-blue-500" />
+                        Import from General Parameters
+                    </div>
+                    <span className="text-gray-400 text-sm font-normal">
+                        Select master parameters to import into <span className="text-blue-500 font-semibold">{investorName}</span>
+                    </span>
+                </div>
+            }
+            open={open}
+            onCancel={onClose}
+            onOk={handleImportParams}
+            okText={`Import ${selectedParamIds.length} Selected`}
+            okButtonProps={{
+                className: "bg-blue-600 rounded-lg font-semibold shadow-md h-11 px-8",
+                loading: importLoading,
+                disabled: selectedParamIds.length === 0,
+            }}
+            cancelButtonProps={{ className: "rounded-lg h-11 px-6 border-gray-200" }}
+            centered
+            destroyOnClose
+            maskClosable={false}
+            width={1100}
+            style={{ maxWidth: '95%' }}
+            bodyStyle={{ padding: '0 24px 24px 24px' }}
+        >
+            <div className="mt-6 flex flex-col gap-5">
+                {/* Search and Selection Control Bar */}
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col lg:sm:flex-row lg:sm:items-center justify-between gap-4">
+                    <div className="flex-1 max-w-md">
+                        <SearchInput
+                            placeholder="Search by name or category..."
+                            onSearch={setImportSearchText}
+                            className="h-11 rounded-xl bg-white border-transparent shadow-sm focus:border-blue-300 focus:ring-4 focus:ring-blue-100 transition-all flex-1"
+                        />
+                    </div>
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
+                            <Checkbox
+                                indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
+                                checked={
+                                    generalParams.length > 0 &&
+                                    generalParams.every(p => selectedParamIds.includes(p.id))
+                                }
+                                onChange={e => handleSelectAll(e.target.checked)}
+                                className="custom-checkbox"
+                            >
+                                <span className="text-gray-600 font-semibold ml-1">
+                                    Select Page ({generalParams.length})
+                                </span>
+                            </Checkbox>
+                            <Divider type="vertical" className="mx-4 h-5 border-gray-200" />
+                            <div className="flex items-center gap-2">
+                                <span className="text-blue-600 font-bold text-lg leading-none">
+                                    {selectedParamIds.length}
+                                </span>
+                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">selected</span>
+                            </div>
+                        </div>
+                        {selectedParamIds.length > 0 && (
+                            <Button
+                                type="text"
+                                onClick={() => setSelectedParamIds([])}
+                                className="text-gray-400 hover:text-red-500 font-medium px-2 rounded-lg"
+                            >
+                                Clear Selection
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Parameter list */}
+                <div className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                    <OptimizedTable
+                        columns={importColumns}
+                        dataSource={generalParams}
+                        loading={generalParamsLoading}
+                        total={generalTotal}
+                        current={generalTableParams.pagination.current}
+                        pageSize={generalTableParams.pagination.pageSize}
+                        onChange={handleTableChange}
+                        rowSelection={{
+                            selectedRowKeys: selectedParamIds,
+                            onChange: (keys) => setSelectedParamIds(keys),
+                            preserveSelectedRowKeys: true,
+                            columnWidth: 50
+                        }}
+                        scroll={{ y: 450 }}
+                        size="middle"
+                        rowClassName={(record) =>
+                            selectedParamIds.includes(record.id)
+                                ? "bg-blue-50/50 hover:bg-blue-100/50 transition-colors"
+                                : "hover:bg-gray-50/80 transition-colors"
+                        }
+                    />
+                </div>
+            </div>
+        </Modal>
+    );
+});
+
+// Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
 const SearchInput = memo(({ onSearch, value = "", placeholder = "Search parameters or categories...", className = "h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4" }) => {
     const [innerValue, setInnerValue] = useState(value);
 
@@ -1274,7 +1318,8 @@ const OptimizedTable = memo(({
     onChange,
     total,
     current,
-    pageSize
+    pageSize,
+    rowClassName = null
 }) => {
     const internalPagination = pagination === false ? false : {
         ...(pagination || {}),
@@ -1294,7 +1339,7 @@ const OptimizedTable = memo(({
             pagination={internalPagination}
             onChange={onChange}
             className={className}
-            rowClassName={() => "hover:bg-blue-50/30 transition-colors cursor-pointer"}
+            rowClassName={rowClassName || (() => "hover:bg-blue-50/30 transition-colors cursor-pointer")}
             virtual
             scroll={scroll}
             rowSelection={rowSelection}
