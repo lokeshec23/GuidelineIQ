@@ -130,12 +130,12 @@ const ConfigParametersPage = () => {
             fetchParameters();
         }
     }, [
-        selectedInvestorId, 
-        tableParams.pagination.current, 
-        tableParams.pagination.pageSize, 
-        tableParams.filters, 
-        tableParams.sortField, 
-        tableParams.sortOrder, 
+        selectedInvestorId,
+        tableParams.pagination.current,
+        tableParams.pagination.pageSize,
+        tableParams.filters,
+        tableParams.sortField,
+        tableParams.sortOrder,
         debouncedSearchText
     ]);
 
@@ -196,7 +196,7 @@ const ConfigParametersPage = () => {
             pagination: { ...prev.pagination, current: 1 },
             filters: null,
         }));
-        showToast.info("Filters reset");
+        // showToast.info("Filters reset");
     };
 
     const handleAdd = () => {
@@ -561,7 +561,7 @@ const ConfigParametersPage = () => {
         return map;
     }, [guidelineTypes]);
 
-            const columns = useMemo(() => [
+    const columns = useMemo(() => [
         {
             title: "Parameter Name",
             dataIndex: "parameter",
@@ -788,8 +788,8 @@ const ConfigParametersPage = () => {
                     </div>
                     <div className="flex flex-wrap gap-3 items-center">
                         <Tooltip title="Reset all filters and search">
-                            <Button 
-                                icon={<ReloadOutlined />} 
+                            <Button
+                                icon={<ReloadOutlined />}
                                 onClick={handleClearFilters}
                                 className="rounded-lg border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all"
                             />
@@ -840,7 +840,7 @@ const ConfigParametersPage = () => {
                     </div>
                 ) : (
                     <div className="p-6">
-                        <OptimizedTable 
+                        <OptimizedTable
                             columns={columns}
                             dataSource={parameters}
                             loading={loading}
@@ -953,7 +953,7 @@ const ConfigParametersPage = () => {
                 <div className="mt-4 flex flex-col gap-4">
                     {/* Search and Select All section */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <SearchInput 
+                        <SearchInput
                             placeholder="Search general parameters..."
                             onSearch={setImportSearchText}
                             className="h-10 rounded-lg bg-gray-50 border-transparent focus:bg-white flex-1"
@@ -1262,14 +1262,14 @@ const SearchInput = memo(({ onSearch, value = "", placeholder = "Search paramete
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ 
-    loading, 
-    dataSource, 
-    columns, 
-    pagination, 
-    scroll, 
-    className = "custom-table", 
-    rowSelection = null, 
+const OptimizedTable = memo(({
+    loading,
+    dataSource,
+    columns,
+    pagination,
+    scroll,
+    className = "custom-table",
+    rowSelection = null,
     size = "large",
     onChange,
     total,
