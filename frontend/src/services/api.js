@@ -3,9 +3,8 @@ import { showToast, getErrorMessage } from "../utils/toast";
 
 
 // Use environment variable with fallback for development
-// const API_BASE_URL = "http://localhost:8003";
-const API_BASE_URL = "https://qa-guidelineiq.loandna.com/api";
-// const API_BASE_URL = "http://10.21.151.5:8003";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8003";
+
 
 
 // Create axios instance
