@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, memo } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton, Tabs } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined, FilterFilled, ReloadOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI, guidelineTypeAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
@@ -187,6 +187,16 @@ const ConfigParametersPage = () => {
             sortField: sorter.field,
             sortOrder: sorter.order,
         });
+    };
+
+    const handleClearFilters = () => {
+        setSearchText("");
+        setTableParams(prev => ({
+            ...prev,
+            pagination: { ...prev.pagination, current: 1 },
+            filters: null,
+        }));
+        showToast.info("Filters reset");
     };
 
     const handleAdd = () => {
@@ -559,6 +569,8 @@ const ConfigParametersPage = () => {
             sorter: true,
             filters: mainParameterFilters,
             filterSearch: true,
+            filteredValue: tableParams.filters?.parameter || null,
+            filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? '#3b82f6' : undefined }} />,
             render: (text) => <span className="font-semibold text-gray-800">{text}</span>
         },
         {
@@ -568,6 +580,8 @@ const ConfigParametersPage = () => {
             sorter: true,
             filters: mainCategoryFilters,
             filterSearch: true,
+            filteredValue: tableParams.filters?.category || null,
+            filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? '#3b82f6' : undefined }} />,
             render: (text) => (
                 <Tag className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 rounded-full font-medium">
                     {text}
@@ -581,6 +595,8 @@ const ConfigParametersPage = () => {
             sorter: true,
             filters: mainSubcategoryFilters,
             filterSearch: true,
+            filteredValue: tableParams.filters?.subcategory || null,
+            filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? '#3b82f6' : undefined }} />,
             render: (text) => <span className="text-gray-600">{text || "—"}</span>
         },
         {
@@ -590,6 +606,8 @@ const ConfigParametersPage = () => {
             width: 250,
             sorter: true,
             filters: guidelineTypes.map(t => ({ text: t.name, value: t.name })),
+            filteredValue: tableParams.filters?.guideline_type || null,
+            filterIcon: (filtered) => <FilterFilled style={{ color: filtered ? '#3b82f6' : undefined }} />,
             render: (types) => {
                 let displayTypes = types || guidelineTypes.map(t => t.name);
                 if (displayTypes.includes("All")) {
@@ -766,9 +784,16 @@ const ConfigParametersPage = () => {
                 {/* Table Header Controls */}
                 <div className="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
                     <div className="relative flex-1 max-w-xl">
-                        <SearchInput onSearch={setSearchText} />
+                        <SearchInput onSearch={setSearchText} value={searchText} />
                     </div>
                     <div className="flex flex-wrap gap-3 items-center">
+                        <Tooltip title="Reset all filters and search">
+                            <Button 
+                                icon={<ReloadOutlined />} 
+                                onClick={handleClearFilters}
+                                className="rounded-lg border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all"
+                            />
+                        </Tooltip>
                         {selectedInvestorId && (
                             <Button
                                 icon={<DownloadOutlined />}
@@ -1210,8 +1235,13 @@ const ConfigParametersPage = () => {
 };
 
 // Sub-component to isolate search state and prevent re-rendering the whole page on every keystroke
-const SearchInput = memo(({ onSearch, placeholder = "Search parameters or categories...", className = "h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4" }) => {
-    const [innerValue, setInnerValue] = useState("");
+const SearchInput = memo(({ onSearch, value = "", placeholder = "Search parameters or categories...", className = "h-11 rounded-xl bg-gray-50 border-transparent focus:bg-white hover:bg-white transition-all duration-200 pl-4" }) => {
+    const [innerValue, setInnerValue] = useState(value);
+
+    // Sync inner value with external value prop (e.g. for reset)
+    useEffect(() => {
+        setInnerValue(value);
+    }, [value]);
 
     const handleChange = (e) => {
         const val = e.target.value;
