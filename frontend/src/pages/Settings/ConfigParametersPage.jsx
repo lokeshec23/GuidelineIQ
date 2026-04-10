@@ -20,6 +20,7 @@ const ConfigParametersPage = () => {
     const [parameters, setParameters] = useState([]);
     const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState(0);
+    const [serverBreakdown, setServerBreakdown] = useState({});
     const [tableParams, setTableParams] = useState({
         pagination: {
             current: 1,
@@ -170,6 +171,7 @@ const ConfigParametersPage = () => {
             const response = await dscrAPI.listParameters(investorId, params);
             setParameters(response.data.items || []);
             setTotal(response.data.total || 0);
+            setServerBreakdown(response.data.breakdown || {});
         } catch (error) {
             console.error("Failed to fetch parameters:", error);
             showToast.error("Failed to load parameters. Please try again.");
@@ -643,8 +645,21 @@ const ConfigParametersPage = () => {
 
     // Calculate stats
     const { totalParams, breakdown } = useMemo(() => {
+        // If we have breakdown from server, use it
+        if (Object.keys(serverBreakdown).length > 0) {
+            return {
+                totalParams: total,
+                breakdown: guidelineTypes.map(t => ({
+                    name: t.name,
+                    count: serverBreakdown[t.name] || 0,
+                    color: t.color || "blue"
+                }))
+            };
+        }
+
+        // Fallback to local calculation if server breakdown is missing (e.g. during loading or error)
         return {
-            totalParams: parameters.length,
+            totalParams: total || parameters.length,
             breakdown: guidelineTypes.map(t => ({
                 name: t.name,
                 count: parameters.filter(p => {
@@ -656,7 +671,7 @@ const ConfigParametersPage = () => {
                 color: t.color || "blue"
             }))
         };
-    }, [parameters, guidelineTypes]);
+    }, [parameters, total, serverBreakdown, guidelineTypes]);
 
     const activeContextName = investors.find(inv => inv.id === selectedInvestorId)?.name || "Unknown";
 

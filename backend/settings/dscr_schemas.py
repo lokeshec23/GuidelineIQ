@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 GUIDELINE_TYPE_OPTIONS = ["All", "DSCR", "Full Doc", "Alt Doc"]
@@ -55,3 +55,4 @@ class DSCRParameterPaginatedResponse(BaseModel):
     total: int
     page: int
     pageSize: int
+    breakdown: Optional[Dict[str, int]] = None

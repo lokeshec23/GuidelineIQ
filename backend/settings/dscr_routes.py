@@ -12,6 +12,8 @@ from settings.dscr_schemas import (
     DSCRParameterBulkCreate,
     BatchImportRequest
 )
+import json
+from sqlalchemy import cast, String, or_
 from auth.middleware import require_admin
 from utils.pagination import paginate_query, PaginationParams
 from typing import List, Optional
@@ -45,7 +47,82 @@ async def list_parameters(
         search_fields=["parameter", "category", "subcategory"]
     )
     
-    logger.info(f"Paginated list_parameters took {time.time() - start_time:.4f}s")
+    # Calculate global breakdown stats
+    # We use the same query but without pagination to get all guideline_types
+    # Re-apply the same search/filters logic as paginate_query would do
+    # Actually, a better way is to select only the guideline_type column for efficiency
+    
+    # 1. Start with the filtered query from paginate_query logic
+    # (Since paginate_query doesn't return the query object, we'll re-apply the filter logic briefly)
+    
+    stats_query = select(DSCRParameter.guideline_type)
+    if investor_id == "null" or investor_id is None:
+        stats_query = stats_query.where(DSCRParameter.investor_id == None)
+    elif investor_id != "all":
+        stats_query = stats_query.where(DSCRParameter.investor_id == investor_id)
+        
+    # Apply Search
+    if params.search:
+        search_term = f"%{params.search}%"
+        stats_query = stats_query.where(or_(
+            DSCRParameter.parameter.ilike(search_term),
+            DSCRParameter.category.ilike(search_term),
+            DSCRParameter.subcategory.ilike(search_term)
+        ))
+        
+    # Apply Filters
+    if params.filters:
+        try:
+            filters_dict = json.loads(params.filters) if isinstance(params.filters, str) else params.filters
+            for field_name, values in filters_dict.items():
+                if values and hasattr(DSCRParameter, field_name):
+                    field = getattr(DSCRParameter, field_name)
+                    if isinstance(values, list) and len(values) > 0:
+                        if field_name == "guideline_type":
+                            type_filters = [cast(field, String).ilike(f"%{v}%") for v in values]
+                            type_filters.append(cast(field, String).ilike("%All%"))
+                            stats_query = stats_query.where(or_(*type_filters))
+                        else:
+                            stats_query = stats_query.where(field.in_(values))
+        except:
+            pass
+
+    stats_result = await db.execute(stats_query)
+    all_types = stats_result.scalars().all()
+    
+    # Calculate breakdown
+    # Expand "All" to include all types except "All" itself
+    available_types = [t for t in GUIDELINE_TYPE_OPTIONS if t != "All"]
+    breakdown = {t: 0 for t in available_types}
+    
+    for types_json in all_types:
+        # types_json is already processed by the model or is a list? 
+        # Actually it's a list because of the field_validator in schema? 
+        # No, from DB it might still be a JSON string or list depending on the DB driver.
+        # But here all_types will contain the items as they are in the model.
+        
+        # Ensure it's a list
+        types = types_json
+        if isinstance(types, str):
+            try:
+                types = json.loads(types)
+            except:
+                types = [types]
+        
+        if not types:
+            types = ["All"]
+            
+        if "All" in types:
+            for t in available_types:
+                breakdown[t] += 1
+        else:
+            for t in types:
+                if t in breakdown:
+                    breakdown[t] += 1
+    
+    result["breakdown"] = breakdown
+    
+    logger.info(f"Paginated list_parameters with stats took {time.time() - start_time:.4f}s")
     return result
 
 @router.get("/guideline-types")
