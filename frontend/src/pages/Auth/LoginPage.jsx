@@ -128,7 +128,7 @@ const LoginPage = () => {
             </Button>
           </Form.Item>
 
-          {/* <div className="relative my-6">
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
@@ -147,7 +147,7 @@ const LoginPage = () => {
             className="flex items-center justify-center border-gray-300 hover:border-blue-500 hover:text-blue-600 transition-all font-medium rounded-lg h-[45px]"
           >
             Microsoft
-          </Button> */}
+          </Button>
 
           <div className="text-center mt-4">
             <Text type="secondary">

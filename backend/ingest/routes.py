@@ -268,7 +268,9 @@ async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
     if session_data and "preview_data" in session_data:
         response_data = {
             "data": session_data["preview_data"],
-            "history_id": session_data.get("history_id")
+            "history_id": session_data.get("history_id"),
+            "investor": session_data.get("investor"),
+            "version": session_data.get("version")
         }
         return JSONResponse(content=response_data)
 
@@ -284,7 +286,9 @@ async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
         if record and record.preview_data:
              response_data = {
                  "data": record.preview_data, # JSON field
-                 "history_id": str(record.id)
+                 "history_id": str(record.id),
+                 "investor": record.investor,
+                 "version": record.version
              }
              return JSONResponse(content=response_data)
              
@@ -296,16 +300,34 @@ async def get_preview(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/download/{session_id}")
-async def download_result(session_id: str, db: AsyncSession = Depends(get_db)):
-    """Endpoint to download the final Excel file."""
+async def download_result(
+    session_id: str, 
+    guideline_type: str = None, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Endpoint to download the final Excel file, optionally filtered by guideline type."""
     
     # 1. Try to get from in-memory store (active/recent jobs) — async-safe
     session_data = await async_get_session_data(session_id)
-    if session_data and "excel_path" in session_data:
-        excel_path = session_data["excel_path"]
+    if session_data:
+        excel_path = None
         filename = session_data.get("filename", "extraction.xlsx")
 
-        if os.path.exists(excel_path):
+        # Handle multi-type download
+        if guideline_type and "all_excel_paths" in session_data:
+            excel_path = session_data["all_excel_paths"].get(guideline_type)
+            if excel_path:
+                # Custom filename for the specific type
+                safe_investor = session_data.get("investor", "Investor").replace(" ", "_")
+                safe_version = session_data.get("version", "v1").replace(" ", "_")
+                safe_type = guideline_type.replace(" ", "_")
+                filename = f"{safe_investor}_{safe_version}_{safe_type}.xlsx"
+        
+        # Fallback to primary excel_path
+        if not excel_path:
+            excel_path = session_data.get("excel_path")
+
+        if excel_path and os.path.exists(excel_path):
             return FileResponse(
                 excel_path,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -315,23 +337,29 @@ async def download_result(session_id: str, db: AsyncSession = Depends(get_db)):
     # 2. If not found in memory, try to regenerate from DB (historical records)
     # Check DB
     try:
-         result = await db.execute(select(IngestHistory).where(IngestHistory.id == session_id))
-         record = result.scalars().first()
+        result = await db.execute(select(IngestHistory).where(IngestHistory.id == session_id))
+        record = result.scalars().first()
 
-         if record and record.preview_data:
+        if record and record.preview_data:
             try:
-                # Generate temp Excel file
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-                # Match frontend hidden columns
-                hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
-                dynamic_json_to_excel(record.preview_data, tmp.name, hidden_columns=hidden_columns)
+                # 1. Check if history record already has the specific type formatted
+                extract_data = record.preview_data
+                current_filename = f"{record.investor or 'Unknown'}_{record.version or 'v1'}.xlsx"
                 
-                filename = f"{record.investor or 'Unknown'}_{record.version or 'v1'}.xlsx"
+                if guideline_type and isinstance(record.preview_data, dict):
+                    extract_data = record.preview_data.get(guideline_type, [])
+                    safe_type = guideline_type.replace(" ", "_")
+                    current_filename = f"{record.investor or 'Unknown'}_{record.version or 'v1'}_{safe_type}.xlsx"
+
+                # Generate temp Excel file from preview_data
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+                hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
+                dynamic_json_to_excel(extract_data, tmp.name, hidden_columns=hidden_columns)
                 
                 return FileResponse(
                     tmp.name,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    filename=filename
+                    filename=current_filename
                 )
             except Exception as e:
                 logger.error(f"Error regenerating Excel from DB: {e}")

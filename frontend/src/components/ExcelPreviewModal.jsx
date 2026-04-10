@@ -8,8 +8,9 @@ import {
     Space,
     Input,
     Tooltip,
-    Spin,
     Pagination,
+    Tabs,
+    Spin,
 } from "antd";
 import {
     FileExcelOutlined,
@@ -40,6 +41,8 @@ const ExcelPreviewModal = ({
     iconBgColor = "bg-green-100",
     sessionId = null,
     isComparisonMode = false,
+    investor = "",
+    version = "",
 }) => {
     const [searchText, setSearchText] = useState("");
     const [searchExpanded, setSearchExpanded] = useState(false);
@@ -49,18 +52,48 @@ const ExcelPreviewModal = ({
     const [chatVisible, setChatVisible] = useState(false);
     const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
     const [pdfTargetPage, setPdfTargetPage] = useState(null);
-    const [currentPageSize, setCurrentPageSize] = useState(pageSize);
+    const [activeTab, setActiveTab] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [currentPageSize, setCurrentPageSize] = useState(pageSize || 50);
     const [columnWidths, setColumnWidths] = useState({});
+
+    // Refs for column resizing
     const resizingColumn = useRef(null);
-    const startX = useRef(0);
-    const startWidth = useRef(0);
-    const convertToTableData = (data) => {
-        if (!Array.isArray(data)) return [];
-        return data.map((item, idx) => ({ key: idx, ...item }));
+    const startX = useRef(null);
+    const startWidth = useRef(null);
+
+    // Determine if we have multiple tabs
+    const isMultiTab = useMemo(() => {
+        return !Array.isArray(data) && data !== null && typeof data === 'object';
+    }, [data]);
+
+    // Get list of tab keys
+    const tabKeys = useMemo(() => {
+        if (isMultiTab) return Object.keys(data);
+        return [];
+    }, [isMultiTab, data]);
+
+    // Set initial active tab
+    useEffect(() => {
+        if (isMultiTab && tabKeys.length > 0 && !activeTab) {
+            setActiveTab(tabKeys[0]);
+        }
+    }, [isMultiTab, tabKeys, activeTab]);
+
+    // Current data to display
+    const currentData = useMemo(() => {
+        if (isMultiTab) {
+            return data[activeTab] || [];
+        }
+        return data || [];
+    }, [isMultiTab, data, activeTab]);
+
+    const convertToTableData = (rawData) => {
+        if (!Array.isArray(rawData)) return [];
+        return rawData.map((item, idx) => ({ key: idx, ...item }));
     };
 
-    const tableData = convertToTableData(data);
+    const tableData = convertToTableData(currentData);
 
     // Search
     const searchFilteredData = useMemo(() => {
@@ -106,10 +139,10 @@ const ExcelPreviewModal = ({
         return getSortedData.slice(startIndex, startIndex + currentPageSize);
     }, [getSortedData, currentPage, currentPageSize]);
 
-    // Reset page on filter/sort change
+    // Reset page on filter/sort change or tab change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText, filteredInfo, sortedInfo]);
+    }, [searchText, filteredInfo, sortedInfo, activeTab]);
 
     const getColumnFilters = (dataIndex) => {
         const uniqueValues = [
@@ -160,13 +193,13 @@ const ExcelPreviewModal = ({
 
     // ✅ Dynamic "Prefit" Width Calculation
     const calculatedWidths = useMemo(() => {
-        if (!data || data.length === 0) return {};
+        if (!currentData || currentData.length === 0) return {};
 
         const widths = {};
-        const sampleData = data.slice(0, 100); // Check first 100 rows for performance
+        const sampleData = currentData.slice(0, 100); // Check first 100 rows for performance
 
         // Initialize with header title widths
-        const tempColumns = columns ? columns.map(c => c.dataIndex) : Object.keys(data[0]);
+        const tempColumns = columns ? columns.map(c => c.dataIndex) : (currentData[0] ? Object.keys(currentData[0]) : []);
 
         tempColumns.forEach(key => {
             // Start with a base width for the header text
@@ -196,7 +229,6 @@ const ExcelPreviewModal = ({
     const getColumns = () => {
         const generateColumn = (key, customTitle = null) => {
             // ✅ Use pre-calculated "prefit" width, fallback to default if not available
-            debugger
             const prefitWidth = calculatedWidths[key] || 250;
             const currentWidth = columnWidths[key] || prefitWidth;
 
@@ -341,8 +373,8 @@ const ExcelPreviewModal = ({
                     render: (text, record, index) => generatedCol.render(text, record, index, col.dataIndex)
                 };
             });
-        } else if (data?.length > 0) {
-            dataColumns = Object.keys(data[0]).map((key) => {
+        } else if (currentData?.length > 0) {
+            dataColumns = Object.keys(currentData[0]).map((key) => {
                 const generatedCol = generateColumn(key);
                 return {
                     ...generatedCol,
@@ -434,9 +466,15 @@ const ExcelPreviewModal = ({
                             <Button
                                 type="primary"
                                 icon={<DownloadOutlined />}
-                                onClick={onDownload}
+                                onClick={() => {
+                                    if (isMultiTab) {
+                                        onDownload(activeTab);
+                                    } else {
+                                        onDownload();
+                                    }
+                                }}
                             >
-                                {downloadButtonText}
+                                {isMultiTab ? `Download ${activeTab}` : downloadButtonText}
                             </Button>
                         )}
                         <Button onClick={onClose} icon={<CloseOutlined />}>
@@ -477,6 +515,30 @@ const ExcelPreviewModal = ({
                             searchText) &&
                             `Showing ${getFilteredDataForFilters.length} of ${tableData.length} rows`}
                     </span>
+                    {isMultiTab && (
+                        <div className="ml-auto" style={{ marginBottom: '-6px' }}>
+                            <Tabs
+                                activeKey={activeTab}
+                                onChange={setActiveTab}
+                                size="small"
+                                className="excel-preview-tabs"
+                                items={tabKeys.map(key => ({
+                                    key: key,
+                                    label: (
+                                        <span className="flex items-center gap-1.5 px-2">
+                                            <FileExcelOutlined style={{ color: '#1d6f42' }} />
+                                            <span className="font-medium">
+                                                {`${investor.replace(/ /g, '_')}_${version.replace(/ /g, '_')}_${key.replace(/ /g, '')}`}
+                                            </span>
+                                            <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 rounded-full">
+                                                {data[key]?.length || 0}
+                                            </span>
+                                        </span>
+                                    )
+                                }))}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Content area - table scrolls, footer fixed */}

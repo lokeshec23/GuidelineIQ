@@ -62,6 +62,8 @@ const IngestPage = () => {
   const [investors, setInvestors] = useState([]);
   const [processingModalVisible, setProcessingModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [currentInvestor, setCurrentInvestor] = useState("");
+  const [currentVersion, setCurrentVersion] = useState("");
 
   const [pageLoading, setPageLoading] = useState(true);
 
@@ -248,6 +250,8 @@ const IngestPage = () => {
       const { session_id, status } = res.data;
 
       setSessionId(session_id);
+      setCurrentInvestor(selectedInvestorName);
+      setCurrentVersion(values.version || "v1");
 
       // Start SSE for progress tracking
       const es = ingestAPI.createProgressStream(session_id);
@@ -344,9 +348,13 @@ const IngestPage = () => {
         historyId = sid;
       }
 
-      if (previewDataArray?.length > 0) {
+      const hasData = previewDataArray && (Array.isArray(previewDataArray) ? previewDataArray.length > 0 : Object.keys(previewDataArray).length > 0);
+
+      if (hasData) {
         setPreviewData(previewDataArray);
-        setSessionId(historyId); // Use history_id for PDF viewing
+        setSessionId(historyId);
+        if (responseData.investor) setCurrentInvestor(responseData.investor);
+        if (responseData.version) setCurrentVersion(responseData.version);
         setPreviewModalVisible(true);
       } else {
         setPreviewData([{ key: 1, content: "No structured data found." }]);
@@ -377,10 +385,14 @@ const IngestPage = () => {
 
   // Calculate columns for preview, excluding unwanted internal fields
   const previewColumns = React.useMemo(() => {
-    if (!previewData || previewData.length === 0) return null;
+    // Get data to check for headers (handle both array and object/multi-tab formats)
+    const firstTabKey = !Array.isArray(previewData) && previewData ? Object.keys(previewData)[0] : null;
+    const dataForKeys = Array.isArray(previewData) ? previewData[0] : (firstTabKey ? previewData[firstTabKey][0] : null);
 
-    // Get all available keys from the first record
-    const allKeys = Object.keys(previewData[0]);
+    if (!dataForKeys) return null;
+
+    // Get all available keys
+    const allKeys = Object.keys(dataForKeys);
 
     // Define columns to hide
     const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type'];
@@ -737,9 +749,11 @@ const IngestPage = () => {
           data={previewData}
           columns={previewColumns}
           sessionId={sessionId}
-          onDownload={() => {
+          investor={currentInvestor}
+          version={currentVersion}
+          onDownload={(type) => {
             if (sessionId) {
-              ingestAPI.downloadExcel(sessionId);
+              ingestAPI.downloadExcel(sessionId, type);
             }
           }}
         />

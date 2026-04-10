@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3003,
     proxy: {
       "/api": {
-        target: "http://localhost:8003",
+        target: "https://qa-guidelineiq.loandna.com/api",
         // target: "http://10.21.151.5:8003",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),

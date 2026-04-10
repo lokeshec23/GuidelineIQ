@@ -234,27 +234,50 @@ async def process_guideline_background(
             """
 
 
-            # === STEP 6: DSCR Parameter Extraction (Multi-PDF Aggregation) ===
-            update_progress(session_id, 90, f"Extracting DSCR Parameters from {num_files} PDF(s)...")
-            try:
-                from ingest.dscr_extractor import extract_dscr_parameters_multi_pdf
-                
-                dscr_excel_path, dscr_results = await extract_dscr_parameters_multi_pdf(
-                    session_id=session_id,
-                    gridfs_file_ids=gridfs_file_ids,
-                    filenames=filenames,
-                    llm=llm,
-                    investor_id=investor_id,
-                    investor=investor,
-                    version=version,
-                    user_settings=user_settings,
-                    pipeline=pipeline,  # ✅ Pass initialized pipeline with BM25 index
-                    guideline_types=guideline_types_list  # ✅ Filter by selected types
-                )
-                logger.info(f"Multi-PDF DSCR Extraction Complete.")
+            # === STEP 6: Multi-Type Parameter Extraction (Parallel) ===
+            all_preview_data = {}
+            all_excel_paths = {}
+            total_extracted_chunks = 0
+            
+            async def process_type_extraction(g_type):
+                nonlocal total_extracted_chunks
+                update_progress(session_id, 90, f"Extracting {g_type} Parameters...")
+                try:
+                    from ingest.dscr_extractor import extract_dscr_parameters_multi_pdf
+                    
+                    path, results = await extract_dscr_parameters_multi_pdf(
+                        session_id=session_id,
+                        gridfs_file_ids=gridfs_file_ids,
+                        filenames=filenames,
+                        llm=llm,
+                        investor_id=investor_id,
+                        investor=investor,
+                        version=version,
+                        user_settings=user_settings,
+                        pipeline=pipeline,
+                        guideline_types=[g_type]  # Process one type at a time
+                    )
+                    return g_type, path, results
+                except Exception as e:
+                    logger.error(f"Extraction failed for {g_type}: {e}")
+                    return g_type, None, []
 
-                
-                # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===
+            # Determine extraction order: Alt Doc first, but run in parallel as requested
+            # We can start Alt Doc slightly earlier or just gather all
+            extraction_tasks = [process_type_extraction(t) for t in guideline_types_list]
+            extraction_results = await asyncio.gather(*extraction_tasks)
+
+            for g_type, path, results in extraction_results:
+                if results:
+                    all_preview_data[g_type] = results
+                    all_excel_paths[g_type] = path
+                    total_extracted_chunks += len(results)
+            
+            logger.info(f"Multi-Type Extraction Complete. Types: {list(all_preview_data.keys())}")
+
+            # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===
+            dscr_results = all_preview_data.get("DSCR", [])
+            if dscr_results:
                 update_progress(session_id, 96, "Indexing extracted DSCR rules...")
                 try:
                     rule_docs = []
@@ -356,24 +379,15 @@ async def process_guideline_background(
 
                 except Exception as idx_err:
                      logger.error(f"⚠️ Failed to index extracted rules: {idx_err}")
-                     traceback.print_exc()
 
-            except Exception as dscr_err:
-                logger.error(f"DSCR Extraction Failed: {dscr_err}", exc_info=True)
 
 
             # === STEP 7: Convert results to Excel ===
             update_progress(session_id, 95, "Converting results to Excel...")
 
-            excel_path = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".xlsx",
-                prefix=f"extraction_{session_id[:8]}_"
-            ).name
-
-            # Match frontend hidden columns
-            hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
-            await asyncio.to_thread(dynamic_json_to_excel, results, excel_path, hidden_columns=hidden_columns)
+            # Use the first available result for legacy download support if needed
+            primary_excel_path = next(iter(all_excel_paths.values()), None)
+            primary_results = next(iter(all_preview_data.values()), [])
 
             update_progress(session_id, 100, "Processing complete.")
             logger.info("PROCESSING COMPLETE")
@@ -383,12 +397,13 @@ async def process_guideline_background(
             from utils.progress import progress_store, progress_lock
             with progress_lock:
                 progress_store[session_id].update({
-                    "excel_path": dscr_excel_path,  # Use DSCR excel as main download
-                    "preview_data": dscr_results,  # Use DSCR results for preview
+                    "excel_path": primary_excel_path,  # Main download (Legacy)
+                    "all_excel_paths": all_excel_paths, # New multi-download
+                    "preview_data": all_preview_data,  # New categorized preview
                     "filename": f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}.xlsx",
                     "status": "completed",
-                    "total_chunks": sum(r.get("chunks", 0) for r in results),
-                    "failed_chunks": len([r for r in results if r["status"] == "failed"]),
+                    "total_chunks": total_extracted_chunks,
+                    "failed_chunks": 0,
                     "total_pdfs": num_files,
                 })
 
@@ -414,11 +429,11 @@ async def process_guideline_background(
                         "version": version,
                         "uploaded_file": ", ".join(filenames),  # Store all filenames
                         "extracted_file": f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}.xlsx",
-                        "preview_data": dscr_results,
+                        "preview_data": all_preview_data, # categorized
                         "effective_date": effective_date,
                         "expiry_date": expiry_date,
-                        "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,  # Primary file ID (backward compatibility)
-                        "pdf_files": pdf_files,  # ✅ NEW: Properly formatted array
+                        "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,
+                        "pdf_files": pdf_files,
                         "page_range": page_range,
                         "guideline_type": guideline_type,
                         "program_type": program_type,
@@ -535,8 +550,6 @@ Start with '[' and end with ']'. No markdown, no explanations."""
                 f"Processed {completed}/{total_chunks} chunk(s)"
             )
 
-    await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
-    
     await asyncio.gather(*(handle_chunk(i, chunk) for i, chunk in enumerate(text_chunks)))
     
     logger.info(f"Successfully parsed: {len(results)} rules | Failed chunks: {failed_count}")

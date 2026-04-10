@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 
 class IngestHistoryItem(BaseModel):
@@ -17,7 +17,7 @@ class IngestHistoryItem(BaseModel):
     created_at: datetime
     effective_date: Optional[str] = None
     expiry_date: Optional[str] = None
-    preview_data: Optional[List[Dict[str, Any]]] = None  # Excel output data
+    preview_data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None  # Excel output data
     pdf_files: Optional[List[Dict[str, Any]]] = None  # List of PDF metadata: [{file_index, filename, gridfs_file_id}]
     guideline_type: Optional[str] = None
     program_type: Optional[str] = None
@@ -35,7 +35,7 @@ class CompareHistoryItem(BaseModel):
     uploadedFile2: str
     extractedFile: str
     created_at: datetime
-    preview_data: Optional[List[Dict[str, Any]]] = None  # Comparison output data
+    preview_data: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None  # Comparison output data
 
 
 class DeleteResponse(BaseModel):

@@ -3,7 +3,8 @@ import { showToast, getErrorMessage } from "../utils/toast";
 
 
 // Use environment variable with fallback for development
-const API_BASE_URL = "http://localhost:8003";
+// const API_BASE_URL = "http://localhost:8003";
+const API_BASE_URL = "https://qa-guidelineiq.loandna.com/api";
 // const API_BASE_URL = "http://10.21.151.5:8003";
 
 
@@ -135,9 +136,13 @@ export const ingestAPI = {
 
 
   // ✅ Download Excel file
-  downloadExcel: (sessionId) => {
+  downloadExcel: (sessionId, guidelineType = null) => {
     const link = document.createElement("a");
-    link.href = `${API_BASE_URL}/ingest/download/${sessionId}`;
+    let url = `${API_BASE_URL}/ingest/download/${sessionId}`;
+    if (guidelineType) {
+      url += `?guideline_type=${encodeURIComponent(guidelineType)}`;
+    }
+    link.href = url;
     link.download = "extraction.xlsx";
     document.body.appendChild(link);
     link.click();

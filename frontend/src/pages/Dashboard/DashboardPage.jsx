@@ -448,9 +448,16 @@ const DashboardPage = () => {
     const previewColumns = React.useMemo(() => {
         // For Ingest tab, ensure we filter out internal fields
         if (activeTab === "ingest") {
-            if (!previewData || previewData.length === 0) return null;
+            if (!previewData) return null;
 
-            const allKeys = Object.keys(previewData[0]);
+            // Handle both array and object/multi-tab formats
+            const isArray = Array.isArray(previewData);
+            const firstTabKey = !isArray ? Object.keys(previewData)[0] : null;
+            const dataForKeys = isArray ? previewData[0] : (firstTabKey ? previewData[firstTabKey][0] : null);
+
+            if (!dataForKeys) return null;
+
+            const allKeys = Object.keys(dataForKeys);
             const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type'];
             const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
 
