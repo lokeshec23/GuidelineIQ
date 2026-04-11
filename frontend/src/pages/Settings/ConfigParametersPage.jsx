@@ -201,10 +201,10 @@ const ConfigParametersPage = () => {
                 search: debouncedSearchText,
                 filters: tableParams.filters ? JSON.stringify(tableParams.filters) : undefined
             };
-            
+
             await dscrAPI.deleteAllParameters(deleteParams);
             showToast.success("All matching parameters deleted successfully");
-            
+
             // Reset to first page after deletion
             setTableParams(prev => ({
                 ...prev,
@@ -638,9 +638,9 @@ const ConfigParametersPage = () => {
                         <Popconfirm
                             title="Delete all matching parameters?"
                             description={
-                                (debouncedSearchText || tableParams.filters) 
-                                ? "Are you sure you want to delete ALL parameters matching the current filters across all pages?"
-                                : `Are you sure you want to delete ALL parameters for the selected investor?`
+                                (debouncedSearchText || tableParams.filters)
+                                    ? "Are you sure you want to delete ALL parameters matching the current filters across all pages?"
+                                    : `Are you sure you want to delete ALL parameters for the selected investor?`
                             }
                             onConfirm={handleRemoveAll}
                             okText="Yes"
@@ -1010,7 +1010,7 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     const [generalParams, setGeneralParams] = useState([]);
     const [generalTotal, setGeneralTotal] = useState(0);
     const [generalTableParams, setGeneralTableParams] = useState({
-        pagination: { current: 1, pageSize: 10 },
+        pagination: { current: 1, pageSize: 12 },
         filters: null,
         sortField: null,
         sortOrder: null,
@@ -1021,6 +1021,20 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
     const [fetchingIds, setFetchingIds] = useState(false);
+
+    // Responsive height calculation
+    const [scrollY, setScrollY] = useState(450);
+
+    useEffect(() => {
+        const updateHeight = () => {
+            const h = window.innerHeight;
+            // 100vh - (Header + Control Bar + Pagination + Modal Padding)
+            setScrollY(Math.max(300, h - 420));
+        };
+        updateHeight();
+        window.addEventListener('resize', updateHeight);
+        return () => window.removeEventListener('resize', updateHeight);
+    }, []);
 
     // Debounce search text
     useEffect(() => {
@@ -1205,14 +1219,22 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     return (
         <Modal
             title={
-                <div className="flex flex-col gap-1 py-1">
-                    <div className="flex items-center gap-2 text-gray-800 text-xl font-bold">
-                        <DownloadOutlined className="text-blue-500" />
-                        Import from General Parameters
+                <div className="relative overflow-hidden -mx-6 -mt-5 mb-4 px-6 py-5 bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-gray-100">
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 text-slate-800 text-xl font-bold tracking-tight">
+                            <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+                                <DownloadOutlined className="text-white text-lg" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span>Import from General Parameters</span>
+                                <span className="text-slate-400 text-xs font-medium uppercase tracking-widest mt-0.5">
+                                    Target: <span className="text-blue-600 font-bold">{investorName}</span>
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <span className="text-gray-400 text-sm font-normal">
-                        Select master parameters to import into <span className="text-blue-500 font-semibold">{investorName}</span>
-                    </span>
+                    {/* Decorative element */}
+                    <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-blue-100/20 rounded-full blur-3xl"></div>
                 </div>
             }
             open={open}
@@ -1220,65 +1242,71 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
             onOk={handleImportParams}
             okText={`Import ${selectedParamIds.length} Selected`}
             okButtonProps={{
-                className: "bg-blue-600 rounded-lg font-semibold shadow-md h-11 px-8",
+                className: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl font-bold shadow-lg shadow-blue-100 h-12 px-10 border-none transition-all",
                 loading: importLoading,
                 disabled: selectedParamIds.length === 0,
             }}
-            cancelButtonProps={{ className: "rounded-lg h-11 px-6 border-gray-200" }}
+            cancelButtonProps={{
+                className: "rounded-xl h-12 px-8 border-gray-200 font-semibold hover:border-blue-300 hover:text-blue-600 transition-all"
+            }}
             centered
             destroyOnClose
             maskClosable={false}
-            width={1100}
-            style={{ maxWidth: '95%' }}
-            bodyStyle={{ padding: '0 24px 24px 24px' }}
+            width="92vw"
+            className="premium-modal"
+            style={{ maxWidth: '1600px', top: 20 }}
+            styles={{ body: { padding: '0 24px 20px 24px' } }}
         >
-            <div className="mt-6 flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
                 {/* Search and Selection Control Bar */}
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex flex-col lg:sm:flex-row lg:sm:items-center justify-between gap-4">
-                    <div className="flex-1 max-w-md">
+                <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 transition-all hover:shadow-md">
+                    <div className="flex-1 w-full md:max-w-md">
                         <SearchInput
-                            placeholder="Search by name or category..."
+                            placeholder="Find parameters to import..."
                             onSearch={setImportSearchText}
-                            className="h-11 rounded-xl bg-white border-transparent shadow-sm focus:border-blue-300 focus:ring-4 focus:ring-blue-100 transition-all flex-1"
+                            className="h-12 rounded-xl bg-slate-50 border-transparent focus:bg-white hover:bg-slate-100/50 transition-all pl-5 w-full font-medium"
                         />
                     </div>
-                    <div className="flex items-center gap-4 flex-wrap">
-                        <div className="flex items-center bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
+
+                    <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        <div className="flex items-center bg-slate-50 px-5 py-2.5 rounded-xl border border-slate-100 shadow-inner group">
                             <Checkbox
                                 indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
                                 checked={generalTotal > 0 && selectedParamIds.length === generalTotal}
                                 onChange={e => handleSelectAll(e.target.checked)}
-                                className="custom-checkbox"
+                                className="custom-checkbox pointer-events-auto"
                                 disabled={fetchingIds}
                             >
-                                <span className="text-gray-600 font-semibold ml-1">
-                                    {fetchingIds ? <ReloadOutlined spin className="mr-2" /> : null}
-                                    Select All ({generalTotal})
+                                <span className="text-slate-600 font-bold ml-1 text-sm whitespace-nowrap">
+                                    {fetchingIds ? <ReloadOutlined spin className="mr-2 text-blue-500" /> : null}
+                                    All Parameters ({generalTotal})
                                 </span>
                             </Checkbox>
 
-                            <Divider type="vertical" className="mx-4 h-5 border-gray-200" />
-                            <div className="flex items-center gap-2">
-                                <span className="text-blue-600 font-bold text-lg leading-none">
+                            <Divider type="vertical" className="mx-4 h-6 border-slate-200" />
+
+                            <div className="flex items-baseline gap-1.5 px-1">
+                                <span className={`text-xl font-black transition-all ${selectedParamIds.length > 0 ? 'text-blue-600 scale-110' : 'text-slate-300'}`}>
                                     {selectedParamIds.length}
                                 </span>
-                                <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">selected</span>
+                                <span className="text-slate-400 text-[9px] uppercase font-black tracking-[0.15em]">Selected</span>
                             </div>
                         </div>
+
                         {selectedParamIds.length > 0 && (
                             <Button
                                 type="text"
                                 onClick={() => setSelectedParamIds([])}
-                                className="text-gray-400 hover:text-red-500 font-medium px-2 rounded-lg"
+                                className="text-slate-400 hover:text-red-500 hover:bg-red-50 font-bold px-4 rounded-xl transition-all h-11"
                             >
-                                Clear Selection
+                                Clear
                             </Button>
                         )}
                     </div>
                 </div>
 
                 {/* Parameter list */}
-                <div className="border border-gray-100 rounded-2xl overflow-hidden shadow-sm bg-white">
+                <div className="relative border border-slate-100 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] bg-white group">
                     <OptimizedTable
                         columns={importColumns}
                         dataSource={generalParams}
@@ -1291,16 +1319,28 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                             selectedRowKeys: selectedParamIds,
                             onChange: (keys) => setSelectedParamIds(keys),
                             preserveSelectedRowKeys: true,
-                            columnWidth: 50
+                            columnWidth: 60
                         }}
-                        scroll={{ y: 450 }}
+                        scroll={{ y: scrollY }}
                         size="middle"
-                        rowClassName={(record) =>
-                            selectedParamIds.includes(record.id)
-                                ? "bg-blue-50/50 hover:bg-blue-100/50 transition-colors"
-                                : "hover:bg-gray-50/80 transition-colors"
-                        }
+                        rowClassName={(record) => {
+                            const isSelected = selectedParamIds.includes(record.id);
+                            return `cursor-pointer transition-all duration-200 ${isSelected
+                                ? "bg-blue-50/80 hover:bg-blue-100/80"
+                                : "hover:bg-slate-50/80"
+                                }`;
+                        }}
                     />
+
+                    {/* Footer Progress Overlay (for large selections) */}
+                    {fetchingIds && (
+                        <div className="absolute inset-x-0 bottom-0 top-0 bg-white/40 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                            <div className="bg-white p-5 rounded-2xl shadow-xl border border-blue-50 flex items-center gap-4">
+                                <ReloadOutlined spin className="text-blue-600 text-xl" />
+                                <span className="text-slate-700 font-bold">Synchronizing selection...</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </Modal>
