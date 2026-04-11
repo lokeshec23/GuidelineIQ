@@ -516,37 +516,37 @@ const DashboardPage = () => {
                 title: "PARAMETERS",
                 dataIndex: "rule_id",
                 key: "rule_id",
-                width: "10%",
+                width: 150,
             },
             {
                 title: "Category",
                 dataIndex: "category",
                 key: "category",
-                width: "15%",
+                width: 180,
             },
             {
                 title: "Sub Category",
                 dataIndex: "sub_category",
                 key: "sub_category",
-                width: "15%",
+                width: 180,
             },
             {
                 title: previewRecord?.uploadedFile1 ? previewRecord.uploadedFile1.replace(/\.xlsx?$/, '') : "Guideline 1",
                 dataIndex: "guideline_1",
                 key: "guideline_1",
-                width: "25%",
+                width: 400,
             },
             {
                 title: previewRecord?.uploadedFile2 ? previewRecord.uploadedFile2.replace(/\.xlsx?$/, '') : "Guideline 2",
                 dataIndex: "guideline_2",
                 key: "guideline_2",
-                width: "25%",
+                width: 400,
             },
             {
                 title: "Comparison Notes",
                 dataIndex: "comparison_notes",
                 key: "comparison_notes",
-                width: "10%",
+                width: 250,
             },
         ];
     }, [activeTab, previewData, previewRecord]);

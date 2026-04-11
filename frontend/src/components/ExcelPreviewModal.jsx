@@ -229,9 +229,9 @@ const ExcelPreviewModal = ({
     }, [data, columns]);
 
     const columnsMemo = useMemo(() => {
-        const generateColumn = (key, customTitle = null) => {
+        const generateColumn = (key, customTitle = null, customWidth = null) => {
             const prefitWidth = calculatedWidths[key] || 250;
-            const currentWidth = columnWidths[key] || prefitWidth;
+            const currentWidth = customWidth || columnWidths[key] || prefitWidth;
 
             let displayTitle = customTitle;
             if (!displayTitle) {
@@ -378,7 +378,7 @@ const ExcelPreviewModal = ({
 
         let dataColumns = [];
         if (columns) {
-            dataColumns = columns.map((col) => generateColumn(col.dataIndex, col.title));
+            dataColumns = columns.map((col) => generateColumn(col.dataIndex, col.title, col.width));
         } else if (currentData.length > 0) {
             dataColumns = Object.keys(currentData[0]).map((key) => generateColumn(key));
         }
@@ -510,7 +510,7 @@ const ExcelPreviewModal = ({
                     <div
                         className="flex-1"
                         style={{
-                            overflow: "auto",
+                            overflow: "hidden",
                             scrollbarWidth: "thin",
                             scrollbarColor: "#888 #f1f1f1",
                         }}
@@ -532,7 +532,7 @@ const ExcelPreviewModal = ({
                                 background: #555;
                             }
 
-                            .antd-excel-table .ant-table-thead > tr > th {
+                            .antd-excel-preview-table .ant-table-thead > tr > th {
                                 background-color: #1F4E78 !important;
                                 color: white !important;
                                 font-weight: bold !important;
@@ -541,13 +541,13 @@ const ExcelPreviewModal = ({
                                 text-align: center !important;
                             }
                             
-                            .antd-excel-table .ant-table-tbody > tr > td {
+                            .antd-excel-preview-table .ant-table-tbody > tr > td {
                                 border-right: 1px solid #f0f0f0 !important;
                                 vertical-align: top !important;
                                 padding: 4px 8px !important;
                             }
 
-                            .antd-excel-table .ant-table-tbody > tr:hover > td {
+                            .antd-excel-preview-table .ant-table-tbody > tr:hover > td {
                                 background-color: #f5faff !important;
                             }
 
@@ -668,7 +668,7 @@ const OptimizedTable = memo(({ loading, dataSource, columns, onChange }) => {
             pagination={false}
             onChange={onChange}
             loading={loading}
-            scroll={{ x: "max-content", y: 600 }}
+            scroll={{ x: "max-content", y: "calc(90vh - 220px)" }}
             className="antd-excel-preview-table"
             rowClassName="antd-excel-row"
             size="small"
