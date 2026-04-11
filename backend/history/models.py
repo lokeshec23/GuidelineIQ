@@ -110,15 +110,18 @@ async def get_user_compare_history(db: AsyncSession, user_id: str) -> List[Compa
     )
     return result.scalars().all()
 
-async def check_duplicate_ingestion(db: AsyncSession, investor: str, version: str, user_id: str) -> bool:
-    """Check if an ingestion with the same investor and version already exists for the user."""
-    result = await db.execute(
-        select(IngestHistory).where(
-            IngestHistory.user_id == user_id,
-            IngestHistory.investor == investor,
-            IngestHistory.version == version
-        )
+async def check_duplicate_ingestion(db: AsyncSession, investor: str, version: str, user_id: str, guideline_type: str = None) -> bool:
+    """Check if an ingestion with the same investor, version, and type already exists for the user."""
+    query = select(IngestHistory).where(
+        IngestHistory.user_id == user_id,
+        IngestHistory.investor == investor,
+        IngestHistory.version == version
     )
+    
+    if guideline_type:
+        query = query.where(IngestHistory.guideline_type == guideline_type)
+        
+    result = await db.execute(query)
     return result.scalars().first() is not None
 
 async def delete_ingest_history(db: AsyncSession, history_id: str, user_id: str) -> bool:

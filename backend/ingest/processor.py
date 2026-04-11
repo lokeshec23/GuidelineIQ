@@ -422,29 +422,45 @@ async def process_guideline_background(
                         for idx, (file_id, filename) in enumerate(zip(gridfs_file_ids, filenames))
                     ]
                     
-                    history_id = await save_ingest_history(db, { # ✅ Pass DB session
-                        "user_id": user_id,
-                        "username": username,
-                        "investor": investor,
-                        "version": version,
-                        "uploaded_file": ", ".join(filenames),  # Store all filenames
-                        "extracted_file": f"{investor.replace(' ', '_')}_{version.replace(' ', '_')}.xlsx",
-                        "preview_data": all_preview_data, # categorized
-                        "effective_date": effective_date,
-                        "expiry_date": expiry_date,
-                        "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,
-                        "pdf_files": pdf_files,
-                        "page_range": page_range,
-                        "guideline_type": guideline_type,
-                        "program_type": program_type,
-                    })
-                    print(f"✅ Saved to ingest history for user: {username}")
-
+                    # Store history IDs to update progress later if needed
+                    history_ids = []
                     
-                    # Update progress with history ID
+                    # If multiple types were selected, save them as individual records
+                    types_to_save = guideline_types_list if guideline_types_list else [None]
+                    
+                    for g_type in types_to_save:
+                        # Format version to include type as requested: AB_1_fulldoc
+                        # We append it to the version field to keep investor field clean
+                        # but ensure they are distinct records.
+                        type_suffix = f"_{g_type.lower().replace(' ', '')}" if g_type else ""
+                        individual_version = f"{version}{type_suffix}"
+                        
+                        # Get preview data for this specific type if available
+                        individual_preview = all_preview_data.get(g_type, []) if g_type else all_preview_data
+                        
+                        history_id = await save_ingest_history(db, {
+                            "user_id": user_id,
+                            "username": username,
+                            "investor": investor,
+                            "version": individual_version,
+                            "uploaded_file": ", ".join(filenames),
+                            "extracted_file": f"{investor.replace(' ', '_')}_{individual_version.replace(' ', '_')}.xlsx",
+                            "preview_data": individual_preview,
+                            "effective_date": effective_date,
+                            "expiry_date": expiry_date,
+                            "gridfs_file_id": gridfs_file_ids[0] if gridfs_file_ids else None,
+                            "pdf_files": pdf_files,
+                            "page_range": page_range,
+                            "guideline_type": g_type or guideline_type, # Use specific type
+                            "program_type": program_type,
+                        })
+                        history_ids.append(history_id)
+                        logger.info(f"✅ Saved to ingest history for type '{g_type}': {history_id}")
+
+                    # Update progress with the last history ID (or could send list)
                     with progress_lock:
                         if session_id in progress_store:
-                            progress_store[session_id]["history_id"] = history_id
+                            progress_store[session_id]["history_id"] = history_ids[-1]
                             
                 except Exception as hist_err:
                     logger.error(f"Failed to save history: {hist_err}")

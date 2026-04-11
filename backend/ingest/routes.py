@@ -121,11 +121,21 @@ async def ingest_guideline(
     if not current_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if await check_duplicate_ingestion(db, investor, version, user_id):
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Duplicate ingestion: Guidelines for Investor '{investor}' and Version '{version}' already exist."
-        )
+    # Check for duplicates for each requested type
+    if guideline_type:
+        types_to_check = [t.strip() for t in guideline_type.split(",") if t.strip()]
+        for g_type in types_to_check:
+            if await check_duplicate_ingestion(db, investor, version, user_id, g_type):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Duplicate ingestion: Guidelines for Investor '{investor}', Version '{version}', and Type '{g_type}' already exist."
+                )
+    else:
+        if await check_duplicate_ingestion(db, investor, version, user_id):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Duplicate ingestion: Guidelines for Investor '{investor}' and Version '{version}' already exist."
+            )
 
     session_id = str(uuid.uuid4())
     

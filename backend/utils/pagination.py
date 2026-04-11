@@ -10,7 +10,7 @@ T = TypeVar("T")
 
 class PaginationParams(BaseModel):
     page: int = Field(1, ge=1)
-    pageSize: int = Field(10, ge=1, le=100)
+    pageSize: int = Field(10, ge=1)
     search: Optional[str] = None
     filters: Optional[str] = None  # JSON string from frontend
     sortField: Optional[str] = None

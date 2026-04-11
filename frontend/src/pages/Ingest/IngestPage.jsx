@@ -40,6 +40,7 @@ import { ingestAPI, settingsAPI, promptsAPI, investorAPI, dscrAPI, guidelineType
 const ExcelPreviewModal = React.lazy(() => import("../../components/ExcelPreviewModal"));
 import { showToast, getErrorMessage } from "../../utils/toast";
 import { IngestSkeleton } from "../../components/common/SkeletonLoader";
+import { useNavigate } from "react-router-dom";
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -48,6 +49,7 @@ const IngestPage = () => {
   const { isAdmin } = useAuth();
   const [form] = Form.useForm();
   const { ingestPrompts } = usePrompts();
+  const navigate = useNavigate();
 
   // --- STATE ---
   const [files, setFiles] = useState([]); // ✅ Changed to array for multiple files
@@ -301,18 +303,20 @@ const IngestPage = () => {
             form.resetFields();
             setFiles([]);
 
-            // Restore model selection
-            if (currentModelProvider && currentModelName) {
-              form.setFieldsValue({
-                model_provider: currentModelProvider,
-                model_name: currentModelName,
-              });
-            }
+              // Restore model selection
+              if (currentModelProvider && currentModelName) {
+                form.setFieldsValue({
+                  model_provider: currentModelProvider,
+                  model_name: currentModelName,
+                });
+              }
 
-            // Load preview
-            await loadPreview(session_id);
+              // Navigate to dashboard
+              setTimeout(() => {
+                navigate("/dashboard");
+              }, 1500); // Small delay to let user see success message
 
-          } else if (data.status === "failed") {
+            } else if (data.status === "failed") {
             es.close();
             setProcessing(false);
             setProcessingModalVisible(false);
