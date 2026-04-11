@@ -185,7 +185,6 @@
 .guideline-chip:hover {
     border-color: #cbd5e1;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .chip-main-content {
@@ -206,7 +205,6 @@
 
 .guideline-chip--active {
     border-width: 2px;
-    box-shadow: 0 4px 15px var(--chip-color-transparent, rgba(59, 130, 246, 0.2));
 }
 
 .guideline-chip--active .chip-text {

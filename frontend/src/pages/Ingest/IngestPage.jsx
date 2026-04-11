@@ -637,17 +637,16 @@ const IngestPage = () => {
               {filteredCategories.length > 0 ? (
                 filteredCategories.map((cat) => {
                   const isActive = selectedCategories.includes(cat.name);
-                  const chipColor = cat.color || '#3b82f6';
+                  const activeColor = '#3b82f6';
 
                   return (
                     <div
                       key={cat.id}
                       className={`guideline-chip ${isActive ? 'guideline-chip--active' : ""}`}
                       style={isActive ? {
-                        '--chip-color': chipColor,
-                        borderColor: chipColor,
-                        background: `${chipColor}15`,
-                        color: chipColor
+                        borderColor: activeColor,
+                        background: `${activeColor}15`,
+                        color: activeColor
                       } : {}}
                       onClick={() => {
                         const next = isActive
