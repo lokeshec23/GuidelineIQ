@@ -195,13 +195,26 @@ const ConfigParametersPage = () => {
 
     const handleRemoveAll = async () => {
         try {
-            // Delete only the parameters for the currently selected investor,
-            // NOT all parameters globally across all investors.
-            await Promise.all(parameters.map(p => dscrAPI.deleteParameter(p.id)));
-            showToast.success("All parameters deleted successfully");
+            setLoading(true);
+            const deleteParams = {
+                investor_id: selectedInvestorId,
+                search: debouncedSearchText,
+                filters: tableParams.filters ? JSON.stringify(tableParams.filters) : undefined
+            };
+            
+            await dscrAPI.deleteAllParameters(deleteParams);
+            showToast.success("All matching parameters deleted successfully");
+            
+            // Reset to first page after deletion
+            setTableParams(prev => ({
+                ...prev,
+                pagination: { ...prev.pagination, current: 1 }
+            }));
             fetchParameters();
         } catch (error) {
             console.error("Failed to delete all parameters:", error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -623,8 +636,12 @@ const ConfigParametersPage = () => {
                             Add Parameter
                         </Button>
                         <Popconfirm
-                            title="Delete all parameters?"
-                            description={`Are you sure you want to delete ALL parameters for the selected investor?`}
+                            title="Delete all matching parameters?"
+                            description={
+                                (debouncedSearchText || tableParams.filters) 
+                                ? "Are you sure you want to delete ALL parameters matching the current filters across all pages?"
+                                : `Are you sure you want to delete ALL parameters for the selected investor?`
+                            }
                             onConfirm={handleRemoveAll}
                             okText="Yes"
                             cancelText="No"

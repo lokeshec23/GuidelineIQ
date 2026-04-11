@@ -213,10 +213,23 @@ from sqlalchemy import delete
 
 @router.delete("")
 async def delete_all_parameters(
+    investor_id: Optional[str] = None,
+    params: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
-    """Delete all parameters from the database"""
-    await db.execute(delete(DSCRParameter))
+    """Delete all parameters matching the filters and investor."""
+    query = delete(DSCRParameter)
+    
+    # Filter by specific investor_id, or None for general parameters
+    if investor_id == "null" or investor_id is None:
+        query = query.where(DSCRParameter.investor_id == None)
+    elif investor_id != "all":
+        query = query.where(DSCRParameter.investor_id == investor_id)
+        
+    # Apply Search and Filters via helper
+    query = apply_query_filters(query, DSCRParameter, params, search_fields=["parameter", "category", "subcategory"])
+    
+    await db.execute(query)
     await db.commit()
-    return {"message": "All parameters deleted successfully"}
+    return {"message": "Parameters deleted successfully"}
