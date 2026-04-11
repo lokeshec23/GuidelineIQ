@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useDeferredValue, memo, useEffect } from "react";
 import { Modal, Input, Table, Tag } from "antd";
 import { InfoCircleOutlined, SearchOutlined } from "@ant-design/icons";
+import { dscrAPI } from "../services/api";
 
 const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
   const [data, setData] = useState([]);

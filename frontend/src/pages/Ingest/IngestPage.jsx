@@ -72,8 +72,6 @@ const IngestPage = () => {
 
   // --- CATEGORY INFO MODAL STATE ---
   const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [infoModalData, setInfoModalData] = useState([]);
-  const [infoModalLoading, setInfoModalLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
   const [categorySearch, setCategorySearch] = useState(""); // ✅ Added search term state
 
@@ -854,8 +852,7 @@ const IngestPage = () => {
           visible={infoModalVisible}
           onClose={() => setInfoModalVisible(false)}
           categoryName={activeCategory}
-          data={infoModalData}
-          loading={infoModalLoading}
+          investorId={form.getFieldValue("guideline_investor_id")}
         />
       </React.Suspense>
     </div>
