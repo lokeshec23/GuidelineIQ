@@ -368,7 +368,7 @@ const DashboardPage = () => {
             render: renderFileNames,
         },
         {
-            title: "Actions",
+            title: "Action",
             key: "actions",
             width: 120,
             fixed: 'right',
@@ -376,21 +376,18 @@ const DashboardPage = () => {
                 <Space size="middle">
                     <Tooltip title="View Details">
                         <Button
-                            type="primary"
-                            shape="circle"
-                            icon={<EyeOutlined />}
+                            type="text"
+                            icon={<EyeOutlined style={{ fontSize: '18px', color: '#000000d9' }} />}
                             onClick={() => handleView(record)}
-                            className="action-btn view-btn"
+                            className="action-btn-new view-btn"
                         />
                     </Tooltip>
                     <Tooltip title="Delete Record">
                         <Button
-                            type="primary"
-                            danger
-                            shape="circle"
-                            icon={<DeleteOutlined />}
+                            type="text"
+                            icon={<DeleteOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
                             onClick={() => handleDelete(record)}
-                            className="action-btn delete-btn"
+                            className="action-btn-new delete-btn"
                         />
                     </Tooltip>
                 </Space>
@@ -436,7 +433,7 @@ const DashboardPage = () => {
             },
         },
         {
-            title: "Actions",
+            title: "Action",
             key: "actions",
             width: 120,
             fixed: 'right',
@@ -444,21 +441,18 @@ const DashboardPage = () => {
                 <Space size="middle">
                     <Tooltip title="View Details">
                         <Button
-                            type="primary"
-                            shape="circle"
-                            icon={<EyeOutlined />}
+                            type="text"
+                            icon={<EyeOutlined style={{ fontSize: '18px', color: '#000000d9' }} />}
                             onClick={() => handleView(record)}
-                            className="action-btn view-btn"
+                            className="action-btn-new view-btn"
                         />
                     </Tooltip>
                     <Tooltip title="Delete Record">
                         <Button
-                            type="primary"
-                            danger
-                            shape="circle"
-                            icon={<DeleteOutlined />}
+                            type="text"
+                            icon={<DeleteOutlined style={{ fontSize: '18px', color: '#ff4d4f' }} />}
                             onClick={() => handleDelete(record)}
-                            className="action-btn delete-btn"
+                            className="action-btn-new delete-btn"
                         />
                     </Tooltip>
                 </Space>

@@ -75,6 +75,25 @@
     transition: all 0.2s ease;
 }
 
+.action-btn-new {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    transition: all 0.2s ease !important;
+}
+
+.action-btn-new:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    transform: scale(1.1);
+}
+
+.action-btn-new.delete-btn:hover {
+    background: rgba(255, 77, 79, 0.06) !important;
+}
+
 /* Tabs styling - Minimalist */
 .ant-tabs-nav {
     margin-bottom: 16px !important;
