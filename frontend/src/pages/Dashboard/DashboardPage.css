@@ -94,3 +94,28 @@
 .empty-container {
     padding: 80px 0;
 }
+
+/* Responsive Table height adjustment */
+.responsive-table .ant-table-body {
+    overflow-y: auto !important;
+}
+
+.ant-table-wrapper.history-table {
+    height: 100%;
+}
+
+/* Ensuring pagination stays at bottom */
+.ant-table-pagination.ant-pagination {
+    margin: 16px 0 !important;
+    padding: 0 16px;
+}
+
+@media screen and (max-height: 800px) {
+    .dashboard-header {
+        padding: 16px 0;
+    }
+    
+    .dashboard-search-wrapper {
+        margin: 0 16px;
+    }
+}

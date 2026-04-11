@@ -367,7 +367,36 @@ const DashboardPage = () => {
             key: "extractedFile",
             render: renderFileNames,
         },
-    ], [renderFileNames]);
+        {
+            title: "Actions",
+            key: "actions",
+            width: 120,
+            fixed: 'right',
+            render: (_, record) => (
+                <Space size="middle">
+                    <Tooltip title="View Details">
+                        <Button
+                            type="primary"
+                            shape="circle"
+                            icon={<EyeOutlined />}
+                            onClick={() => handleView(record)}
+                            className="action-btn view-btn"
+                        />
+                    </Tooltip>
+                    <Tooltip title="Delete Record">
+                        <Button
+                            type="primary"
+                            danger
+                            shape="circle"
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(record)}
+                            className="action-btn delete-btn"
+                        />
+                    </Tooltip>
+                </Space>
+            ),
+        },
+    ], [renderFileNames, handleView, handleDelete]);
     const compareColumns = React.useMemo(() => [
         {
             title: "S.no",
@@ -586,8 +615,8 @@ const DashboardPage = () => {
                                         showTotal: (total) => `Total ${total} records`,
                                     }}
                                     onChange={handleIngestTableChange}
-                                    scroll={{ x: 1300 }}
-                                    className="history-table"
+                                    scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+                                    className="history-table responsive-table"
                                     loading={loading}
                                 />
                             </div>
@@ -613,8 +642,8 @@ const DashboardPage = () => {
                                         showTotal: (total) => `Total ${total} records`,
                                     }}
                                     onChange={handleCompareTableChange}
-                                    scroll={{ x: 1000 }}
-                                    className="history-table"
+                                    scroll={{ x: 'max-content', y: 'calc(100vh - 360px)' }}
+                                    className="history-table responsive-table"
                                     loading={loading}
                                 />
                             </div>
