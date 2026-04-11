@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useDeferredValue, memo } from "react";
+import React, { useState, useMemo, useDeferredValue, memo, useEffect } from "react";
 import { Modal, Input, Table, Tag } from "antd";
 import { InfoCircleOutlined, SearchOutlined } from "@ant-design/icons";
 
@@ -9,7 +9,7 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
   const [tableParams, setTableParams] = useState({
-      pagination: { current: 1, pageSize: 8 }
+    pagination: { current: 1, pageSize: 8 }
   });
 
   // Debounce search text
@@ -108,7 +108,7 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
       <div className="mb-4">
         <SearchInput onSearch={setSearchText} />
       </div>
-      <OptimizedTable 
+      <OptimizedTable
         loading={loading}
         dataSource={data}
         columns={columns}
@@ -150,11 +150,11 @@ const OptimizedTable = memo(({ loading, dataSource, columns, total, current, pag
       loading={loading}
       dataSource={dataSource}
       columns={columns}
-      pagination={{ 
+      pagination={{
         total,
         current,
         pageSize,
-        showSizeChanger: false 
+        showSizeChanger: false
       }}
       onChange={onChange}
       rowKey="id"

@@ -84,8 +84,8 @@ const IngestPage = () => {
 
   const fetchGuidelineTypes = async () => {
     try {
-      const response = await guidelineTypeAPI.listTypes();
-      const types = response.data || [];
+      const response = await guidelineTypeAPI.listTypes({ pageSize: 100 });
+      const types = response.data?.items || [];
       setGuidelineTypes(types);
       const typeNames = types.map(t => t.name);
       setSelectedCategories(typeNames);
@@ -97,8 +97,8 @@ const IngestPage = () => {
 
   const fetchInvestors = async () => {
     try {
-      const response = await investorAPI.listInvestors();
-      setInvestors(response.data);
+      const response = await investorAPI.listInvestors({ pageSize: 100 });
+      setInvestors(response.data?.items || []);
     } catch (error) {
       console.error("Failed to fetch investors:", error);
     }
@@ -446,7 +446,7 @@ const IngestPage = () => {
         onFinish={handleSubmit}
         layout="vertical"
         className="w-full"
-        initialValues={{ guideline_type: guidelineTypes.map(t => t.name) }}
+        initialValues={{ guideline_type: Array.isArray(guidelineTypes) ? guidelineTypes.map(t => t.name) : [] }}
       >
         {/* Hidden field to sync chip state with form */}
         <Form.Item name="guideline_type" hidden>
