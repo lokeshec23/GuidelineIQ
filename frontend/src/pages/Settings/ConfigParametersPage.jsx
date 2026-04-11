@@ -1222,13 +1222,10 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                 <div className="relative overflow-hidden -mx-6 -mt-5 mb-4 px-6 py-5 bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-gray-100">
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 text-slate-800 text-xl font-bold tracking-tight">
-                            <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
-                                <DownloadOutlined className="text-white text-lg" />
-                            </div>
                             <div className="flex flex-col">
                                 <span>Import from General Parameters</span>
                                 <span className="text-slate-400 text-xs font-medium uppercase tracking-widest mt-0.5">
-                                    Target: <span className="text-blue-600 font-bold">{investorName}</span>
+                                    Selected Investor: <span className="text-blue-600 font-bold">{investorName}</span>
                                 </span>
                             </div>
                         </div>
@@ -1279,7 +1276,7 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                             >
                                 <span className="text-slate-600 font-bold ml-1 text-sm whitespace-nowrap">
                                     {fetchingIds ? <ReloadOutlined spin className="mr-2 text-blue-500" /> : null}
-                                    All Parameters ({generalTotal})
+                                    Select All ({generalTotal})
                                 </span>
                             </Checkbox>
 
