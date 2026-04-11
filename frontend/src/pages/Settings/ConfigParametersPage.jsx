@@ -1021,6 +1021,8 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
     const [fetchingIds, setFetchingIds] = useState(false);
+    const [isAddGeneralModalVisible, setIsAddGeneralModalVisible] = useState(false);
+    const [generalForm] = Form.useForm();
 
     // Responsive height calculation
     const [scrollY, setScrollY] = useState(450);
@@ -1107,6 +1109,26 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
             console.error("Failed to import parameters:", error);
         } finally {
             setImportLoading(false);
+        }
+    };
+
+    const handleOpenAddGeneral = () => {
+        generalForm.resetFields();
+        const defaultType = guidelineTypes.map(t => t.name);
+        generalForm.setFieldsValue({ guideline_type: defaultType });
+        setIsAddGeneralModalVisible(true);
+    };
+
+    const handleAddGeneralOk = async () => {
+        try {
+            const values = await generalForm.validateFields();
+            // No investor_id means it's a general parameter
+            await dscrAPI.createParameter(values);
+            showToast.success("General parameter created successfully");
+            setIsAddGeneralModalVisible(false);
+            fetchGeneralParameters(); // Refresh the list
+        } catch (error) {
+            console.error("Failed to save general parameter:", error);
         }
     };
 
@@ -1266,6 +1288,14 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        <Button
+                            icon={<PlusOutlined />}
+                            onClick={handleOpenAddGeneral}
+                            className="h-11 rounded-xl bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100 font-bold px-5 transition-all"
+                        >
+                            General Parameter
+                        </Button>
+
                         <div className="flex items-center bg-slate-50 px-5 py-2.5 rounded-xl border border-slate-100 shadow-inner group">
                             <Checkbox
                                 indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
@@ -1340,6 +1370,79 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                     )}
                 </div>
             </div>
+
+            {/* Add General Parameter Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
+                        <PlusOutlined className="text-blue-500" />
+                        Add New General Parameter
+                    </div>
+                }
+                open={isAddGeneralModalVisible}
+                onOk={handleAddGeneralOk}
+                onCancel={() => setIsAddGeneralModalVisible(false)}
+                okText="Create Parameter"
+                destroyOnClose
+                centered
+                maskClosable={false}
+                width={650}
+                className="parameter-modal"
+                okButtonProps={{ className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6" }}
+                cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
+            >
+                <Form
+                    form={generalForm}
+                    layout="vertical"
+                    className="mt-6"
+                    requiredMark={false}
+                >
+                    <Form.Item
+                        name="parameter"
+                        label={<span className="font-medium text-gray-700">Parameter Name</span>}
+                        rules={[{ required: true, message: "Please enter parameter name" }]}
+                    >
+                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                    </Form.Item>
+
+                    <div className="grid grid-cols-2 gap-5 mt-2">
+                        <Form.Item
+                            name="category"
+                            label={<span className="font-medium text-gray-700">Category</span>}
+                            rules={[{ required: true, message: "Please enter category" }]}
+                        >
+                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                        </Form.Item>
+
+                        <Form.Item
+                            name="subcategory"
+                            label={<span className="font-medium text-gray-700">Subcategory</span>}
+                            initialValue="Feature Eligibility"
+                        >
+                            <Input placeholder="Optional" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                        </Form.Item>
+                    </div>
+
+                    <Form.Item
+                        name="guideline_type"
+                        label={<span className="font-medium text-gray-700">Guideline Compatibility</span>}
+                        rules={[{ required: true, message: "Please select at least one guideline type" }]}
+                        className="mt-2 mb-0"
+                    >
+                        <Checkbox.Group
+                            className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
+                        >
+                            <div className="flex gap-6 flex-wrap">
+                                {guidelineTypes.map(type => (
+                                    <Checkbox key={type.id} value={type.name}>
+                                        <span className="text-gray-700 font-medium ml-1">{type.name}</span>
+                                    </Checkbox>
+                                ))}
+                            </div>
+                        </Checkbox.Group>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </Modal>
     );
 });
