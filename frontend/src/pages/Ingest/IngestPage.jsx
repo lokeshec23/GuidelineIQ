@@ -562,11 +562,11 @@ const IngestPage = () => {
         {/* ===== Guideline Configuration Card ===== */}
         <div className="ingest-card">
           <div className="ingest-card-title">
-            <AppstoreOutlined /> Guideline Configuration
+            <AppstoreOutlined /> Guideline Types
           </div>
-          <div className="mb-4">
+          {/* <div className="mb-4">
             <p className="text-gray-500 text-sm mb-6">Select investor context and document categories for extraction</p>
-          </div>
+          </div> */}
 
 
           {/* Category Chips */}
