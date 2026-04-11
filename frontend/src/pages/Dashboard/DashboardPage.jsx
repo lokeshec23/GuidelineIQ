@@ -296,7 +296,12 @@ const DashboardPage = () => {
             dataIndex: "version",
             key: "version",
             width: 100,
-            render: (text) => text || " - ",
+            align: "center",
+            render: (text) => {
+                if (!text) return " - ";
+                // Strip type suffix (e.g., "1_fulldoc" -> "1")
+                return text.split('_')[0];
+            },
         },
         {
             title: "Guideline Type",
