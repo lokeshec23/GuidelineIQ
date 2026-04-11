@@ -60,85 +60,214 @@
     margin: 4px 0 0 0;
 }
 
-/* Chips */
-.chip-controls {
+/* Chips Header & Search */
+.chip-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-}
-
-.chip-controls__label {
-    font-size: 14px;
-    font-weight: 500;
-    color: #64748b;
-}
-
-.chip-controls__toggle {
-    background: none;
-    border: none;
-    color: #3b82f6;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 0;
-}
-
-.guideline-chips {
-    display: flex;
-    gap: 10px;
+    margin-bottom: 20px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
-.guideline-chip {
-    padding: 8px 16px;
-    border-radius: 20px;
+.chip-search {
+    position: relative;
+    flex: 1;
+    min-width: 250px;
+    display: flex;
+    align-items: center;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    color: #94a3b8;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.category-search-input {
+    width: 100%;
+    padding: 10px 40px 10px 38px;
+    border-radius: 10px;
     border: 1px solid #e2e8f0;
     background: #f8fafc;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.category-search-input:focus {
+    border-color: #3b82f6;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.clear-search {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.clear-search:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.chip-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.chip-controls__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.chip-controls__toggle {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #3b82f6;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.chip-controls__toggle:hover {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+}
+
+/* Category Chips Grid */
+.guideline-chips-wrapper {
+    min-height: 100px;
+}
+
+.guideline-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.guideline-chip {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #64748b;
-    transition: all 0.2s ease;
+    justify-content: space-between;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 
 .guideline-chip:hover {
     border-color: #cbd5e1;
-    background: #f1f5f9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.chip-main-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.chip-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .guideline-chip--active {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-width: 2px;
+    box-shadow: 0 4px 15px var(--chip-color-transparent, rgba(59, 130, 246, 0.2));
 }
 
-.guideline-chip--active .chip-icon {
-    color: inherit !important;
+.guideline-chip--active .chip-text {
+    font-weight: 600;
+    color: inherit;
 }
 
 .chip-icon {
-    font-size: 14px;
+    font-size: 16px;
+    flex-shrink: 0;
 }
 
 .chip-info-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    margin-left: 4px;
-    color: inherit;
-    opacity: 0.6;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    color: #94a3b8;
     transition: all 0.2s ease;
+    margin-left: 8px;
 }
 
 .chip-info-icon:hover {
-    opacity: 1;
     background: rgba(0, 0, 0, 0.05);
+    color: #64748b;
     transform: scale(1.1);
+}
+
+.guideline-chip--active .chip-info-icon {
+    color: inherit;
+}
+
+/* Empty State */
+.no-categories-found {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background: #f8fafc;
+    border: 1px dashed #e2e8f0;
+    border-radius: 12px;
+    color: #64748b;
+    gap: 12px;
+}
+
+.no-categories-found .anticon {
+    font-size: 24px;
+    opacity: 0.5;
+}
+
+.no-categories-found button {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
 }
 
 .category-info-modal .ant-modal-content {

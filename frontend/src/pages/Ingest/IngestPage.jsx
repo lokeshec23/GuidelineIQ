@@ -75,6 +75,7 @@ const IngestPage = () => {
   const [infoModalData, setInfoModalData] = useState([]);
   const [infoModalLoading, setInfoModalLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState("");
+  const [categorySearch, setCategorySearch] = useState(""); // ✅ Added search term state
 
   useEffect(() => {
     fetchModelsAndSettings();
@@ -157,6 +158,14 @@ const IngestPage = () => {
     setActiveCategory(categoryName);
     setInfoModalVisible(true);
   };
+
+  // --- FILTERED CATEGORIES ---
+  const filteredCategories = useMemo(() => {
+    if (!categorySearch) return guidelineTypes;
+    return guidelineTypes.filter(cat =>
+      cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+    );
+  }, [guidelineTypes, categorySearch]);
 
   // --- FILE HANDLERS ---
   const handleFileChange = (info) => {
@@ -570,58 +579,114 @@ const IngestPage = () => {
 
 
           {/* Category Chips */}
-          <div>
+          {/* Category Search and Controls */}
+          <div className="chip-header">
+            <div className="chip-search">
+              <SearchOutlined className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search guideline types..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                className="category-search-input"
+              />
+              {categorySearch && (
+                <button
+                  className="clear-search"
+                  onClick={() => setCategorySearch("")}
+                >
+                  <DeleteOutlined />
+                </button>
+              )}
+            </div>
+
             <div className="chip-controls">
-              <span className="chip-controls__label">Document Categories</span>
+              <span className="chip-controls__label">
+                {selectedCategories.length} / {guidelineTypes.length} Selected
+              </span>
               <button
                 type="button"
                 className="chip-controls__toggle"
                 onClick={() => {
-                  const allCats = guidelineTypes.map(t => t.name);
-                  const next = selectedCategories.length === allCats.length ? [] : allCats;
+                  const currentNames = (categorySearch ? filteredCategories : guidelineTypes).map(t => t.name);
+                  const allSelected = currentNames.every(name => selectedCategories.includes(name));
+
+                  let next;
+                  if (allSelected) {
+                    // Deselect all in the current view
+                    next = selectedCategories.filter(name => !currentNames.includes(name));
+                  } else {
+                    // Select all in the current view
+                    next = [...new Set([...selectedCategories, ...currentNames])];
+                  }
+
                   setSelectedCategories(next);
                   form.setFieldsValue({ guideline_type: next });
                 }}
               >
-                {selectedCategories.length === guidelineTypes.length ? "Deselect All" : "Select All"}
+                {(categorySearch ? filteredCategories : guidelineTypes).every(t => selectedCategories.includes(t.name))
+                  ? "Deselect All"
+                  : "Select All"}
               </button>
             </div>
+          </div>
+
+          {/* Category Chips Container */}
+          <div className="guideline-chips-wrapper">
             <div className="guideline-chips">
-              {guidelineTypes.map((cat) => {
-                const isActive = selectedCategories.includes(cat.name);
-                return (
-                  <div
-                    key={cat.id}
-                    className={`guideline-chip ${isActive ? 'guideline-chip--active' : ""}`}
-                    style={isActive ? { borderColor: cat.color || '#3b82f6', background: `${cat.color || '#3b82f6'}15`, color: cat.color || '#3b82f6' } : {}}
-                    onClick={() => {
-                      const next = isActive
-                        ? selectedCategories.filter((c) => c !== cat.name)
-                        : [...selectedCategories, cat.name];
-                      setSelectedCategories(next);
-                      form.setFieldsValue({ guideline_type: next });
-                    }}
-                  >
-                    {isActive ? (
-                      <CheckCircleFilled className="chip-icon" />
-                    ) : (
-                      <PlusCircleOutlined className="chip-icon" />
-                    )}
-                    {cat.name}
-                    <Tooltip title="View configuration parameters">
-                      <div
-                        className="chip-info-icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCategoryInfoClick(cat.name);
-                        }}
-                      >
-                        <InfoCircleOutlined />
+              {filteredCategories.length > 0 ? (
+                filteredCategories.map((cat) => {
+                  const isActive = selectedCategories.includes(cat.name);
+                  const chipColor = cat.color || '#3b82f6';
+
+                  return (
+                    <div
+                      key={cat.id}
+                      className={`guideline-chip ${isActive ? 'guideline-chip--active' : ""}`}
+                      style={isActive ? {
+                        '--chip-color': chipColor,
+                        borderColor: chipColor,
+                        background: `${chipColor}15`,
+                        color: chipColor
+                      } : {}}
+                      onClick={() => {
+                        const next = isActive
+                          ? selectedCategories.filter((c) => c !== cat.name)
+                          : [...selectedCategories, cat.name];
+                        setSelectedCategories(next);
+                        form.setFieldsValue({ guideline_type: next });
+                      }}
+                    >
+                      <div className="chip-main-content">
+                        {isActive ? (
+                          <CheckCircleFilled className="chip-icon" />
+                        ) : (
+                          <PlusCircleOutlined className="chip-icon" />
+                        )}
+                        <span className="chip-text">{cat.name}</span>
                       </div>
-                    </Tooltip>
-                  </div>
-                );
-              })}
+
+                      <Tooltip title="View configuration parameters">
+                        <div
+                          className="chip-info-icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCategoryInfoClick(cat.name);
+                          }}
+                        >
+                          <InfoCircleOutlined />
+                        </div>
+                      </Tooltip>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="no-categories-found">
+                  <InfoCircleOutlined />
+                  <span>No categories matching "{categorySearch}"</span>
+                  <button onClick={() => setCategorySearch("")}>Clear Search</button>
+                </div>
+              )}
             </div>
           </div>
         </div>
