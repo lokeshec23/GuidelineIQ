@@ -253,7 +253,9 @@ export const dscrAPI = {
   getGuidelineTypes: () => api.get("/dscr-parameters/guideline-types"),
   bulkCreateParameters: (data) => api.post("/dscr-parameters/bulk", data),
   importFromGeneral: (data) => api.post("/dscr-parameters/import-from-general", data),
+  getParameterIds: (params) => api.get("/dscr-parameters/ids", { params }),
 };
+
 
 // Export API_BASE_URL for use in components
 export { API_BASE_URL };

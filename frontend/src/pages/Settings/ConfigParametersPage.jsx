@@ -1003,6 +1003,7 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     const [importSearchText, setImportSearchText] = useState("");
     const [debouncedImportSearchText, setDebouncedImportSearchText] = useState("");
     const [generalParamsLoading, setGeneralParamsLoading] = useState(false);
+    const [fetchingIds, setFetchingIds] = useState(false);
 
     // Debounce search text
     useEffect(() => {
@@ -1078,13 +1079,24 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
         }
     };
 
-    const handleSelectAll = (checked) => {
+    const handleSelectAll = async (checked) => {
         if (checked) {
-            const visibleIds = generalParams.map(p => p.id);
-            setSelectedParamIds(prev => [...new Set([...prev, ...visibleIds])]);
+            setFetchingIds(true);
+            try {
+                const params = {
+                    search: debouncedImportSearchText,
+                    filters: generalTableParams.filters ? JSON.stringify(generalTableParams.filters) : undefined
+                };
+                const response = await dscrAPI.getParameterIds(params);
+                setSelectedParamIds(response.data || []);
+            } catch (error) {
+                console.error("Failed to fetch all parameter IDs:", error);
+                showToast.error("Failed to select all records");
+            } finally {
+                setFetchingIds(false);
+            }
         } else {
-            const visibleIds = generalParams.map(p => p.id);
-            setSelectedParamIds(prev => prev.filter(id => !visibleIds.includes(id)));
+            setSelectedParamIds([]);
         }
     };
 
@@ -1217,17 +1229,17 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                         <div className="flex items-center bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
                             <Checkbox
                                 indeterminate={selectedParamIds.length > 0 && selectedParamIds.length < generalTotal}
-                                checked={
-                                    generalParams.length > 0 &&
-                                    generalParams.every(p => selectedParamIds.includes(p.id))
-                                }
+                                checked={generalTotal > 0 && selectedParamIds.length === generalTotal}
                                 onChange={e => handleSelectAll(e.target.checked)}
                                 className="custom-checkbox"
+                                disabled={fetchingIds}
                             >
                                 <span className="text-gray-600 font-semibold ml-1">
-                                    Select Page ({generalParams.length})
+                                    {fetchingIds ? <ReloadOutlined spin className="mr-2" /> : null}
+                                    Select All ({generalTotal})
                                 </span>
                             </Checkbox>
+
                             <Divider type="vertical" className="mx-4 h-5 border-gray-200" />
                             <div className="flex items-center gap-2">
                                 <span className="text-blue-600 font-bold text-lg leading-none">

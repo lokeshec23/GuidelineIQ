@@ -22,24 +22,16 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int
     pageSize: int
 
-async def paginate_query(
-    db: AsyncSession,
+def apply_query_filters(
     query,
     model: Any,
     params: Union[PaginationParams, Dict[str, Any]],
     search_fields: List[str] = []
 ):
     """
-    Applies search, specific column filters, sorting, and pagination to a SQLAlchemy query.
-    
-    Args:
-        db: AsyncSession
-        query: The base SQLAlchemy query (select statement)
-        model: The SQLAlchemy model class
-        params: PaginationParams object or dict
-        search_fields: List of field names to include in search
+    Applies search and column filters to a SQLAlchemy query.
+    Used by both paginated and non-paginated (e.g. ID list) endpoints.
     """
-    # Convert dict to PaginationParams if needed
     if isinstance(params, dict):
         params = PaginationParams(**params)
 
@@ -65,8 +57,7 @@ async def paginate_query(
                     if isinstance(values, list):
                         if len(values) > 0:
                             if field_name == "guideline_type":
-                                # Special handling for guideline_type JSON array: 
-                                # check if any of the values are in the JSON or if "All" is present
+                                # Special handling for guideline_type JSON array
                                 type_filters = [cast(field, String).ilike(f"%{v}%") for v in values]
                                 type_filters.append(cast(field, String).ilike("%All%"))
                                 query = query.where(or_(*type_filters))
@@ -81,8 +72,25 @@ async def paginate_query(
                         else:
                             query = query.where(field == values)
         except Exception as e:
-            # Log error but don't break the query
             print(f"Error applying filters: {e}")
+    
+    return query
+
+async def paginate_query(
+    db: AsyncSession,
+    query,
+    model: Any,
+    params: Union[PaginationParams, Dict[str, Any]],
+    search_fields: List[str] = []
+):
+    """
+    Applies search, specific column filters, sorting, and pagination to a SQLAlchemy query.
+    """
+    if isinstance(params, dict):
+        params = PaginationParams(**params)
+
+    # 1 & 2. Apply Search and Filters via helper
+    query = apply_query_filters(query, model, params, search_fields)
 
     # 3. Get Total Count Before Pagination
     count_query = select(func.count()).select_from(query.subquery())
@@ -97,7 +105,6 @@ async def paginate_query(
         else:
             query = query.order_by(sort_col.asc())
     elif hasattr(model, 'created_at'):
-        # Default sorting by created_at if available
         query = query.order_by(model.created_at.desc())
     elif hasattr(model, 'id'):
         query = query.order_by(model.id)
@@ -109,7 +116,7 @@ async def paginate_query(
 
     # 6. Execute Final Query
     result = await db.execute(query)
-    items = result.scalars().unique().all() # unique() is important for joined loads
+    items = result.scalars().unique().all()
 
     return {
         "items": items,
@@ -117,3 +124,4 @@ async def paginate_query(
         "page": params.page,
         "pageSize": params.pageSize
     }
+
