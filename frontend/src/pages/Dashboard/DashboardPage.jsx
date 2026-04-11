@@ -160,9 +160,9 @@ const DashboardPage = () => {
         // If this handler closes over stale state, it might be an issue, but since activeTab is in dependency 
         // array (or we can derive from record structure), it should be fine.
         // Actually, safer to derive from record properties if possible, but simplicity first with correct deps.
-        const isIngest = record.investor !== undefined; // Simple heuristic or rely on activeTab
+        const isComparison = record.uploadedFile1 !== undefined;
 
-        if (isIngest) {
+        if (!isComparison) {
             const investor = record.investor || " - ";
             const version = record.version || " - ";
             setPreviewTitle(`${investor} - ${version}`);
@@ -407,6 +407,25 @@ const DashboardPage = () => {
             render: (text, record, index) => {
                 const { current, pageSize } = compareTableParams.pagination;
                 return (current - 1) * pageSize + index + 1;
+            },
+        },
+        {
+            title: "Investor",
+            dataIndex: "investor",
+            key: "investor",
+            width: 150,
+            render: (text) => text || " - ",
+        },
+        {
+            title: "Version",
+            dataIndex: "version",
+            key: "version",
+            width: 100,
+            align: "center",
+            render: (text) => {
+                if (!text) return " - ";
+                // Strip type suffix (e.g., "1_fulldoc" -> "1")
+                return text.split('_')[0];
             },
         },
         {
