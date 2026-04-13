@@ -155,6 +155,16 @@ async def chat_with_session(
     preview_data = getattr(record, "preview_data", None)
     investor = getattr(record, "investor", "")
     version = getattr(record, "version", "")
+    guideline_type = getattr(record, "guideline_type", None)
+    
+    # Ingestion might have appended a suffix to the version based on guideline_type
+    # Example: v1_fulldoc -> Qdrant has 'v1'
+    original_version = version
+    if version and guideline_type:
+        type_suffix = f"_{guideline_type.lower().replace(' ', '')}"
+        if version.endswith(type_suffix):
+            original_version = version[:-len(type_suffix)]
+
     extracted_file = getattr(record, "extracted_file", None)
     
     # Validation: strict for ingestion (needs file), loose for comparison (needs data)
@@ -190,8 +200,8 @@ async def chat_with_session(
         # Base filters
         if investor:
             filter_metadata["lender"] = investor
-        if version:
-            filter_metadata["version"] = version
+        if original_version:
+            filter_metadata["version"] = original_version
 
         # Mode-specific filtering
         if mode == "excel":

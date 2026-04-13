@@ -275,9 +275,13 @@ async def process_guideline_background(
             
             logger.info(f"Multi-Type Extraction Complete. Types: {list(all_preview_data.keys())}")
 
-            # === STEP 6.5: Index Extracted DSCR Parameters for Chat (Excel Mode) ===
-            dscr_results = all_preview_data.get("DSCR", [])
-            if dscr_results:
+            # === STEP 6.5: Index Extracted Parameters for Chat (Excel Mode) ===
+            all_extracted_results = []
+            for g_type, results in all_preview_data.items():
+                if results:
+                    all_extracted_results.extend(results)
+                    
+            if all_extracted_results:
                 update_progress(session_id, 96, "Indexing extracted DSCR rules...")
                 try:
                     rule_docs = []
@@ -291,13 +295,13 @@ async def process_guideline_background(
                     safe_version = version.replace(" ", "_")
                     dynamic_col_name = f"{safe_investor}_{safe_version}"
                     
-                    for idx, item in enumerate(dscr_results):
+                    for idx, item in enumerate(all_extracted_results):
                         # Skip items with no useful info
                         summary = item.get(dynamic_col_name, item.get('NQMF Investor DSCR', ''))
                         if not summary or summary in ["Not present", "NA", "N/A", "Error extraction", "No summary provided."]:
                             continue
                             
-                        # keys in dscr_results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, {investor}_{version}
+                        # keys in extract results: DSCR_Parameters, Variance_Category, SubCategory, PPE_Field_Type, {investor}_{version}
                         text_content = f"Parameter: {item['DSCR_Parameters']}\n" \
                                        f"Category: {item.get('Variance_Category', '')} - {item.get('SubCategory', '')}\n" \
                                        f"Rule/Guideline: {summary}"
@@ -316,7 +320,7 @@ async def process_guideline_background(
                             }
                         })
 
-                    logger.info(f"📋 Found {len(dscr_results)} total DSCR parameters")
+                    logger.info(f"📋 Found {len(all_extracted_results)} total parameters")
                     logger.info(f"📋 Prepared {len(items_to_embed)} rules for indexing (skipped NA/empty entries)")
 
                     # Helper for embedding (consistent with PDF chunks)
@@ -372,10 +376,10 @@ async def process_guideline_background(
                         # Also index for BM25 within the current pipeline instance
                         pipeline.hybrid_retriever.index_chunks(chunks_for_indexing)
                         
-                        logger.info(f"✅ RAG: Stored {len(chunks_for_indexing)} derived DSCR rules in Qdrant.")
+                        logger.info(f"✅ RAG: Stored {len(chunks_for_indexing)} derived rules in Qdrant.")
                         logger.info("✅ Excel mode search is now ENABLED for this session!")
                     else:
-                        logger.warning("⚠️ No valid DSCR rules to index.")
+                        logger.warning("⚠️ No valid rules to index.")
 
                 except Exception as idx_err:
                      logger.error(f"⚠️ Failed to index extracted rules: {idx_err}")
