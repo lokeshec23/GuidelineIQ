@@ -35,7 +35,11 @@ async def get_ingest_history(
 ):
     """Get logged-in user's ingest history with pagination"""
     user_id = str(current_user.id)
-    query = select(IngestHistory).where(IngestHistory.user_id == user_id)
+    query = select(IngestHistory).where(
+        IngestHistory.user_id == user_id,
+        IngestHistory.preview_data != None,
+        IngestHistory.preview_data != []
+    )
     
     paginated_result = await paginate_query(
         db, 
@@ -105,7 +109,11 @@ async def get_compare_history(
 ):
     """Get logged-in user's compare history with pagination"""
     user_id = str(current_user.id)
-    query = select(CompareHistory).where(CompareHistory.user_id == user_id)
+    query = select(CompareHistory).where(
+        CompareHistory.user_id == user_id,
+        CompareHistory.preview_data != None,
+        CompareHistory.preview_data != []
+    )
     
     paginated_result = await paginate_query(
         db, 
