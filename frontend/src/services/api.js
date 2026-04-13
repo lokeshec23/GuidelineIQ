@@ -254,6 +254,14 @@ export const dscrAPI = {
   bulkCreateParameters: (data) => api.post("/dscr-parameters/bulk", data),
   importFromGeneral: (data) => api.post("/dscr-parameters/import-from-general", data),
   getParameterIds: (params) => api.get("/dscr-parameters/ids", { params }),
+  getUniqueValues: (fieldName, investorId, guidelineType) =>
+    api.get("/dscr-parameters/unique-values", {
+      params: {
+        field: fieldName,
+        investor_id: investorId,
+        guideline_type: guidelineType
+      }
+    }),
 };
 
 

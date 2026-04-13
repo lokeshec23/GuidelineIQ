@@ -109,6 +109,38 @@ async def list_parameters(
     logger.info(f"Paginated list_parameters with stats took {time.time() - start_time:.4f}s")
     return result
 
+@router.get("/unique-values")
+async def get_unique_values(
+    field: str,
+    investor_id: Optional[str] = None,
+    guideline_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Return unique values for category or subcategory to populate filter dropdowns."""
+    if field not in ["category", "subcategory"]:
+        raise HTTPException(status_code=400, detail="Invalid field")
+    
+    query = select(getattr(DSCRParameter, field)).distinct()
+    
+    # Filter by specific investor_id, or None for general parameters
+    if investor_id == "null" or investor_id is None:
+        query = query.where(DSCRParameter.investor_id == None)
+    elif investor_id != "all":
+        query = query.where(DSCRParameter.investor_id == investor_id)
+        
+    if guideline_type:
+        # Special handling for guideline_type JSON array or list
+        query = query.where(or_(
+            cast(DSCRParameter.guideline_type, String).ilike(f"%{guideline_type}%"),
+            cast(DSCRParameter.guideline_type, String).ilike("%All%")
+        ))
+        
+    result = await db.execute(query)
+    values = result.scalars().all()
+    
+    # Filter out None/Empty and return sorted
+    return sorted([v for v in values if v])
+
 
 @router.get("/guideline-types")
 async def get_guideline_types():

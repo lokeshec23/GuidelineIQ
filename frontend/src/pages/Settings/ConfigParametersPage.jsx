@@ -775,7 +775,7 @@ const ConfigParametersPage = () => {
                 title={
                     <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">
                         <TeamOutlined className="text-blue-500" />
-                        Manage Investors
+                        Manage Investors & Types
                     </div>
                 }
                 open={isManageInvestorsVisible}

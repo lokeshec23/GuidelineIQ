@@ -1,14 +1,25 @@
-import React, { useState, useMemo, useDeferredValue, memo, useEffect } from "react";
-import { Modal, Input, Table, Tag } from "antd";
-import { InfoCircleOutlined, SearchOutlined } from "@ant-design/icons";
+import React, { useState, useMemo, memo, useEffect } from "react";
+import { Modal, Input, Table, Tag, Select, Row, Col, Button } from "antd";
+import { InfoCircleOutlined, SearchOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import { dscrAPI } from "../services/api";
+
+const { Option } = Select;
 
 const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  
+  // Filters State
   const [searchText, setSearchText] = useState("");
   const [debouncedSearchText, setDebouncedSearchText] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState([]);
+  
+  // Options for filters
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [subcategoryOptions, setSubcategoryOptions] = useState([]);
+
   const [tableParams, setTableParams] = useState({
     pagination: { current: 1, pageSize: 8 }
   });
@@ -21,12 +32,41 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  // Fetch filter options when visible
+  useEffect(() => {
+    if (visible && investorId && categoryName) {
+      fetchFilterOptions();
+    }
+  }, [visible, investorId, categoryName]);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const [cats, subcats] = await Promise.all([
+        dscrAPI.getUniqueValues("category", investorId, categoryName),
+        dscrAPI.getUniqueValues("subcategory", investorId, categoryName)
+      ]);
+      setCategoryOptions(cats.data || []);
+      setSubcategoryOptions(subcats.data || []);
+    } catch (err) {
+      console.error("Failed to fetch filter options:", err);
+    }
+  };
+
   // Handle data fetching
   useEffect(() => {
     if (visible && investorId && categoryName) {
       fetchData();
     }
-  }, [visible, investorId, categoryName, tableParams.pagination.current, tableParams.pagination.pageSize, debouncedSearchText]);
+  }, [
+    visible, 
+    investorId, 
+    categoryName, 
+    tableParams.pagination.current, 
+    tableParams.pagination.pageSize, 
+    debouncedSearchText,
+    selectedCategories,
+    selectedSubcategories
+  ]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -34,6 +74,15 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
       const filters = {
         guideline_type: [categoryName]
       };
+      
+      if (selectedCategories.length > 0) {
+        filters.category = selectedCategories;
+      }
+      
+      if (selectedSubcategories.length > 0) {
+        filters.subcategory = selectedSubcategories;
+      }
+
       const params = {
         page: tableParams.pagination.current,
         pageSize: tableParams.pagination.pageSize,
@@ -54,8 +103,13 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
     setTableParams({ pagination });
   };
 
-  // Memoize columns to prevent table re-structure on every render
-  // Memoize columns
+  const clearFilters = () => {
+    setSearchText("");
+    setSelectedCategories([]);
+    setSelectedSubcategories([]);
+    setTableParams(prev => ({ ...prev, pagination: { ...prev.pagination, current: 1 } }));
+  };
+
   const columns = useMemo(() => [
     {
       title: "Parameter Name",
@@ -84,10 +138,12 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
     }
   ], []);
 
-  // Clean up when closing
   const handleCancel = () => {
-    setSearchText("");
     onClose();
+    // Reset filters on close for fresh start next time
+    setTimeout(() => {
+        clearFilters();
+    }, 300);
   };
 
   return (
@@ -101,14 +157,77 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
       open={visible}
       onCancel={handleCancel}
       footer={null}
-      width={800}
+      width={900}
       centered
       className="category-info-modal"
       destroyOnClose
     >
-      <div className="mb-4">
-        <SearchInput onSearch={setSearchText} />
+      <div className="filter-section-container mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+         <Row gutter={[16, 16]}>
+            <Col xs={24} md={8}>
+              <div className="filter-item">
+                <span className="text-[12px] font-semibold text-gray-500 mb-1 block">Search</span>
+                <Input
+                  placeholder="Parameter name..."
+                  prefix={<SearchOutlined className="text-gray-400" />}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  allowClear
+                  className="h-10 rounded-lg"
+                />
+              </div>
+            </Col>
+            <Col xs={24} md={7}>
+              <div className="filter-item">
+                <span className="text-[12px] font-semibold text-gray-500 mb-1 block">Category</span>
+                <Select
+                  mode="multiple"
+                  placeholder="All Categories"
+                  maxTagCount="responsive"
+                  className="w-full h-10 custom-select"
+                  style={{ borderRadius: '8px' }}
+                  value={selectedCategories}
+                  onChange={setSelectedCategories}
+                  allowClear
+                >
+                  {categoryOptions.map(opt => (
+                    <Option key={opt} value={opt}>{opt}</Option>
+                  ))}
+                </Select>
+              </div>
+            </Col>
+            <Col xs={24} md={7}>
+              <div className="filter-item">
+                <span className="text-[12px] font-semibold text-gray-500 mb-1 block">Sub Category</span>
+                <Select
+                  mode="multiple"
+                  placeholder="All Sub Categories"
+                  maxTagCount="responsive"
+                  className="w-full h-10 custom-select"
+                  style={{ borderRadius: '8px' }}
+                  value={selectedSubcategories}
+                  onChange={setSelectedSubcategories}
+                  allowClear
+                >
+                  {subcategoryOptions.map(opt => (
+                    <Option key={opt} value={opt}>{opt}</Option>
+                  ))}
+                </Select>
+              </div>
+            </Col>
+            <Col xs={24} md={2} className="flex items-end">
+              <Button 
+                type="text" 
+                danger 
+                icon={<CloseCircleOutlined />} 
+                onClick={clearFilters}
+                className="h-10 flex items-center justify-center w-full"
+                title="Clear all filters"
+              />
+            </Col>
+         </Row>
       </div>
+
       <OptimizedTable
         loading={loading}
         dataSource={data}
@@ -122,29 +241,6 @@ const CategoryInfoModal = ({ visible, onClose, categoryName, investorId }) => {
   );
 };
 
-// Sub-component to isolate search state and prevent re-rendering the whole Modal on every keystroke
-const SearchInput = memo(({ onSearch }) => {
-  const [innerValue, setInnerValue] = useState("");
-
-  const handleChange = (e) => {
-    const val = e.target.value;
-    setInnerValue(val);
-    onSearch(val);
-  };
-
-  return (
-    <Input
-      placeholder="Search parameters or categories..."
-      prefix={<SearchOutlined className="text-gray-400" />}
-      value={innerValue}
-      onChange={handleChange}
-      allowClear
-      className="h-10 rounded-lg"
-    />
-  );
-});
-
-// Memoized Table to prevent re-renders unless data or columns actually change
 const OptimizedTable = memo(({ loading, dataSource, columns, total, current, pageSize, onChange }) => {
   return (
     <Table
@@ -155,7 +251,8 @@ const OptimizedTable = memo(({ loading, dataSource, columns, total, current, pag
         total,
         current,
         pageSize,
-        showSizeChanger: false
+        showSizeChanger: false,
+        className: "custom-pagination"
       }}
       onChange={onChange}
       rowKey="id"
