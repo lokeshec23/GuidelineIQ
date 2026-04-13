@@ -537,12 +537,14 @@ const ExcelPreviewModal = ({
                                 color: white !important;
                                 font-weight: bold !important;
                                 border-bottom: 1px solid #d9d9d9 !important;
-                                border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+                                border-right: 1px solid #d9d9d9 !important;
+                                border-left: 1px solid #d9d9d9 !important;
                                 text-align: center !important;
                             }
                             
                             .antd-excel-preview-table .ant-table-tbody > tr > td {
-                                border-right: 1px solid #f0f0f0 !important;
+                                border-right: 1px solid #d9d9d9 !important;
+                                border-left: 1px solid #d9d9d9 !important;
                                 vertical-align: top !important;
                                 padding: 4px 8px !important;
                             }
@@ -553,6 +555,11 @@ const ExcelPreviewModal = ({
 
                             .antd-excel-column {
                                 min-width: 50px;
+                            }
+
+                            /* Ensure the table itself has a clean outer border */
+                            .antd-excel-preview-table {
+                                border: 1px solid #d9d9d9 !important;
                             }
                         `}</style>
                         <OptimizedTable
@@ -673,6 +680,7 @@ const OptimizedTable = memo(({ loading, dataSource, columns, onChange }) => {
             rowClassName="antd-excel-row"
             size="small"
             virtual
+            bordered
         />
     );
 });
