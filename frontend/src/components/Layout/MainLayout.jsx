@@ -157,12 +157,12 @@ const MainLayout = ({ children }) => {
       return {
         key: item.key,
         label: (
-          <span className={`ml-1 transition-all duration-200 ${isActive ? "font-semibold text-blue-600" : "text-gray-600"}`}>
+          <span className={`ml-1 transition-all duration-200 ${isActive ? "font-semibold text-blue-600" : "text-white-600"}`}>
             {item.label}
           </span>
         ),
         icon: (
-          <div className={`menu-item-icon-wrapper ${isActive ? "text-blue-600" : "text-gray-500"}`}>
+          <div className={`menu-item-icon-wrapper ${isActive ? "text-blue-600" : "text-white-500"}`}>
             {React.cloneElement(item.icon, { style: { fontSize: "18px" } })}
           </div>
         ),

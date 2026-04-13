@@ -529,3 +529,9 @@ code {
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+/* Sidebar Menu Tooltip Styling */
+.ant-tooltip-inner {
+  color: #ffffff !important;
+}
+
