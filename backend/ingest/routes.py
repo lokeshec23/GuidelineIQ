@@ -364,7 +364,13 @@ async def download_result(
                 # Generate temp Excel file from preview_data
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
                 hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
-                dynamic_json_to_excel(extract_data, tmp.name, hidden_columns=hidden_columns)
+                
+                header_map = {
+                    "DSCR_Parameters": "Parameters",
+                    "Hard_Soft_Classification": "PPE Field Type"
+                }
+                
+                dynamic_json_to_excel(extract_data, tmp.name, header_map=header_map, hidden_columns=hidden_columns)
                 
                 return FileResponse(
                     tmp.name,
