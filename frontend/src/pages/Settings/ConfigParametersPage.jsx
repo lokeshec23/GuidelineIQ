@@ -664,10 +664,10 @@ const ConfigParametersPage = () => {
                 {/* Table */}
                 {loading ? (
                     <div className="p-6">
-                        <TableSkeleton rows={8} columns={5} />
+                        <TableSkeleton rows={8} columns={5} showHeader={false} />
                     </div>
                 ) : (
-                    <div className="p-6">
+                    <div className="p-6 animate-fade-in">
                         <OptimizedTable
                             columns={columns}
                             dataSource={parameters}
@@ -1509,7 +1509,7 @@ const OptimizedTable = memo(({
             onChange={onChange}
             className={className}
             rowClassName={rowClassName || (() => "hover:bg-blue-50/30 transition-colors cursor-pointer")}
-            virtual
+            virtual={false}
             scroll={scroll}
             rowSelection={rowSelection}
             size={size}

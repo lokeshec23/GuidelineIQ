@@ -1,27 +1,29 @@
 import React from 'react';
 import { Skeleton, Space, Card } from 'antd';
 
-export const TableSkeleton = ({ rows = 5, columns = 5 }) => {
+export const TableSkeleton = ({ rows = 5, columns = 5, showHeader = true }) => {
     return (
         <div className="w-full space-y-4">
-            <div className="flex justify-between items-center mb-4">
-                <Skeleton.Input active size="large" style={{ width: 200 }} />
-                <Skeleton.Button active size="large" />
-            </div>
-            <div className="border border-gray-100 rounded-lg overflow-hidden">
-                <table className="w-full">
+            {showHeader && (
+                <div className="flex justify-between items-center mb-4">
+                    <Skeleton.Input active size="large" style={{ width: 200 }} />
+                    <Skeleton.Button active size="large" />
+                </div>
+            )}
+            <div className="border border-gray-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full border-collapse">
                     <thead>
-                        <tr className="bg-gray-50">
+                        <tr className="bg-gray-50/50">
                             {[...Array(columns)].map((_, i) => (
-                                <th key={i} className="p-4">
-                                    <Skeleton.Input active size="small" block />
+                                <th key={i} className="p-4 border-b border-gray-100 text-left">
+                                    <Skeleton.Input active size="small" style={{ width: '80%' }} />
                                 </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
                         {[...Array(rows)].map((_, i) => (
-                            <tr key={i} className="border-t border-gray-100">
+                            <tr key={i} className="border-b border-gray-50 last:border-0">
                                 {[...Array(columns)].map((_, j) => (
                                     <td key={j} className="p-4">
                                         <Skeleton.Input active size="small" block />
