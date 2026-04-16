@@ -510,15 +510,15 @@ const ExcelPreviewModal = ({
                     <div
                         className="flex-1"
                         style={{
-                            overflow: "hidden",
+                            overflow: "auto",
                             scrollbarWidth: "thin",
                             scrollbarColor: "#888 #f1f1f1",
                         }}
                     >
                         <style>{`
                             .flex-1::-webkit-scrollbar {
-                                width: 12px;
-                                height: 12px;
+                                width: 8px;
+                                height: 8px;
                             }
                             .flex-1::-webkit-scrollbar-track {
                                 background: #f1f1f1;
@@ -530,6 +530,24 @@ const ExcelPreviewModal = ({
                             }
                             .flex-1::-webkit-scrollbar-thumb:hover {
                                 background: #555;
+                            }
+
+                            /* Ensure Ant Design table internal scrollbars are also styled and visible */
+                            .antd-excel-preview-table .ant-table-body::-webkit-scrollbar,
+                            .antd-excel-preview-table .ant-table-content::-webkit-scrollbar {
+                                width: 8px;
+                                height: 8px;
+                                display: block !important;
+                            }
+                            .antd-excel-preview-table .ant-table-body::-webkit-scrollbar-track,
+                            .antd-excel-preview-table .ant-table-content::-webkit-scrollbar-track {
+                                background: #f1f1f1;
+                                border-radius: 10px;
+                            }
+                            .antd-excel-preview-table .ant-table-body::-webkit-scrollbar-thumb,
+                            .antd-excel-preview-table .ant-table-content::-webkit-scrollbar-thumb {
+                                background: #888;
+                                border-radius: 10px;
                             }
 
                             .antd-excel-preview-table .ant-table-thead > tr > th {
@@ -679,7 +697,6 @@ const OptimizedTable = memo(({ loading, dataSource, columns, onChange }) => {
             className="antd-excel-preview-table"
             rowClassName="antd-excel-row"
             size="small"
-            virtual
             bordered
         />
     );
