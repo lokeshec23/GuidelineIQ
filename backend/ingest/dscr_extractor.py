@@ -580,8 +580,8 @@ def create_dscr_excel_multi_pdf(
         "Parameters\n(Investor / Business Purpose Loans)", 
         "Variance Categories", 
         "SubCategories", 
-        "PPE Field Type",  # Header name (content is Hard/Soft classification)
-        f"{safe_investor}_{safe_version} (Aggregated from {len(pdf_filenames)} PDFs)"
+        "PPE Field Type", 
+        f"{safe_investor} {safe_version} (Aggregated from {len(pdf_filenames)} PDFs)"
     ]
     
     ws.append(headers)
@@ -616,7 +616,7 @@ def create_dscr_excel_multi_pdf(
             item['DSCR_Parameters'],
             item.get('Variance_Category', ''),
             item.get('SubCategory', ''),
-            item.get('Hard_Soft_Classification', ''),  # Replaced PPE_Field_Type
+            item.get('Hard_Soft_Classification', ''),
             item.get(f"{safe_investor}_{safe_version}", "Not present")
         ]
         ws.append(row)

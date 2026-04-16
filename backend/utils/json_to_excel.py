@@ -136,8 +136,8 @@ def dynamic_json_to_excel(
                 longest_line = max([len(line) for line in val_str.split('\n')]) if val_str else 0
                 max_length = max(max_length, longest_line)
         
-        # Calculate width: max_length + padding, capped at 60 for usability
-        adjusted_width = min(60, max_length + 4)
+        # Calculate width: max_length + padding, capped at 100 for readability
+        adjusted_width = min(100, max_length + 4)
         
         # Override for specific columns
         if header_key == "page_number":

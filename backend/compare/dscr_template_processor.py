@@ -184,8 +184,8 @@ async def process_dscr_template_comparison(
 
         # Use centralized configuration for Excel generation
         dynamic_header_map = DSCR_EXPORT_HEADER_MAP.copy()
-        dynamic_header_map["guideline_1"] = os.path.splitext(file1_name)[0]
-        dynamic_header_map["guideline_2"] = os.path.splitext(file2_name)[0]
+        dynamic_header_map["guideline_1"] = os.path.splitext(file1_name)[0] or "Guideline 1"
+        dynamic_header_map["guideline_2"] = os.path.splitext(file2_name)[0] or "Guideline 2"
 
         dynamic_json_to_excel(
             results,
@@ -555,6 +555,7 @@ def parse_and_validate_dscr_response(response: str, chunk_num: int, original_chu
                 "dscr_parameters": template_item["dscr_parameters"],
                 "category": template_item["category"],
                 "sub_category": template_item["sub_category"],
+                "ppe_field_type": template_item.get("ppe_field_type", ""),
                 
                 # ✅ Map to 'guideline_1'/'guideline_2' for Excel/UI consistency
                 "guideline_1": g1_val,

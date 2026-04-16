@@ -365,9 +365,15 @@ async def download_result(
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
                 hidden_columns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type']
                 
+                # Generate dynamic header for the extraction column
+                safe_investor = (record.investor or "Investor").replace(" ", "_")
+                safe_version = (record.version or "v1").replace(" ", "_")
+                dynamic_key = f"{safe_investor}_{safe_version}"
+                
                 header_map = {
                     "DSCR_Parameters": "Parameters",
-                    "Hard_Soft_Classification": "PPE Field Type"
+                    "Hard_Soft_Classification": "PPE Field Type",
+                    dynamic_key: f"{record.investor or 'Investor'} {record.version or 'v1'}"
                 }
                 
                 dynamic_json_to_excel(extract_data, tmp.name, header_map=header_map, hidden_columns=hidden_columns)

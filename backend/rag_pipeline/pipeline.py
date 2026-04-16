@@ -195,7 +195,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "HARD",
-                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": extraction_result.hard_value,
+                            f"{filter_conditions.get('lender', 'NQMF Investor').replace(' ', '_')}_{filter_conditions.get('version', 'DSCR').replace(' ', '_')}": extraction_result.hard_value,
                             "Classification": "Extracted",
                             "Notes": self._format_citations(extraction_result.hard_citations),
                             "_verification": verification_result.to_dict() if verification_result else None
@@ -209,7 +209,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "SOFT",
-                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": extraction_result.soft_value,
+                            f"{filter_conditions.get('lender', 'NQMF Investor').replace(' ', '_')}_{filter_conditions.get('version', 'DSCR').replace(' ', '_')}": extraction_result.soft_value,
                             "Classification": "Extracted",
                             "Notes": self._format_citations(extraction_result.soft_citations),
                             "_verification": verification_result.to_dict() if verification_result else None
@@ -223,7 +223,7 @@ class RAGPipeline:
                             "SubCategory": param_config.get("subcategory", "General"),
                             "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                             "Hard_Soft_Classification": "",
-                            f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": "Not present",
+                            f"{filter_conditions.get('lender', 'NQMF Investor').replace(' ', '_')}_{filter_conditions.get('version', 'DSCR').replace(' ', '_')}": "Not present",
                             "Classification": "Not Found",
                             "Notes": "",
                             "_verification": None
@@ -239,7 +239,7 @@ class RAGPipeline:
                         "SubCategory": param_config.get("subcategory", "General"),
                         "PPE_Field_Type": param_config.get("ppe_field", "Text"),
                         "Hard_Soft_Classification": "",
-                        f"{filter_conditions.get('lender', 'NQMF Investor')}_{filter_conditions.get('version', 'DSCR')}": "Error during extraction",
+                        f"{filter_conditions.get('lender', 'NQMF Investor').replace(' ', '_')}_{filter_conditions.get('version', 'DSCR').replace(' ', '_')}": "Error during extraction",
                         "Classification": "Clarification Required",
                         "Notes": f"Error: {str(e)}",
                         "_verification": None
