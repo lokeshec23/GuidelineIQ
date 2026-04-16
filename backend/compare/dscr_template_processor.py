@@ -21,7 +21,7 @@ from sql_database import AsyncSessionLocal
 # Excel Export Configuration
 DSCR_EXPORT_HEADER_MAP = {
     "s_no": "S.No",
-    "dscr_parameters": "DSCR PARAMETERS",
+    "dscr_parameters": "Parameters",
     "category": "Category",
     "sub_category": "Sub Category",
     "guideline_1": "Guideline 1",

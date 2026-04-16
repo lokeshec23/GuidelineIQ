@@ -138,7 +138,11 @@ async def process_qdrant_comparison_background(
             prefix=f"qdrant_comparison_{session_id[:8]}_"
         ).name
         
-        dynamic_json_to_excel(comparison_results, excel_path)
+        # Use header map to rename columns for Excel export
+        header_map = {
+            "dscr_parameters": "Parameters"
+        }
+        dynamic_json_to_excel(comparison_results, excel_path, header_map=header_map)
         
         update_progress(session_id, 100, "Comparison complete!")
         

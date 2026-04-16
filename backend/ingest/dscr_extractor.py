@@ -433,7 +433,7 @@ def create_dscr_excel(data: List[Dict], session_id: str, investor: str, version:
     safe_investor = investor.replace(' ', '_')
     safe_version = version.replace(' ', '_')
     headers = [
-        "DSCR Parameters\n(Investor / Business Purpose Loans)", 
+        "Parameters\n(Investor / Business Purpose Loans)", 
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type", 
@@ -577,7 +577,7 @@ def create_dscr_excel_multi_pdf(
     # === DATA SECTION ===
     headers_row = ws.max_row + 1
     headers = [
-        "DSCR Parameters\n(Investor / Business Purpose Loans)", 
+        "Parameters\n(Investor / Business Purpose Loans)", 
         "Variance Categories", 
         "SubCategories", 
         "PPE Field Type",  # Header name (content is Hard/Soft classification)

@@ -510,44 +510,45 @@ const ExcelPreviewModal = ({
                     <div
                         className="flex-1"
                         style={{
-                            overflow: "auto",
-                            scrollbarWidth: "thin",
-                            scrollbarColor: "#888 #f1f1f1",
+                            overflow: "hidden", // Let the table handle its own internal scrolling
+                            display: "flex",
+                            flexDirection: "column",
+                            width: "100%",
                         }}
                     >
                         <style>{`
-                            .flex-1::-webkit-scrollbar {
-                                width: 8px;
-                                height: 8px;
-                            }
-                            .flex-1::-webkit-scrollbar-track {
-                                background: #f1f1f1;
-                                border-radius: 10px;
-                            }
-                            .flex-1::-webkit-scrollbar-thumb {
-                                background: #888;
-                                border-radius: 10px;
-                            }
-                            .flex-1::-webkit-scrollbar-thumb:hover {
-                                background: #555;
+                            /* Force scrollbars to be always visible and prominent */
+                            .antd-excel-preview-table .ant-table-body,
+                            .antd-excel-preview-table .ant-table-content {
+                                scrollbar-width: thin !important;
+                                scrollbar-color: #888 #f8f8f8 !important;
+                                overflow: auto !important;
                             }
 
-                            /* Ensure Ant Design table internal scrollbars are also styled and visible */
                             .antd-excel-preview-table .ant-table-body::-webkit-scrollbar,
                             .antd-excel-preview-table .ant-table-content::-webkit-scrollbar {
-                                width: 8px;
-                                height: 8px;
+                                width: 10px !important;
+                                height: 10px !important;
                                 display: block !important;
                             }
+
                             .antd-excel-preview-table .ant-table-body::-webkit-scrollbar-track,
                             .antd-excel-preview-table .ant-table-content::-webkit-scrollbar-track {
-                                background: #f1f1f1;
-                                border-radius: 10px;
+                                background: #f1f1f1 !important;
+                                border-radius: 10px !important;
                             }
+
                             .antd-excel-preview-table .ant-table-body::-webkit-scrollbar-thumb,
                             .antd-excel-preview-table .ant-table-content::-webkit-scrollbar-thumb {
-                                background: #888;
-                                border-radius: 10px;
+                                background: #999 !important;
+                                border-radius: 10px !important;
+                                border: 2px solid #f1f1f1 !important;
+                                min-height: 40px !important;
+                            }
+
+                            .antd-excel-preview-table .ant-table-body::-webkit-scrollbar-thumb:hover,
+                            .antd-excel-preview-table .ant-table-content::-webkit-scrollbar-thumb:hover {
+                                background: #666 !important;
                             }
 
                             .antd-excel-preview-table .ant-table-thead > tr > th {
@@ -558,13 +559,30 @@ const ExcelPreviewModal = ({
                                 border-right: 1px solid #d9d9d9 !important;
                                 border-left: 1px solid #d9d9d9 !important;
                                 text-align: center !important;
+                                white-space: nowrap !important;
                             }
                             
                             .antd-excel-preview-table .ant-table-tbody > tr > td {
                                 border-right: 1px solid #d9d9d9 !important;
                                 border-left: 1px solid #d9d9d9 !important;
                                 vertical-align: top !important;
-                                padding: 4px 8px !important;
+                                padding: 6px 10px !important;
+                            }
+
+                            /* Ensure fixed columns stay on top and are styled correctly */
+                            .ant-table-cell-fix-left,
+                            .ant-table-cell-fix-right {
+                                z-index: 2 !important;
+                                background: #fff !important;
+                            }
+
+                            .antd-excel-preview-table .ant-table-thead > tr > th.ant-table-cell-fix-left {
+                                background-color: #1a4369 !important;
+                            }
+
+                            .antd-excel-row:hover .ant-table-cell-fix-left,
+                            .antd-excel-row:hover .ant-table-cell-fix-right {
+                                background-color: #f5faff !important;
                             }
 
                             .antd-excel-preview-table .ant-table-tbody > tr:hover > td {
@@ -575,7 +593,6 @@ const ExcelPreviewModal = ({
                                 min-width: 50px;
                             }
 
-                            /* Ensure the table itself has a clean outer border */
                             .antd-excel-preview-table {
                                 border: 1px solid #d9d9d9 !important;
                             }
