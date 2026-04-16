@@ -93,7 +93,7 @@ async def login_azure():
     return RedirectResponse(url=redirect_url)
 
 
-@sso_router.post("/api/SSOReplyURI")
+@sso_router.post("/SSOReplyURI")
 async def sso_reply(req: Request):
     form = await req.form()
     saml_response = form.get("SAMLResponse")
