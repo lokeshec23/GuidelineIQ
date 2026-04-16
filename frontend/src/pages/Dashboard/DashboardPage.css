@@ -1,14 +1,12 @@
 .dashboard-container {
-    height: calc(100vh - 56px);
+    height: auto;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    padding: 0 24px;
-    /* background-color removed to inherit from theme */
+    padding: 0;
 }
 
 .dashboard-header {
-    padding: 24px 0;
+    padding-bottom: 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -25,7 +23,7 @@
 .dashboard-search-wrapper {
     flex: 1;
     max-width: 500px;
-    margin: 0 32px;
+    margin-right: 32px;
 }
 
 .dashboard-search-input {

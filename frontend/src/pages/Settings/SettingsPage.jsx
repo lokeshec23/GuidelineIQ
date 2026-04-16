@@ -103,7 +103,7 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 md:px-8 pb-14">
+    <div className="max-w-screen-2xl mx-auto pb-14">
       {/* <div className="mb-10">
         <h1 className="text-3xl font-bold flex items-center gap-2 text-gray-800">
           <SettingOutlined /> Settings

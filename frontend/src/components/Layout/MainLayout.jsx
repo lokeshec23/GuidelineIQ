@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Layout, Menu, Avatar, Dropdown, Badge, Button } from "antd";
+import { Layout, Menu, Avatar, Dropdown, Badge, Button, Typography } from "antd";
 import {
   FileTextOutlined,
   SwapOutlined,
@@ -21,6 +21,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const { Header, Sider, Content } = Layout;
+const { Title, Text } = Typography;
 
 const MainLayout = ({ children }) => {
   const { user, logout, isAdmin } = useAuth();
@@ -29,6 +30,21 @@ const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Page title mapping
+  const pageTitles = {
+    "/dashboard": { title: "Dashboard", subtitle: "Overview of your guideline processing history" },
+    "/ingest": { title: "Ingest Guidelines", subtitle: "Extract structured data from guideline documents" },
+    "/compare": { title: "Compare Guidelines", subtitle: "Compare different versions or different investors guidelines" },
+    "/prompts": { title: "Prompts", subtitle: "Manage system and user prompts" },
+    "/ingestion-prompt": { title: "Ingestion Prompt", subtitle: "Configure extraction instructions" },
+    "/comparison-prompt": { title: "Comparison Prompt", subtitle: "Configure comparison instructions" },
+    "/management": { title: "User Management", subtitle: "Manage system users and their permissions" },
+    "/config-parameters": { title: "Config Parameters", subtitle: "Manage target extraction fields and validation rules" },
+    "/settings": { title: "Settings", subtitle: "General application configuration" },
+  };
+
+  const currentPage = pageTitles[location.pathname] || { title: "", subtitle: "" };
 
   // Detect mobile viewport
   React.useEffect(() => {
@@ -131,10 +147,10 @@ const MainLayout = ({ children }) => {
         label: "Management",
       },
       // {
-      //   key: "/settings",
-      //   icon: <SettingOutlined />,
-      //   label: "Settings",
-      // },
+        //   key: "/settings",
+        //   icon: <SettingOutlined />,
+        //   label: "Settings",
+        // },
 
     ];
 
@@ -332,6 +348,18 @@ const MainLayout = ({ children }) => {
           }}
         >
           <Content className="h-full overflow-y-auto p-8 bg-white">
+            {currentPage.title && (
+              <div className="mb-8">
+                <Title level={2} style={{ margin: 0, fontWeight: 600, color: '#1a202c' }}>
+                  {currentPage.title}
+                </Title>
+                {currentPage.subtitle && (
+                  <Text type="secondary" className="text-sm mt-1 block">
+                    {currentPage.subtitle}
+                  </Text>
+                )}
+              </div>
+            )}
             {children}
           </Content>
         </Layout>

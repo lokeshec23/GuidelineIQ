@@ -90,14 +90,7 @@ const PromptsPage = () => {
     }
 
     return (
-        <div className="px-8 py-6">
-            <div className="mb-6">
-                <h1 className="text-2xl font-semibold text-gray-800">Manage Prompts</h1>
-                <p className="text-gray-500 mt-1">
-                    Customize your LLM prompts for ingestion and comparison tasks
-                </p>
-            </div>
-
+        <div className="">
             <div className="bg-white rounded-lg shadow-sm p-6">
                 <Form form={form} layout="vertical">
                     <Tabs

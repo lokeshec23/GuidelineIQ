@@ -144,7 +144,7 @@ const IngestionPromptPage = () => {
   ];
 
   return (
-    <div className="px-8 py-6 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       {/* <h1 className="text-3xl font-bold mb-6 text-gray-800">Ingestion Prompt</h1> */}
 
       <Card className="shadow-sm">
