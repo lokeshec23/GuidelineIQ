@@ -262,6 +262,7 @@ export const dscrAPI = {
         guideline_type: guidelineType
       }
     }),
+  syncGeneralParameters: () => api.post("/dscr-parameters/sync-general"),
 };
 
 

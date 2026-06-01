@@ -265,3 +265,19 @@ async def delete_all_parameters(
     await db.execute(query)
     await db.commit()
     return {"message": "Parameters deleted successfully"}
+
+
+@router.post("/sync-general")
+async def sync_general_parameters(
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    """Sync parameters from the Excel file."""
+    try:
+        from scripts.seed_parameters import seed_parameters
+        await seed_parameters(force=True)
+        return {"message": "General parameters synced successfully"}
+    except Exception as e:
+        logger.error(f"Failed to sync general parameters: {e}")
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+

@@ -16,9 +16,12 @@ import {
   EditOutlined,
   TeamOutlined,
   SlidersOutlined,
+  CloudSyncOutlined
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
+import { dscrAPI } from "../../services/api";
+import { showToast } from "../../utils/toast";
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -30,6 +33,20 @@ const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+
+  const handleSyncGeneral = async () => {
+    try {
+      setSyncLoading(true);
+      await dscrAPI.syncGeneralParameters();
+      showToast.success("General parameters synced from Excel successfully");
+      // If we are on Config Parameters page, maybe trigger a refresh via a global event or just let user refresh
+    } catch (error) {
+      console.error("Failed to sync general parameters:", error);
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   // Page title mapping
   const pageTitles = {
@@ -94,6 +111,17 @@ const MainLayout = ({ children }) => {
           </div>
         </div>
         <div className="pt-2 border-t border-gray-100">
+          {user?.email === "admin@admin.com" && (
+            <Button
+              type="text"
+              icon={<CloudSyncOutlined className={syncLoading ? "animate-spin" : ""} />}
+              onClick={handleSyncGeneral}
+              loading={syncLoading}
+              className="w-full text-left flex items-center justify-start px-2 hover:bg-blue-50 text-blue-600 font-medium mb-1"
+            >
+              Sync from General
+            </Button>
+          )}
           <Button
             type="text"
             danger
@@ -106,7 +134,7 @@ const MainLayout = ({ children }) => {
         </div>
       </div>
     </div>
-  ), [user, isAdmin, handleLogout]);
+  ), [user, isAdmin, handleLogout, handleSyncGeneral, syncLoading]);
 
   // Menu Items Construction - Memoized
   const menuItems = React.useMemo(() => {
