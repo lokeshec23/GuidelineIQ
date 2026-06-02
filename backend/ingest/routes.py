@@ -215,9 +215,12 @@ async def ingest_guideline(
 async def progress_stream(session_id: str):
     """Stream progress updates via Server-Sent Events"""
     async def event_generator() -> AsyncGenerator[str, None]:
+        import time
         last_progress = -1
+        last_status = None
+        last_heartbeat = time.time()
         retry_count = 0
-        max_retries = 600
+        max_retries = 7200
         
         logger.info(f"SSE connected: {session_id[:8]}")
         
@@ -226,16 +229,28 @@ async def progress_stream(session_id: str):
             progress_data = await async_get_progress_data(session_id)
             
             if not progress_data:
-                break
+                # Wait 500ms for background process initialization
+                await asyncio.sleep(0.5)
+                retry_count += 1
+                continue
                 
-            current_progress = progress_data["progress"]
+            current_progress = progress_data.get("progress", 0)
+            current_status = progress_data.get("status")
             
-            if current_progress != last_progress:
+            # Yield if progress OR status has changed
+            if current_progress != last_progress or current_status != last_status:
                 last_progress = current_progress
+                last_status = current_status
                 yield f"data: {json.dumps(progress_data)}\n\n"
                 retry_count = 0
+                last_heartbeat = time.time()
+            else:
+                # Send heartbeat comment every 15s to prevent proxy timeout
+                if time.time() - last_heartbeat > 15:
+                    yield ": ping\n\n"
+                    last_heartbeat = time.time()
             
-            if progress_data.get("status") in ["completed", "failed", "cancelled"]:
+            if current_status in ["completed", "failed", "cancelled"]:
                 await asyncio.sleep(0.5)
                 break
             
