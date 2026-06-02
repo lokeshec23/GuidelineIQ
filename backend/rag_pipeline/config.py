@@ -37,6 +37,7 @@ class RAGConfig:
     EXTRACTION_TEMPERATURE: float = 0.0  # Deterministic extraction
     VERIFICATION_TEMPERATURE: float = 0.0  # Deterministic verification
     MAX_TOKENS: int = 4096
+    RAG_EXTRACTION_CONCURRENCY: int = int(os.getenv("RAG_EXTRACTION_CONCURRENCY", "20"))
     
     # Chunking Parameters
     CHUNK_SIZE: int = 500  # tokens

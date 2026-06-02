@@ -178,19 +178,77 @@ class AzureEmbedder:
         self,
         texts: List[str],
         batch_size: int = 100
-    ) -> List[List[float]]:
+    ) -> List[Optional[List[float]]]:
         """
-        Asynchronously generate embeddings in batches
+        Asynchronously generate embeddings in batches in parallel
         
         Args:
             texts: List of input texts
             batch_size: Number of texts per batch
         
         Returns:
-            List of embedding vectors
+            List of embedding vectors (None for failed items)
         """
-        return await asyncio.to_thread(
-            self.generate_embeddings_batch,
-            texts,
-            batch_size
-        )
+        all_embeddings: List[Optional[List[float]]] = [None] * len(texts)
+        uncached_indices = []
+        uncached_texts = []
+        
+        # Check cache for all texts first
+        for i, text in enumerate(texts):
+            cache_key = self._content_hash(text)
+            if cache_key in self._cache:
+                all_embeddings[i] = self._cache[cache_key]
+                self._cache_hits += 1
+            else:
+                uncached_indices.append(i)
+                uncached_texts.append(text)
+                self._cache_misses += 1
+        
+        if uncached_texts:
+            logger.info(
+                f"Embedding cache: {len(texts) - len(uncached_texts)} hits, "
+                f"{len(uncached_texts)} misses"
+            )
+        else:
+            logger.info(f"Embedding cache: all {len(texts)} texts cached")
+            return all_embeddings
+        
+        # Prepare batches
+        batches = []
+        for batch_start in range(0, len(uncached_texts), batch_size):
+            batch_texts = uncached_texts[batch_start:batch_start + batch_size]
+            batch_indices = uncached_indices[batch_start:batch_start + batch_size]
+            batches.append((batch_texts, batch_indices))
+            
+        async def embed_batch(batch_texts: List[str], batch_indices: List[int]):
+            try:
+                response = await asyncio.to_thread(
+                    self.client.embeddings.create,
+                    input=batch_texts,
+                    model=self.config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+                )
+                for j, item in enumerate(response.data):
+                    idx = batch_indices[j]
+                    embedding = item.embedding
+                    all_embeddings[idx] = embedding
+                    # Cache the result
+                    cache_key = self._content_hash(batch_texts[j])
+                    self._cache[cache_key] = embedding
+                logger.info(f"Generated embeddings for batch ({len(batch_texts)} texts)")
+            except Exception as e:
+                logger.error(f"Batch embedding failed: {e}")
+                # Fallback to individual embedding concurrently
+                async def embed_single(idx: int, text: str):
+                    try:
+                        emb = await asyncio.to_thread(self.generate_embedding, text)
+                        all_embeddings[idx] = emb
+                    except Exception as individual_error:
+                        logger.error(f"Individual embedding failed, SKIPPING chunk: {individual_error}")
+                        all_embeddings[idx] = None
+                
+                await asyncio.gather(*[embed_single(idx, text) for idx, text in zip(batch_indices, batch_texts)])
+
+        # Run all batch calls concurrently in parallel
+        await asyncio.gather(*[embed_batch(bt, bi) for bt, bi in batches])
+        return all_embeddings
+

@@ -135,7 +135,7 @@ class RAGPipeline:
         results = []
         
         # Process parameters concurrently (with semaphore for rate limiting)
-        semaphore = asyncio.Semaphore(5)
+        semaphore = asyncio.Semaphore(self.config.RAG_EXTRACTION_CONCURRENCY)
         
         async def extract_one(param_config: Dict) -> List[Dict]:
             async with semaphore:

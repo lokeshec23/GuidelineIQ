@@ -323,24 +323,19 @@ async def process_guideline_background(
                     logger.info(f"📋 Found {len(all_extracted_results)} total parameters")
                     logger.info(f"📋 Prepared {len(items_to_embed)} rules for indexing (skipped NA/empty entries)")
 
-                    # Helper for embedding (consistent with PDF chunks)
-                    async def embed_rule(item):
-                        try:
-                            # Use pipeline's embedder (AzureEmbedder) for consistency with search
-                            emb = await pipeline.embedder.generate_embedding_async(item["text"])
-                            item["embedding"] = emb
-                            return item
-                        except Exception as e:
-                            logger.error(f"Failed to embed rule {item['metadata']['parameter']}: {e}")
-                            return None
-
-
-                    # Generate embeddings in parallel
-                    logger.info(f"🔄 Generating embeddings for {len(items_to_embed)} DSCR rules...")
-                    embedded_rules = await asyncio.gather(*[embed_rule(item) for item in items_to_embed])
+                    # Generate embeddings in parallel batches
+                    logger.info(f"🔄 Generating embeddings in batches for {len(items_to_embed)} DSCR rules...")
+                    texts_to_embed = [item["text"] for item in items_to_embed]
+                    embeddings = await pipeline.embedder.generate_embeddings_batch_async(texts_to_embed, batch_size=100)
                     
-                    # Filter out failures
-                    valid_rules = [r for r in embedded_rules if r and r.get("embedding")]
+                    # Associate embeddings back to items and filter failures
+                    valid_rules = []
+                    for item, emb in zip(items_to_embed, embeddings):
+                        if emb:
+                            item["embedding"] = emb
+                            valid_rules.append(item)
+                        else:
+                            logger.error(f"Failed to embed rule: {item['metadata'].get('parameter')}")
                     
                     if valid_rules:
                         # Convert to Chunk objects for Qdrant/Hybrid indexing

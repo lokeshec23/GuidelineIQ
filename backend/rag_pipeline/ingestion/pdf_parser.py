@@ -121,41 +121,68 @@ class PDFParser:
     
     def _parse_with_pdfplumber(self, pdf_path: str) -> List[Dict]:
         """
-        Parse PDF using pdfplumber
+        Parse PDF using pdfplumber in parallel using a ThreadPoolExecutor
         
         Returns:
             List of page dictionaries with text, tables, and headings
         """
-        pages_data = []
+        from concurrent.futures import ThreadPoolExecutor
         
+        # Open PDF to get number of pages
         with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, start=1):
-                page_data = {
-                    "page_number": page_num,
-                    "text": "",
-                    "tables": [],
-                    "headings": [],
-                    "extraction_method": "pdfplumber"
-                }
-                
-                # Extract text
-                text = page.extract_text()
-                if text:
-                    page_data["text"] = text
-                    
-                    # Detect headings (ALL CAPS or numbered sections)
-                    headings = self._detect_headings(text)
-                    page_data["headings"] = headings
-                
-                # Extract tables
-                tables = page.extract_tables()
-                if tables:
-                    page_data["tables"] = [
-                        self._format_table(table) for table in tables
-                    ]
-                
-                pages_data.append(page_data)
+            num_pages = len(pdf.pages)
+            
+        heading_patterns = self.config.HEADING_PATTERNS
         
+        def parse_page(page_num: int) -> Dict:
+            page_data = {
+                "page_number": page_num,
+                "text": "",
+                "tables": [],
+                "headings": [],
+                "extraction_method": "pdfplumber_parallel"
+            }
+            
+            try:
+                with pdfplumber.open(pdf_path) as pdf:
+                    if page_num <= len(pdf.pages):
+                        page = pdf.pages[page_num - 1]
+                        
+                        # Extract text
+                        text = page.extract_text()
+                        if text:
+                            page_data["text"] = text
+                            
+                            # Detect headings
+                            headings = []
+                            lines = text.split('\n')
+                            for line in lines:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                for pattern in heading_patterns:
+                                    if re.match(pattern, line):
+                                        headings.append(line)
+                                        break
+                            page_data["headings"] = headings
+                        
+                        # Extract tables
+                        tables = page.extract_tables()
+                        if tables:
+                            page_data["tables"] = [
+                                self._format_table(table) for table in tables
+                            ]
+            except Exception as e:
+                logger.error(f"Error parsing page {page_num}: {e}")
+                page_data["extraction_method"] = "pdfplumber_parallel_failed"
+                
+            return page_data
+
+        # Parse pages in parallel using ThreadPoolExecutor
+        max_workers = min(16, num_pages) if num_pages > 0 else 1
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            pages_data = list(executor.map(parse_page, range(1, num_pages + 1)))
+            
         return pages_data
     
     def _parse_with_ocr(self, pdf_path: str) -> List[Dict]:
