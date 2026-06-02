@@ -11,6 +11,7 @@ class DSCRParameterBase(BaseModel):
     ppe_field: Optional[str] = None
     guideline_type: List[str] = ["All"]
     investor_id: Optional[str] = None
+    is_active: Optional[bool] = True
 
     @field_validator("guideline_type", mode="before")
     @classmethod
@@ -35,6 +36,7 @@ class DSCRParameterUpdate(BaseModel):
     ppe_field: Optional[str] = None
     guideline_type: Optional[List[str]] = None
     investor_id: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class DSCRParameterResponse(DSCRParameterBase):
     id: str

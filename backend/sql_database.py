@@ -99,6 +99,18 @@ async def init_db():
             except Exception as mig_err:
                 logger.warning(f"⚠️ Automatic column migration failed: {mig_err}")
 
+            # --- Migration: Add 'is_active' to 'dscr_parameters' ---
+            try:
+                migration_sql_2 = text("""
+                IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE name = 'is_active' AND object_id = OBJECT_ID('dscr_parameters'))
+                BEGIN
+                    ALTER TABLE dscr_parameters ADD is_active BIT NOT NULL DEFAULT 1;
+                END
+                """)
+                await conn.execute(migration_sql_2)
+            except Exception as mig_err:
+                logger.warning(f"⚠️ Automatic column migration for is_active failed: {mig_err}")
+
         logger.info("✅ SQL Server tables initialized successfully.")
     except Exception as e:
         logger.error(f"❌ Failed to initialize SQL Server tables: {e}")

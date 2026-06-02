@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 import time
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_, delete, cast, String
 from sql_database import get_db
 from models.sql_models import DSCRParameter, Investor
 from settings.dscr_schemas import (
@@ -15,7 +15,6 @@ from settings.dscr_schemas import (
     BatchImportRequest
 )
 import json
-from sqlalchemy import cast, String, or_
 from auth.middleware import require_admin
 from utils.pagination import paginate_query, apply_query_filters, PaginationParams
 from utils.logger import setup_logger
@@ -33,13 +32,13 @@ async def get_parameter_ids(
     """Return all parameter IDs matching the filters, skipping pagination."""
     query = select(DSCRParameter.id)
     
-    # Filter by specific investor_id, or None for general parameters
     if investor_id == "null" or investor_id is None:
-        query = query.where(DSCRParameter.investor_id == None)
+        query = query.where(DSCRParameter.investor_id == None, DSCRParameter.is_active == True)
     elif investor_id != "all":
-        query = query.where(DSCRParameter.investor_id == investor_id)
+        query = query.where(DSCRParameter.investor_id == investor_id, DSCRParameter.is_active == True)
+    else:
+        query = query.where(DSCRParameter.is_active == True)
         
-    # Apply Search and Filters via helper
     query = apply_query_filters(query, DSCRParameter, params, search_fields=["parameter", "category", "subcategory"])
     
     result = await db.execute(query)
@@ -52,14 +51,15 @@ async def list_parameters(
     db: AsyncSession = Depends(get_db)
 ):
     start_time = time.time()
-    query = select(DSCRParameter)
     
-    # Filter by specific investor_id, or None for general parameters
+    query = select(DSCRParameter)
     if investor_id == "null" or investor_id is None:
-        query = query.where(DSCRParameter.investor_id == None)
+        query = query.where(DSCRParameter.investor_id == None, DSCRParameter.is_active == True)
     elif investor_id != "all":
-        query = query.where(DSCRParameter.investor_id == investor_id)
-        
+        query = query.where(DSCRParameter.investor_id == investor_id, DSCRParameter.is_active == True)
+    else:
+        query = query.where(DSCRParameter.is_active == True)
+    
     result = await paginate_query(
         db, 
         query, 
@@ -68,20 +68,19 @@ async def list_parameters(
         search_fields=["parameter", "category", "subcategory"]
     )
     
-    # Calculate global breakdown stats using the same filter logic
     stats_query = select(DSCRParameter.guideline_type)
     if investor_id == "null" or investor_id is None:
-        stats_query = stats_query.where(DSCRParameter.investor_id == None)
+        stats_query = stats_query.where(DSCRParameter.investor_id == None, DSCRParameter.is_active == True)
     elif investor_id != "all":
-        stats_query = stats_query.where(DSCRParameter.investor_id == investor_id)
+        stats_query = stats_query.where(DSCRParameter.investor_id == investor_id, DSCRParameter.is_active == True)
+    else:
+        stats_query = stats_query.where(DSCRParameter.is_active == True)
         
-    # Reuse helper for stats query too
     stats_query = apply_query_filters(stats_query, DSCRParameter, params, search_fields=["parameter", "category", "subcategory"])
 
     stats_result = await db.execute(stats_query)
     all_types = stats_result.scalars().all()
     
-    # Calculate breakdown
     available_types = [t for t in GUIDELINE_TYPE_OPTIONS if t != "All"]
     breakdown = {t: 0 for t in available_types}
     
@@ -116,20 +115,19 @@ async def get_unique_values(
     guideline_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Return unique values for category or subcategory to populate filter dropdowns."""
     if field not in ["category", "subcategory"]:
         raise HTTPException(status_code=400, detail="Invalid field")
     
     query = select(getattr(DSCRParameter, field)).distinct()
     
-    # Filter by specific investor_id, or None for general parameters
     if investor_id == "null" or investor_id is None:
-        query = query.where(DSCRParameter.investor_id == None)
+        query = query.where(DSCRParameter.investor_id == None, DSCRParameter.is_active == True)
     elif investor_id != "all":
-        query = query.where(DSCRParameter.investor_id == investor_id)
+        query = query.where(DSCRParameter.investor_id == investor_id, DSCRParameter.is_active == True)
+    else:
+        query = query.where(DSCRParameter.is_active == True)
         
     if guideline_type:
-        # Special handling for guideline_type JSON array or list
         query = query.where(or_(
             cast(DSCRParameter.guideline_type, String).ilike(f"%{guideline_type}%"),
             cast(DSCRParameter.guideline_type, String).ilike("%All%")
@@ -138,13 +136,10 @@ async def get_unique_values(
     result = await db.execute(query)
     values = result.scalars().all()
     
-    # Filter out None/Empty and return sorted
     return sorted([v for v in values if v])
-
 
 @router.get("/guideline-types")
 async def get_guideline_types():
-    """Return available guideline type options for dropdowns."""
     return GUIDELINE_TYPE_OPTIONS
 
 @router.post("", response_model=DSCRParameterResponse)
@@ -165,7 +160,6 @@ async def bulk_create_parameters(
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
-    """Create multiple parameters in a single transaction."""
     new_params = [DSCRParameter(**param.model_dump()) for param in batch.parameters]
     db.add_all(new_params)
     await db.commit()
@@ -179,30 +173,38 @@ async def import_from_general(
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
-    """Import selected general parameters to a specific investor."""
-    # 1. Fetch general parameters
+    # Fetch general parameters
     result = await db.execute(
         select(DSCRParameter).where(DSCRParameter.id.in_(request.parameter_ids))
     )
     general_params = result.scalars().all()
     
-    # 2. Clone them for the target investor
+    # Check what already exists to avoid duplicates
+    existing_result = await db.execute(
+        select(DSCRParameter).where(DSCRParameter.investor_id == request.target_investor_id)
+    )
+    existing_params = existing_result.scalars().all()
+    existing_keys = {(p.category, p.parameter) for p in existing_params}
+    
     new_params = []
     for p in general_params:
-        new_param = DSCRParameter(
-            parameter=p.parameter,
-            category=p.category,
-            subcategory=p.subcategory,
-            ppe_field=p.ppe_field,
-            guideline_type=p.guideline_type,
-            investor_id=request.target_investor_id
-        )
-        new_params.append(new_param)
+        if (p.category, p.parameter) not in existing_keys:
+            new_param = DSCRParameter(
+                parameter=p.parameter,
+                category=p.category,
+                subcategory=p.subcategory,
+                ppe_field=p.ppe_field,
+                guideline_type=p.guideline_type,
+                investor_id=request.target_investor_id,
+                is_active=True
+            )
+            new_params.append(new_param)
     
-    db.add_all(new_params)
-    await db.commit()
-    for p in new_params:
-        await db.refresh(p)
+    if new_params:
+        db.add_all(new_params)
+        await db.commit()
+        for p in new_params:
+            await db.refresh(p)
     
     return new_params
 
@@ -241,8 +243,6 @@ async def delete_parameter(
     await db.commit()
     return {"message": "Parameter deleted successfully"}
 
-from sqlalchemy import delete
-
 @router.delete("")
 async def delete_all_parameters(
     investor_id: Optional[str] = None,
@@ -250,29 +250,24 @@ async def delete_all_parameters(
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
-    """Delete all parameters matching the filters and investor."""
     query = delete(DSCRParameter)
     
-    # Filter by specific investor_id, or None for general parameters
     if investor_id == "null" or investor_id is None:
         query = query.where(DSCRParameter.investor_id == None)
     elif investor_id != "all":
         query = query.where(DSCRParameter.investor_id == investor_id)
         
-    # Apply Search and Filters via helper
     query = apply_query_filters(query, DSCRParameter, params, search_fields=["parameter", "category", "subcategory"])
     
     await db.execute(query)
     await db.commit()
     return {"message": "Parameters deleted successfully"}
 
-
 @router.post("/sync-general")
 async def sync_general_parameters(
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
-    """Sync parameters from the Excel file."""
     try:
         from scripts.seed_parameters import seed_parameters
         await seed_parameters(force=True)
@@ -280,4 +275,3 @@ async def sync_general_parameters(
     except Exception as e:
         logger.error(f"Failed to sync general parameters: {e}")
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
-

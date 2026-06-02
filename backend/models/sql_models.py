@@ -178,6 +178,7 @@ class DSCRParameter(Base):
     ppe_field = Column(String(255), nullable=True)
     guideline_type = Column(JSON, nullable=True)  # e.g. ["All"], ["DSCR", "Full Doc"]
     investor_id = Column(String(36), ForeignKey("investors.id", ondelete="CASCADE"), nullable=True, index=True)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

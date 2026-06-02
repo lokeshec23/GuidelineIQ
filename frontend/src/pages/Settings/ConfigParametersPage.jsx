@@ -183,9 +183,9 @@ const ConfigParametersPage = () => {
         setIsModalVisible(true);
     }, [form]);
 
-    const handleDelete = useCallback(async (id) => {
+    const handleDelete = useCallback(async (record) => {
         try {
-            await dscrAPI.deleteParameter(id);
+            await dscrAPI.deleteParameter(record.id);
             showToast.success("Parameter deleted successfully");
             fetchParameters();
         } catch (error) {
@@ -222,8 +222,7 @@ const ConfigParametersPage = () => {
         try {
             const values = await form.validateFields();
 
-            // Inject selected investor ID if not general
-            const payload = { ...values };
+            const payload = { ...values, is_active: true };
             if (selectedInvestorId) {
                 payload.investor_id = selectedInvestorId;
             }
@@ -469,7 +468,7 @@ const ConfigParametersPage = () => {
                         <Popconfirm
                             title="Delete parameter?"
                             description="Are you sure you want to delete this parameter?"
-                            onConfirm={() => handleDelete(record.id)}
+                            onConfirm={() => handleDelete(record)}
                             okText="Yes"
                             cancelText="No"
                             okButtonProps={{ danger: true }}
@@ -770,7 +769,7 @@ const ConfigParametersPage = () => {
                 guidelineTypeColorMap={guidelineTypeColorMap}
             />
 
-            {/* Manage Investors Modal */}
+
             <Modal
                 title={
                     <div className="flex items-center gap-2 text-gray-800 text-lg font-semibold">

@@ -53,10 +53,12 @@ def build_unified_parameters():
     try:
         df = pd.read_excel(EXCEL_FILE_PATH)
         for i, row in df.iterrows():
-            param = str(row["Parameters"]).strip() if pd.notna(row["Parameters"]) else ""
-            cat = str(row["Category"]).strip() if pd.notna(row["Category"]) else "General"
-            subcat = str(row["Sub-Categories"]).strip() if pd.notna(row["Sub-Categories"]) else "Feature Eligibility"
+            param = str(row["Parameters"]).strip() if "Parameters" in row and pd.notna(row["Parameters"]) else ""
+            cat = str(row["Category"]).strip() if "Category" in row and pd.notna(row["Category"]) else "General"
+            subcat = str(row["Sub-Categories"]).strip() if "Sub-Categories" in row and pd.notna(row["Sub-Categories"]) else "Feature Eligibility"
             g_type_val = str(row["Guideline Type"]).strip() if "Guideline Type" in row and pd.notna(row["Guideline Type"]) else ""
+            ppe_val = str(row["PPE Field"]).strip() if "PPE Field" in row and pd.notna(row["PPE Field"]) else None
+            
             if param:
                 g_types = []
                 g_type_lower = g_type_val.lower()
@@ -65,17 +67,14 @@ def build_unified_parameters():
                 if "dscr" in g_type_lower:
                     g_types.append("DSCR")
                 if not g_types:
-                    # Fallback to row index check if Guideline Type is empty/not present
-                    if i <= 136:
-                        g_types = ["Full Doc", "Alt Doc"]
-                    else:
-                        g_types = ["DSCR"]
+                    # Fallback if Guideline Type is empty
+                    g_types = ["Full Doc", "Alt Doc", "DSCR"]
                     
                 result.append({
                     "parameter": param,
                     "category": cat,
                     "subcategory": subcat,
-                    "ppe_field": None,
+                    "ppe_field": ppe_val,
                     "guideline_type": g_types
                 })
     except Exception as e:
@@ -122,112 +121,39 @@ async def seed_parameters(force: bool = False):
         # Seed Guideline Types first
         await seed_guideline_types(db)
 
-        # Ensure Investor "AB" exists
-        result = await db.execute(select(Investor).where(Investor.name == "AB"))
-        ab_investor = result.scalar_one_or_none()
-        if not ab_investor:
-            print("👤 Creating Investor: AB")
-            ab_investor = Investor(name="AB")
-            db.add(ab_investor)
-            await db.commit()
-            await db.refresh(ab_investor)
-        
-        ab_id = ab_investor.id
-
-        # Check if already seeded (Skip only if not forced AND some records exist)
         if not force:
-            count_res = await db.execute(select(func.count()).select_from(DSCRParameter))
+            count_res = await db.execute(select(func.count()).select_from(DSCRParameter).where(DSCRParameter.investor_id == None))
             if count_res.scalar() > 0:
-                print("📋 DSCR Parameters already exist. Skipping seed. (Use --force to update)")
+                print("📋 General DSCR Parameters already exist. Skipping seed. (Use --force to wipe and re-seed)")
                 return
 
-        # Load existing parameters into memory for fast lookup (Index: investor_id, category, parameter)
-        print("🔍 Loading existing parameters for sync...")
-        existing_res = await db.execute(select(DSCRParameter))
-        existing_params = existing_res.scalars().all()
-        
-        lookup = {}
-        duplicates_to_delete = 0
-        for p in existing_params:
-            key = (p.investor_id, p.category, p.parameter)
-            if p.investor_id in [None, ab_id]:
-                if key in lookup:
-                    await db.delete(p)
-                    duplicates_to_delete += 1
-                else:
-                    lookup[key] = p
-            else:
-                lookup[key] = p
-                
-        if duplicates_to_delete > 0:
-            print(f"🗑️ Cleaned up {duplicates_to_delete} duplicate parameter records from DB")
+        print("🗑️ Option A (Clean Slate): Wiping all existing parameters from DB...")
+        await db.execute(delete(DSCRParameter))
+        await db.commit()
 
         new_count = 0
-        update_count = 0
         
-        # We handle two sets: General (None) and AB Investor
-        target_investors = [None, ab_id]
+        print(f"🔄 Syncing General parameters...")
         
-        # Track valid keys to identify obsolete parameters
-        valid_keys = set()
-        for investor_id in target_investors:
-            for p_data in unified:
-                valid_keys.add((investor_id, p_data["category"], p_data["parameter"]))
-        
-        for investor_id in target_investors:
-            inv_label = "General" if investor_id is None else "AB"
-            print(f"🔄 Syncing parameters for {inv_label}...")
+        new_params = []
+        for p_data in unified:
+            new_param = DSCRParameter(
+                parameter=p_data["parameter"],
+                category=p_data["category"],
+                subcategory=p_data["subcategory"],
+                ppe_field=p_data["ppe_field"],
+                guideline_type=p_data["guideline_type"],
+                investor_id=None,
+                is_active=True
+            )
+            new_params.append(new_param)
+            new_count += 1
             
-            for p_data in unified:
-                key = (investor_id, p_data["category"], p_data["parameter"])
-                
-                if key in lookup:
-                    # Check for updates
-                    existing = lookup[key]
-                    changed = False
-                    
-                    sub_exist = (existing.subcategory or "").strip()
-                    sub_new = (p_data["subcategory"] or "").strip()
-                    if sub_exist != sub_new:
-                        existing.subcategory = p_data["subcategory"]
-                        changed = True
-                    
-                    # Compare guideline_type (sorted list comparison)
-                    existing_types = sorted(existing.guideline_type) if isinstance(existing.guideline_type, list) else [existing.guideline_type] if existing.guideline_type else []
-                    new_types = sorted(p_data["guideline_type"])
-                    
-                    if existing_types != new_types:
-                        existing.guideline_type = p_data["guideline_type"]
-                        changed = True
-                        
-                    if changed:
-                        update_count += 1
-                else:
-                    # Insert new
-                    new_param = DSCRParameter(
-                        parameter=p_data["parameter"],
-                        category=p_data["category"],
-                        subcategory=p_data["subcategory"],
-                        ppe_field=p_data["ppe_field"],
-                        guideline_type=p_data["guideline_type"],
-                        investor_id=investor_id
-                    )
-                    db.add(new_param)
-                    new_count += 1
-
-        # Delete obsolete parameters for target investors
-        delete_count = 0
-        for key, p in lookup.items():
-            investor_id, category, parameter = key
-            if investor_id in target_investors and key not in valid_keys:
-                await db.delete(p)
-                delete_count += 1
-
+        db.add_all(new_params)
         await db.commit()
+
         print(f"\n✅ Sync complete:")
-        print(f"   - Newly Created: {new_count}")
-        print(f"   - Updated: {update_count}")
-        print(f"   - Deleted (Obsolete): {delete_count}")
+        print(f"   - Newly Created (General): {new_count}")
         
         # Verify total
         count_res = await db.execute(select(func.count()).select_from(DSCRParameter))
