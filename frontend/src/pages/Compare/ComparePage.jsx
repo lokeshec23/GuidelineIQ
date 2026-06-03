@@ -551,6 +551,7 @@ const ComparePage = () => {
               onChange={handleTableChange}
               selectedDbRecords={selectedDbRecords}
               onSelectionChange={handleDbSelectionChange}
+              onViewDetails={handleViewDetails}
             />
           </div>
 
@@ -724,7 +725,7 @@ const SearchInput = memo(({ onSearch }) => {
 });
 
 // Memoized Table to prevent re-renders unless data or columns actually change
-const OptimizedTable = memo(({ loading, dataSource, total, current, pageSize, onChange, selectedDbRecords, onSelectionChange }) => {
+const OptimizedTable = memo(({ loading, dataSource, total, current, pageSize, onChange, selectedDbRecords, onSelectionChange, onViewDetails }) => {
   const historyColumns = [
     {
       title: "S.no",
@@ -759,6 +760,21 @@ const OptimizedTable = memo(({ loading, dataSource, total, current, pageSize, on
         <span className="text-gray-500 text-sm">
           {date ? new Date(date).toLocaleString('en-GB') : "N/A"}
         </span>
+      ),
+    },
+    {
+      title: "Action",
+      key: "actions",
+      width: 80,
+      render: (_, record) => (
+        <Tooltip title="View Details">
+          <Button
+            type="text"
+            icon={<EyeOutlined style={{ fontSize: '18px', color: '#000000d9' }} />}
+            onClick={() => onViewDetails(record)}
+            className="action-btn-new view-btn"
+          />
+        </Tooltip>
       ),
     },
   ];

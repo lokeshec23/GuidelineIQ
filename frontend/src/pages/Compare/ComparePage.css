@@ -156,3 +156,19 @@
     font-weight: 600 !important;
     padding: 0 24px !important;
 }
+
+/* Action buttons */
+.action-btn-new {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    transition: all 0.2s ease !important;
+}
+
+.action-btn-new:hover {
+    background: rgba(0, 0, 0, 0.04) !important;
+    transform: scale(1.1);
+}
