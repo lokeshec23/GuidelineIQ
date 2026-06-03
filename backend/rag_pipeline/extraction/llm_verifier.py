@@ -161,7 +161,7 @@ OUTPUT SCHEMA (JSON only):
         """Build user prompt for NQMF verification"""
         # Format evidence (limit to prevent context overflow)
         evidence_str = ""
-        max_chunks = min(len(evidence_chunks), 15)
+        max_chunks = min(len(evidence_chunks), self.config.MAX_CHUNKS_FOR_NQMF)
         for idx, result in enumerate(evidence_chunks[:max_chunks], 1):
             chunk = result.chunk
             text = chunk.text[:1500] if len(chunk.text) > 1500 else chunk.text

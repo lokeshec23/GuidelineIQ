@@ -48,7 +48,8 @@ class RAGConfig:
     TOP_K_BM25: int = 10
     TOP_K_VECTOR: int = 10
     TOP_K_FINAL: int = 5
-    TOP_K_COMPREHENSIVE: int = 50  # Reduced from 1000 to prevent context overflow
+    TOP_K_COMPREHENSIVE: int = 15  # Reduced from 50 to prevent context overflow and speed up
+    MAX_CHUNKS_FOR_NQMF: int = 15  # Maximum chunks for NQMF extraction/verification to prevent rate limits
     BM25_WEIGHT: float = 0.3
     VECTOR_WEIGHT: float = 0.7
     

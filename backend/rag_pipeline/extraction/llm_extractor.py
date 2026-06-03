@@ -486,7 +486,7 @@ Return JSON:
         
         # Limit evidence chunks to prevent context overflow
         # Keep only the top-ranked chunks (they're already sorted by relevance score)
-        MAX_CHUNKS_FOR_NQMF = 30
+        MAX_CHUNKS_FOR_NQMF = self.config.MAX_CHUNKS_FOR_NQMF
         if len(evidence_chunks) > MAX_CHUNKS_FOR_NQMF:
             logger.warning(
                 f"Truncating evidence from {len(evidence_chunks)} to {MAX_CHUNKS_FOR_NQMF} chunks "

@@ -1,0 +1,3 @@
+Max gap when BLOCKING: 0.12s
+Max gap when USING asyncio.to_thread: 0.11s
+FAILURE: asyncio.to_thread did not behave as expected.
