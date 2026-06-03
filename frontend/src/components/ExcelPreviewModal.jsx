@@ -377,10 +377,13 @@ const ExcelPreviewModal = ({
         };
 
         let dataColumns = [];
+        const duplicateSNoKeys = ["s_no", "sno", "s.no", "s. no"];
         if (columns) {
-            dataColumns = columns.map((col) => generateColumn(col.dataIndex, col.title, col.width));
+            const filteredColumns = columns.filter(col => !duplicateSNoKeys.includes(String(col.dataIndex || '').toLowerCase()));
+            dataColumns = filteredColumns.map((col) => generateColumn(col.dataIndex, col.title, col.width));
         } else if (currentData.length > 0) {
-            dataColumns = Object.keys(currentData[0]).map((key) => generateColumn(key));
+            const filteredKeys = Object.keys(currentData[0]).filter(key => !duplicateSNoKeys.includes(key.toLowerCase()));
+            dataColumns = filteredKeys.map((key) => generateColumn(key));
         }
 
         return [serialNumberColumn, ...dataColumns];

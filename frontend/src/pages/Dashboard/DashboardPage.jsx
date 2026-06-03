@@ -515,7 +515,7 @@ const DashboardPage = () => {
             if (!dataForKeys) return null;
 
             const allKeys = Object.keys(dataForKeys);
-            const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type'];
+            const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'ppe_field_type', 's_no', 'sno', 'S.No', 's.no'];
             const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));
 
             return visibleKeys.map(key => {

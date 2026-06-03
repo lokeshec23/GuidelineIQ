@@ -420,7 +420,7 @@ const IngestPage = () => {
     const allKeys = Object.keys(dataForKeys);
 
     // Define columns to hide
-    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type'];
+    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'ppe_field_type', 's_no', 'sno', 'S.No', 's.no'];
 
     // Filter available keys
     const visibleKeys = allKeys.filter(key => !hiddenColumns.includes(key));

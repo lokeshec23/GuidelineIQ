@@ -448,7 +448,7 @@ const ComparePage = () => {
     const allKeys = Object.keys(previewData[0]);
 
     // Define columns to hide
-    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'verification'];
+    const hiddenColumns = ['Classification', 'Notes', '_verification', 'key', 'PPE_Field_Type', 'ppe_field_type', 'verification', 's_no', 'sno', 'S.No', 's.no'];
 
     // If it's comparison mode, we hide some extra internal fields here or inside ExcelPreviewModal. 
     // ExcelPreviewModal handles most, but we can override titles.
