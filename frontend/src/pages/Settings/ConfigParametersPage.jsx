@@ -1053,12 +1053,12 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
         try {
             const response = await dscrAPI.bulkUploadGeneralParameters(formData);
             showToast.success(response.data.message || "Excel file uploaded and imported successfully");
-            
+
             // Clean up states
             setExcelFile(null);
             setActiveTab("single");
             setIsAddGeneralModalVisible(false);
-            
+
             // Refresh list
             fetchGeneralParameters();
         } catch (error) {
@@ -1436,7 +1436,7 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                 maskClosable={false}
                 width={650}
                 className="parameter-modal"
-                okButtonProps={{ 
+                okButtonProps={{
                     className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6",
                     loading: activeTab === "bulk" && bulkUploading,
                     disabled: activeTab === "bulk" && !excelFile
@@ -1510,7 +1510,7 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                         {
                             key: "bulk",
                             label: (
-                                <span className="font-semibold px-2">Bulk Import (Excel)</span>
+                                <span className="font-semibold px-2">Bulk Import</span>
                             ),
                             children: (
                                 <div className="mt-4 flex flex-col gap-5">
@@ -1524,14 +1524,14 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                                             <div className="flex gap-2 my-2 flex-wrap">
                                                 {["parameters", "Category", "sub-Catagories", "guideline type"].map((h, i) => (
                                                     <Tag key={h} className="bg-white border-slate-200 px-2 py-0.5 rounded text-xs font-semibold text-slate-700">
-                                                        Col {i+1}: {h}
+                                                        Col {i + 1}: {h}
                                                     </Tag>
                                                 ))}
                                             </div>
                                             <li>Empty rows or rows missing parameters/category values will be skipped automatically.</li>
                                         </ul>
                                     </div>
-                                    
+
                                     <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-8 bg-slate-50 hover:bg-slate-50/50 transition-all cursor-pointer relative group min-h-[180px]">
                                         <input
                                             type="file"
@@ -1546,10 +1546,10 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                                                     <div className="flex flex-col items-center">
                                                         <span className="font-bold text-slate-800 text-sm">{excelFile.name}</span>
                                                         <span className="text-xs text-slate-400 mt-0.5">{(excelFile.size / 1024).toFixed(1)} KB</span>
-                                                        <Button 
-                                                            type="text" 
-                                                            danger 
-                                                            size="small" 
+                                                        <Button
+                                                            type="text"
+                                                            danger
+                                                            size="small"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setExcelFile(null);
