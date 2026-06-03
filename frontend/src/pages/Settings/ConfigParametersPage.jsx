@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, memo } from "react";
 import { Table, Card, Button, Modal, Form, Input, Select, Space, Typography, Popconfirm, Tag, Checkbox, Divider, Tooltip, Row, Col, Statistic, Skeleton, Tabs } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined, FilterFilled, ReloadOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, SettingOutlined, AppstoreOutlined, DatabaseOutlined, TagsOutlined, TeamOutlined, DownloadOutlined, FilterFilled, ReloadOutlined, UploadOutlined, InboxOutlined, FileExcelOutlined } from "@ant-design/icons";
 import { dscrAPI, investorAPI, guidelineTypeAPI } from "../../services/api";
 import { showToast } from "../../utils/toast";
 import { TableSkeleton } from "../../components/common/SkeletonLoader";
@@ -1023,6 +1023,51 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
     const [isAddGeneralModalVisible, setIsAddGeneralModalVisible] = useState(false);
     const [generalForm] = Form.useForm();
 
+    const [activeTab, setActiveTab] = useState("single");
+    const [excelFile, setExcelFile] = useState(null);
+    const [bulkUploading, setBulkUploading] = useState(false);
+
+    const handleExcelFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'xlsx' && ext !== 'xls') {
+                showToast.error("Only Excel files (.xlsx, .xls) are allowed");
+                setExcelFile(null);
+                return;
+            }
+            setExcelFile(file);
+        }
+    };
+
+    const handleBulkUploadSubmit = async () => {
+        if (!excelFile) {
+            showToast.warning("Please upload an Excel file first");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", excelFile);
+
+        setBulkUploading(true);
+        try {
+            const response = await dscrAPI.bulkUploadGeneralParameters(formData);
+            showToast.success(response.data.message || "Excel file uploaded and imported successfully");
+            
+            // Clean up states
+            setExcelFile(null);
+            setActiveTab("single");
+            setIsAddGeneralModalVisible(false);
+            
+            // Refresh list
+            fetchGeneralParameters();
+        } catch (error) {
+            console.error("Bulk upload failed:", error);
+        } finally {
+            setBulkUploading(false);
+        }
+    };
+
     // Responsive height calculation
     const [scrollY, setScrollY] = useState(450);
 
@@ -1379,68 +1424,158 @@ const ImportGeneralParamsModal = memo(({ open, onClose, investorId, investorName
                     </div>
                 }
                 open={isAddGeneralModalVisible}
-                onOk={handleAddGeneralOk}
-                onCancel={() => setIsAddGeneralModalVisible(false)}
-                okText="Create Parameter"
+                onOk={activeTab === "single" ? handleAddGeneralOk : handleBulkUploadSubmit}
+                onCancel={() => {
+                    setIsAddGeneralModalVisible(false);
+                    setActiveTab("single");
+                    setExcelFile(null);
+                }}
+                okText={activeTab === "single" ? "Create Parameter" : "Import Parameters"}
                 destroyOnClose
                 centered
                 maskClosable={false}
                 width={650}
                 className="parameter-modal"
-                okButtonProps={{ className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6" }}
+                okButtonProps={{ 
+                    className: "bg-blue-600 rounded-lg font-medium shadow-sm h-10 px-6",
+                    loading: activeTab === "bulk" && bulkUploading,
+                    disabled: activeTab === "bulk" && !excelFile
+                }}
                 cancelButtonProps={{ className: "rounded-lg h-10 px-6" }}
             >
-                <Form
-                    form={generalForm}
-                    layout="vertical"
-                    className="mt-6"
-                    requiredMark={false}
-                >
-                    <Form.Item
-                        name="parameter"
-                        label={<span className="font-medium text-gray-700">Parameter Name</span>}
-                        rules={[{ required: true, message: "Please enter parameter name" }]}
-                    >
-                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
-                    </Form.Item>
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={(key) => setActiveTab(key)}
+                    className="mt-2"
+                    items={[
+                        {
+                            key: "single",
+                            label: (
+                                <span className="font-semibold px-2">Single Parameter</span>
+                            ),
+                            children: (
+                                <Form
+                                    form={generalForm}
+                                    layout="vertical"
+                                    className="mt-4"
+                                    requiredMark={false}
+                                >
+                                    <Form.Item
+                                        name="parameter"
+                                        label={<span className="font-medium text-gray-700">Parameter Name</span>}
+                                        rules={[{ required: true, message: "Please enter parameter name" }]}
+                                    >
+                                        <Input placeholder="e.g. Credit Score Requirements" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                                    </Form.Item>
 
-                    <div className="grid grid-cols-2 gap-5 mt-2">
-                        <Form.Item
-                            name="category"
-                            label={<span className="font-medium text-gray-700">Category</span>}
-                            rules={[{ required: true, message: "Please enter category" }]}
-                        >
-                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
-                        </Form.Item>
+                                    <div className="grid grid-cols-2 gap-5 mt-2">
+                                        <Form.Item
+                                            name="category"
+                                            label={<span className="font-medium text-gray-700">Category</span>}
+                                            rules={[{ required: true, message: "Please enter category" }]}
+                                        >
+                                            <Input placeholder="e.g. Credit / Housing" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                                        </Form.Item>
 
-                        <Form.Item
-                            name="subcategory"
-                            label={<span className="font-medium text-gray-700">Subcategory</span>}
-                            initialValue="Feature Eligibility"
-                        >
-                            <Input placeholder="Optional" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
-                        </Form.Item>
-                    </div>
+                                        <Form.Item
+                                            name="subcategory"
+                                            label={<span className="font-medium text-gray-700">Subcategory</span>}
+                                            initialValue="Feature Eligibility"
+                                        >
+                                            <Input placeholder="Optional" className="h-11 rounded-lg bg-gray-50 focus:bg-white hover:bg-white" />
+                                        </Form.Item>
+                                    </div>
 
-                    <Form.Item
-                        name="guideline_type"
-                        label={<span className="font-medium text-gray-700">Guideline Compatibility</span>}
-                        rules={[{ required: true, message: "Please select at least one guideline type" }]}
-                        className="mt-2 mb-0"
-                    >
-                        <Checkbox.Group
-                            className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
-                        >
-                            <div className="flex gap-6 flex-wrap">
-                                {guidelineTypes.map(type => (
-                                    <Checkbox key={type.id} value={type.name}>
-                                        <span className="text-gray-700 font-medium ml-1">{type.name}</span>
-                                    </Checkbox>
-                                ))}
-                            </div>
-                        </Checkbox.Group>
-                    </Form.Item>
-                </Form>
+                                    <Form.Item
+                                        name="guideline_type"
+                                        label={<span className="font-medium text-gray-700">Guideline Compatibility</span>}
+                                        rules={[{ required: true, message: "Please select at least one guideline type" }]}
+                                        className="mt-2 mb-0"
+                                    >
+                                        <Checkbox.Group
+                                            className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100"
+                                        >
+                                            <div className="flex gap-6 flex-wrap">
+                                                {guidelineTypes.map(type => (
+                                                    <Checkbox key={type.id} value={type.name}>
+                                                        <span className="text-gray-700 font-medium ml-1">{type.name}</span>
+                                                    </Checkbox>
+                                                ))}
+                                            </div>
+                                        </Checkbox.Group>
+                                    </Form.Item>
+                                </Form>
+                            )
+                        },
+                        {
+                            key: "bulk",
+                            label: (
+                                <span className="font-semibold px-2">Bulk Import (Excel)</span>
+                            ),
+                            children: (
+                                <div className="mt-4 flex flex-col gap-5">
+                                    <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-100 text-slate-700">
+                                        <h4 className="font-bold text-blue-800 text-sm mb-2 flex items-center gap-1.5">
+                                            <FileExcelOutlined className="text-base" /> File Requirements
+                                        </h4>
+                                        <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-600 font-medium">
+                                            <li>File format must be <strong>.xlsx</strong> or <strong>.xls</strong>.</li>
+                                            <li>The first 4 columns must follow this exact order:</li>
+                                            <div className="flex gap-2 my-2 flex-wrap">
+                                                {["parameters", "Category", "sub-Catagories", "guideline type"].map((h, i) => (
+                                                    <Tag key={h} className="bg-white border-slate-200 px-2 py-0.5 rounded text-xs font-semibold text-slate-700">
+                                                        Col {i+1}: {h}
+                                                    </Tag>
+                                                ))}
+                                            </div>
+                                            <li>Empty rows or rows missing parameters/category values will be skipped automatically.</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-8 bg-slate-50 hover:bg-slate-50/50 transition-all cursor-pointer relative group min-h-[180px]">
+                                        <input
+                                            type="file"
+                                            accept=".xlsx, .xls"
+                                            onChange={handleExcelFileChange}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <div className="text-center flex flex-col items-center gap-3">
+                                            {excelFile ? (
+                                                <>
+                                                    <FileExcelOutlined className="text-5xl text-green-500 animate-bounce" />
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="font-bold text-slate-800 text-sm">{excelFile.name}</span>
+                                                        <span className="text-xs text-slate-400 mt-0.5">{(excelFile.size / 1024).toFixed(1)} KB</span>
+                                                        <Button 
+                                                            type="text" 
+                                                            danger 
+                                                            size="small" 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setExcelFile(null);
+                                                            }}
+                                                            className="mt-3 font-semibold hover:bg-red-50 px-3 rounded-lg z-20"
+                                                        >
+                                                            Remove File
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <InboxOutlined className="text-5xl text-slate-400 group-hover:text-blue-500 transition-colors" />
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-slate-700 text-sm">Click or drag Excel file here</span>
+                                                        <span className="text-xs text-slate-400 mt-1 font-medium">Supports .xlsx, .xls up to 10MB</span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        }
+                    ]}
+                />
             </Modal>
         </Modal>
     );

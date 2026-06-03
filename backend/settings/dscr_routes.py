@@ -1,10 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
 from typing import List, Optional
 import time
+import io
+import re
+import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, delete, cast, String
 from sql_database import get_db
-from models.sql_models import DSCRParameter, Investor
+from models.sql_models import DSCRParameter, Investor, GuidelineType
 from settings.dscr_schemas import (
     DSCRParameterCreate, 
     DSCRParameterUpdate, 
@@ -275,3 +278,154 @@ async def sync_general_parameters(
     except Exception as e:
         logger.error(f"Failed to sync general parameters: {e}")
         raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+
+def parse_guideline_types(val, active_types: List[str]) -> List[str]:
+    if not val or pd.isna(val):
+        return ["All"]
+    val_str = str(val).strip()
+    if val_str.lower() in ["all", "any", "*"]:
+        return ["All"]
+    
+    parts = [p.strip() for p in re.split(r'[,;]', val_str) if p.strip()]
+    
+    matched = []
+    active_type_map = {t.lower(): t for t in active_types}
+    for part in parts:
+        part_lower = part.lower()
+        if part_lower in active_type_map:
+            matched.append(active_type_map[part_lower])
+        elif "full" in part_lower:
+            if "Full Doc" in active_types:
+                matched.append("Full Doc")
+        elif "alt" in part_lower:
+            if "Alt Doc" in active_types:
+                matched.append("Alt Doc")
+        elif "dscr" in part_lower:
+            if "DSCR" in active_types:
+                matched.append("DSCR")
+                
+    if not matched:
+        return ["All"]
+    return matched
+
+
+@router.post("/bulk-upload-excel")
+async def bulk_upload_excel(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    admin_user = Depends(require_admin)
+):
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        
+    try:
+        df = pd.read_excel(io.BytesIO(content))
+    except Exception as e:
+        logger.error(f"Failed to parse Excel file: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {str(e)}")
+        
+    # Define acceptable variations for headers (all lowercase)
+    valid_header_maps = [
+        {"name": "parameters", "alternatives": ["parameters", "parameter"]},
+        {"name": "Category", "alternatives": ["category", "categories"]},
+        {"name": "sub-Catagories", "alternatives": ["sub-catagories", "sub-categories", "subcategory", "subcategories", "sub category", "sub-category"]},
+        {"name": "guideline type", "alternatives": ["guideline type", "guideline-type", "guideline_type", "guideline compatibility"]}
+    ]
+    
+    if len(df.columns) < 4:
+        raise HTTPException(
+            status_code=400,
+            detail="Excel file must contain at least 4 columns: 'parameters', 'Category', 'sub-Catagories', and 'guideline type'."
+        )
+        
+    actual_headers_normalized = [str(c).strip().lower() for c in df.columns]
+    
+    for i in range(4):
+        allowed_variations = valid_header_maps[i]["alternatives"]
+        if actual_headers_normalized[i] not in allowed_variations:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid header structure. Column {i+1} must be '{valid_header_maps[i]['name']}' (case-insensitive), but found '{df.columns[i]}'."
+            )
+            
+    # Fetch active guideline types from DB
+    gtype_result = await db.execute(select(GuidelineType.name))
+    active_types = gtype_result.scalars().all()
+    if not active_types:
+        active_types = ["DSCR", "Full Doc", "Alt Doc"]
+        
+    # Fetch all existing general parameters (where investor_id is None)
+    existing_result = await db.execute(
+        select(DSCRParameter).where(DSCRParameter.investor_id == None)
+    )
+    existing_params = existing_result.scalars().all()
+    
+    existing_map = {}
+    for p in existing_params:
+        key = (p.category.strip().lower(), p.parameter.strip().lower())
+        existing_map[key] = p
+        
+    added_count = 0
+    updated_count = 0
+    skipped_count = 0
+    errors = []
+    
+    new_params = []
+    
+    for index, row in df.iterrows():
+        param_val = row[df.columns[0]]
+        cat_val = row[df.columns[1]]
+        subcat_val = row[df.columns[2]]
+        gtype_val = row[df.columns[3]]
+        
+        if pd.isna(param_val) or not str(param_val).strip():
+            skipped_count += 1
+            errors.append(f"Row {index + 2}: 'parameters' value is empty. Skipped.")
+            continue
+            
+        if pd.isna(cat_val) or not str(cat_val).strip():
+            skipped_count += 1
+            errors.append(f"Row {index + 2}: 'Category' value is empty. Skipped.")
+            continue
+            
+        param_name = str(param_val).strip()
+        cat_name = str(cat_val).strip()
+        subcat_name = str(subcat_val).strip() if pd.notna(subcat_val) and str(subcat_val).strip() else "Feature Eligibility"
+        
+        parsed_gtypes = parse_guideline_types(gtype_val, active_types)
+        
+        key = (cat_name.lower(), param_name.lower())
+        
+        if key in existing_map:
+            db_param = existing_map[key]
+            db_param.subcategory = subcat_name
+            db_param.guideline_type = parsed_gtypes
+            db_param.is_active = True
+            updated_count += 1
+        else:
+            new_param = DSCRParameter(
+                parameter=param_name,
+                category=cat_name,
+                subcategory=subcat_name,
+                guideline_type=parsed_gtypes,
+                investor_id=None,
+                is_active=True
+            )
+            new_params.append(new_param)
+            existing_map[key] = new_param
+            added_count += 1
+            
+    if new_params:
+        db.add_all(new_params)
+        
+    await db.commit()
+    
+    return {
+        "message": f"Successfully processed Excel file. Added {added_count}, updated {updated_count}, skipped {skipped_count}.",
+        "added_count": added_count,
+        "updated_count": updated_count,
+        "skipped_count": skipped_count,
+        "errors": errors
+    }

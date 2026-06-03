@@ -263,6 +263,10 @@ export const dscrAPI = {
       }
     }),
   syncGeneralParameters: () => api.post("/dscr-parameters/sync-general"),
+  bulkUploadGeneralParameters: (formData) =>
+    api.post("/dscr-parameters/bulk-upload-excel", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 
