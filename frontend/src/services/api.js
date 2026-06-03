@@ -263,10 +263,14 @@ export const dscrAPI = {
       }
     }),
   syncGeneralParameters: () => api.post("/dscr-parameters/sync-general"),
-  bulkUploadGeneralParameters: (formData) =>
-    api.post("/dscr-parameters/bulk-upload-excel", formData, {
+  bulkUploadGeneralParameters: (formData, investorId = null) => {
+    const url = investorId 
+      ? `/dscr-parameters/bulk-upload-excel?investor_id=${investorId}` 
+      : "/dscr-parameters/bulk-upload-excel";
+    return api.post(url, formData, {
       headers: { "Content-Type": "multipart/form-data" },
-    }),
+    });
+  },
 };
 
 

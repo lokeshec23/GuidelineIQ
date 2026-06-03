@@ -313,12 +313,22 @@ def parse_guideline_types(val, active_types: List[str]) -> List[str]:
 @router.post("/bulk-upload-excel")
 async def bulk_upload_excel(
     file: UploadFile = File(...),
+    investor_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     admin_user = Depends(require_admin)
 ):
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        
+    if investor_id == "null" or investor_id == "":
+        investor_id = None
+
+    if investor_id:
+        # Verify investor exists
+        investor_check = await db.execute(select(Investor).where(Investor.id == investor_id))
+        if not investor_check.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Investor not found")
         
     try:
         df = pd.read_excel(io.BytesIO(content))
@@ -356,9 +366,9 @@ async def bulk_upload_excel(
     if not active_types:
         active_types = ["DSCR", "Full Doc", "Alt Doc"]
         
-    # Fetch all existing general parameters (where investor_id is None)
+    # Fetch all existing parameters for the specified investor (or None for general)
     existing_result = await db.execute(
-        select(DSCRParameter).where(DSCRParameter.investor_id == None)
+        select(DSCRParameter).where(DSCRParameter.investor_id == investor_id)
     )
     existing_params = existing_result.scalars().all()
     
@@ -410,7 +420,7 @@ async def bulk_upload_excel(
                 category=cat_name,
                 subcategory=subcat_name,
                 guideline_type=parsed_gtypes,
-                investor_id=None,
+                investor_id=investor_id,
                 is_active=True
             )
             new_params.append(new_param)
