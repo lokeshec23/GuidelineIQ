@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 from typing import List, Dict, Optional
 import logging
+import warnings
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -55,7 +56,14 @@ class QdrantManager:
         try:
             if self.config.QDRANT_PATH:
                 logger.info(f"Connecting to Qdrant (Embedded) at {self.config.QDRANT_PATH}")
-                self.client = QdrantClient(path=self.config.QDRANT_PATH)
+                # Suppress Qdrant warning about Local mode points > 20000
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        category=UserWarning,
+                        message=".*Local mode is not recommended.*"
+                    )
+                    self.client = QdrantClient(path=self.config.QDRANT_PATH)
             elif self.config.QDRANT_URL:
                 logger.info(f"Connecting to Qdrant (Server) at {self.config.QDRANT_URL}")
                 self.client = QdrantClient(

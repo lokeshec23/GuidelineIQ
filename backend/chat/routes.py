@@ -254,7 +254,7 @@ async def chat_with_session(
             context_parts.append(f"--- [{filename} - {page_info}] ---\n{chunk.text}\n")
         
         text_context = "\n".join(context_parts)
-        logger.info(f"RAG found {len(results)} items.")
+        logger.info(f"Searched in {len(results)} items.")
 
 
     # 6. Call Azure OpenAI
@@ -267,7 +267,7 @@ async def chat_with_session(
         # Define mode-specific context instructions
         mode_instruction = ""
         if mode == "excel":
-            mode_instruction = (
+            mode_instruction = (            
                 "You are a senior US Non-QM mortgage underwriter analyzing structured guideline data extracted into Excel format. "
                 "You must answer strictly based on the provided guideline content and never hallucinate missing values. "
                 "When numeric limits such as LTV, FICO, DSCR, loan amount, reserves, or property type restrictions are present, "
